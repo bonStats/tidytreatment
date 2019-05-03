@@ -7,17 +7,17 @@
 ### Install for usage with `bartMachine` package (required for vignette too)
 
 1. Install JDK and `rJava`
-    - Here is a (guide)[https://zhiyzuo.github.io/installation-rJava/] for macOS, and
-    - a (guide)[https://cimentadaj.github.io/blog/2018-05-25-installing-rjava-on-windows-10/installing-rjava-on-windows-10/] for Windows
+    - Here is a [guide](https://zhiyzuo.github.io/installation-rJava/) for macOS, and
+    - a [guide](https://cimentadaj.github.io/blog/2018-05-25-installing-rjava-on-windows-10/installing-rjava-on-windows-10/) for Windows
 2. In `R` make sure `devtools` is installed. Install with `install.packages("devtools")`.
-    - For help: see the Rtools (windows) and Xcode (macOS) links on (this page)[https://www.rstudio.com/products/rpackages/devtools/].
+    - For help: see the Rtools (windows) and Xcode (macOS) links on [this page](https://www.rstudio.com/products/rpackages/devtools/).
 3. Install the following (if not already installed): `install.packages(c("knitr","rmarkdown"))`
 4. Run `devtools::install_github("bonStats/tidytreatment", build_opts = c("--no-resave-data", "--no-manual"), dependencies = T )` 
 
 ### Install for other uses (currently none!)
 
 1. In `R` make sure `devtools` is installed. Install with `install.packages("devtools")`.
-    - For help: see the Rtools (windows) and Xcode (macOS) links on (this page)[https://www.rstudio.com/products/rpackages/devtools/].
+    - For help: see the Rtools (windows) and Xcode (macOS) links on [this page](https://www.rstudio.com/products/rpackages/devtools/).
 2. Run `devtools::install_github("bonStats/tidytreatment")`
 
 ## Package development aims
