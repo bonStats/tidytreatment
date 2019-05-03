@@ -36,7 +36,7 @@ This vignette uses simulated data from the [2019 Causal Inference Challenge](htt
 
   dat <- highDim_testdataset3
   
-  dat %>% select(Y, A, V1, V60:V63, V185)
+  dat %>% select(Y, A, V1, V60:V63, V185) %>% head()
 
 ```
 

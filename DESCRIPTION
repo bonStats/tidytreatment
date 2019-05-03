@@ -13,9 +13,10 @@ Suggests:
     knitr,
     rmarkdown,
     bartMachine,
-    dplyr
+    ggplot2
 VignetteBuilder: knitr
 RoxygenNote: 6.1.1
 Imports: 
     tidybayes,
-    tidyr
+    tidyr,
+    dplyr
