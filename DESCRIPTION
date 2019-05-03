@@ -1,0 +1,21 @@
+Package: tidytreatment
+Type: Package
+Title: Tidy methods for Bayesian treatment effect models
+Version: 0.1.0
+Authors@R: person("Joshua J", "Bon", email = "joshuajbon@gmail.com",
+                  role = c("aut", "cre"))
+Description: Functions for extracting tidy data from Bayesian treatment effect models, estimating treatment effects, and plotting useful summaries of these.
+Encoding: UTF-8
+LazyData: true
+License: MIT + file LICENSE
+Depends: R (>= 3.1.0)
+Suggests: 
+    knitr,
+    rmarkdown,
+    bartMachine,
+    dplyr
+VignetteBuilder: knitr
+RoxygenNote: 6.1.1
+Imports: 
+    tidybayes,
+    tidyr

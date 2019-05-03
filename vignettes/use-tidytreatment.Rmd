@@ -1,0 +1,105 @@
+---
+title: "Using the tidytreatment package"
+author: "Joshua J Bon"
+date: "`r Sys.Date()`"
+bibliography: vignette.bib
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using tidytreatment}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette uses simulated data from the [2019 Causal Inference Challenge](https://www.mcgill.ca/epi-biostat-occh/news-events/atlantic-causal-inference-conference-2019/). First we load it in (it's included in this package):
+
+```{r load-data}
+
+  # before running library(bartMachine), set memory
+  options(java.parameters = "-Xmx2000m") # restart R to take effect
+  # check memory allocated to Java VM
+  options("java.parameters")
+
+  suppressPackageStartupMessages({
+    library(bartMachine)
+    library(tidytreatment)
+    library(dplyr)
+    library(tidybayes)
+    library(ggplot2)
+  })
+
+  dat <- highDim_testdataset3
+  
+  dat %>% select(Y, A, V1, V60:V63, V185)
+
+```
+
+## Run the `bartMachine`
+
+Run the model to be used to assess treatment effects. Here we will use `bartMachine`, which is one implementation of Bayesian Additive Regression Trees in `R` [@Kapelner2016]. The package can be found on [CRAN](https://cran.r-project.org/package=bartMachine).
+ 
+```{r run-bart, echo=TRUE, results='hide', cache=TRUE}
+
+  # if you increase the number of cores, the memory needs to be increased,
+  # this requires restarting R, setting the 'java.parameters' option then 
+  # loading the bartMachine package.
+  set_bart_machine_num_cores(2)
+  
+  # set serialize = T if using the fit over multiple sessions
+  bartM <- bartMachine(X = select(dat,-Y), y = select(dat, Y)[[1]], serialize = T) 
+  
+```
+
+## Extract the posterior (tidy style)
+
+Methods for extracting the posterior in a tidy format is included in the `tidytreatment`.
+
+```{r tidy-bart, echo=TRUE, cache=TRUE}
+
+  posterior_fitted <- fitted_draws(bartM, value = "fit", include_newdata = F)
+  # The newdata argument (omitted) defaults to the data from the model.
+  # include_newdata = F, avoids returning the newdata with the fitted values
+  # as it is so large. 
+  # The `.row` variable makes sure we know which row in the newdata the fitted
+  # value came from (if we dont include the data in the result).
+  
+  posterior_fitted
+  
+  # Function to tidy predicted draws also...
+  posterior_pred <- predicted_draws(bartM, include_newdata = F)
+  
+  posterior_pred
+  
+```
+
+## Use some functions from the `tidybayes` package
+
+Since `tidytreatment` follows the `tidybayes` output specifications, functions from `tidybayes` should work.
+
+```{r plot-tidy-bart, echo=TRUE, cache=TRUE}
+
+  treatment_var_and_V91 <- 
+    dat %>% 
+    select(A,V91) %>%
+    mutate(.row = 1:n(), A = as.factor(A), V91 = as.integer(V91))
+
+  posterior_pred %>%
+    left_join(treatment_var_and_V91, by = ".row") %>%
+    ggplot() + 
+      geom_eye(aes(x = A, y = .prediction)) + 
+      facet_wrap(~V91, labeller = as_labeller( function(x) paste("V91 =",x) ) ) +
+      xlab("Treatment (A)") + ylab("Posterior predicted value") +
+      theme_bw()
+
+```
+
+## Calculate CATEs
+
+Currently under development.
+
