@@ -83,7 +83,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 Since `tidytreatment` follows the `tidybayes` output specifications, functions from `tidybayes` should work.
 
-```{r plot-tidy-bart, echo=TRUE, cache=TRUE}
+```{r plot-tidy-bart, echo=TRUE, cache=FALSE}
 
   treatment_var_and_V91 <- 
     dat %>% 
@@ -102,9 +102,15 @@ Since `tidytreatment` follows the `tidybayes` output specifications, functions f
 
 ## Calculate CATEs
 
-Posterior conditional (average) treatment effects can be calculated using the ``
+Posterior conditional (average) treatment effects can be calculated using the `posterior_cate_from_sample` function. This function finds the posterior values of
+$$
+\text{E}(y ~ \vert~ T = 1, X = x_{i}) - \text{E}(y ~ \vert~ T = 0, X = x_{i}) 
+$$
+for each unit of measurement, $i$, (e.g. subject) in the data sample.
 
-```{r cates-hist, echo=TRUE, cache=TRUE}
+Some histogram summaries are presented below.
+
+```{r cates-hist, echo=TRUE, cache=FALSE}
 
 posterior_cate_sample <- 
   posterior_cate_from_sample(bartM, treatment = "A")
@@ -122,9 +128,9 @@ posterior_cate_sample %>% summarise(cte_hat = median(cte)) %>%
 
 ```
 
+Plots can be made that stack each subjects posterior CIs of the CATEs. 
 
-
-```{r cates-stack-plot, echo=TRUE, cache=TRUE}
+```{r cates-stack-plot, echo=TRUE, cache=FALSE}
 
 posterior_cate_sample %>% point_interval() %>%
   arrange(cte) %>% mutate(.orow = 1:n()) %>% 
@@ -141,7 +147,9 @@ posterior_cate_sample %>% point_interval() %>%
 
 ```
 
-```{r cates-line-plot, echo=TRUE, cache=TRUE}
+We can also plot the CATEs varying over particular covariates. In this example, instead of grouping by subject, we group by the variable of interest, and calculate the posterior summaries over this variable.
+
+```{r cates-line-plot, echo=TRUE, cache=FALSE}
 
 posterior_cate_sample <- 
   posterior_cate_from_sample(bartM, treatment = "A")
