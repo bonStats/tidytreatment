@@ -7,8 +7,8 @@
 ### Install for usage with `bartMachine` package (required for vignette too)
 
 1. Install JDK and `rJava`
-    - Here is a [guide](https://zhiyzuo.github.io/installation-rJava/) for macOS, and
-    - a [guide](https://cimentadaj.github.io/blog/2018-05-25-installing-rjava-on-windows-10/installing-rjava-on-windows-10/) for Windows
+    - Here is a [macOS guide](https://zhiyzuo.github.io/installation-rJava/), and
+    - a [Windows guide](https://cimentadaj.github.io/blog/2018-05-25-installing-rjava-on-windows-10/installing-rjava-on-windows-10/)
 2. In `R` make sure `devtools` is installed. Install with `install.packages("devtools")`.
     - For help: see the Rtools (windows) and Xcode (macOS) links on [this page](https://www.rstudio.com/products/rpackages/devtools/).
 3. Install the following (if not already installed): `install.packages(c("knitr","rmarkdown"))`

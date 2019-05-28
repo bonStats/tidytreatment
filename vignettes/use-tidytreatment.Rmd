@@ -103,3 +103,4 @@ Since `tidytreatment` follows the `tidybayes` output specifications, functions f
 
 Currently under development.
 
+## References
