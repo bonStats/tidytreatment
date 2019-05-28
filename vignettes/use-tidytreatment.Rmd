@@ -102,6 +102,63 @@ Since `tidytreatment` follows the `tidybayes` output specifications, functions f
 
 ## Calculate CATEs
 
-Currently under development.
+Posterior conditional (average) treatment effects can be calculated using the ``
+
+```{r cates-hist, echo=TRUE, cache=TRUE}
+
+posterior_cate_sample <- 
+  posterior_cate_from_sample(bartM, treatment = "A")
+
+posterior_cate_sample %>% 
+  ggplot() +
+  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
+  theme_bw()
+
+posterior_cate_sample %>% summarise(cte_hat = median(cte)) %>%
+  ggplot() +
+  geom_histogram(aes(x = cte_hat), binwidth = 0.01, colour = "white") + 
+  theme_bw()
+
+
+```
+
+
+
+```{r cates-stack-plot, echo=TRUE, cache=TRUE}
+
+posterior_cate_sample %>% point_interval() %>%
+  arrange(cte) %>% mutate(.orow = 1:n()) %>% 
+  ggplot() + 
+      geom_interval(aes(x = .orow, y= cte), size = 0.1) +
+  geom_point(aes(x = .orow, y = cte), shape = "circle open", alpha = 0.1) + 
+      ylab("Median posterior CATE for each subject (95% CI)") +
+      theme_bw() + coord_flip() + scale_colour_brewer() +
+      theme(axis.title.y = element_blank(), 
+            axis.text.y = element_blank(), 
+            axis.ticks.y = element_blank(),
+            legend.position = "none")
+
+
+```
+
+```{r cates-line-plot, echo=TRUE, cache=TRUE}
+
+posterior_cate_sample <- 
+  posterior_cate_from_sample(bartM, treatment = "A")
+
+posterior_cate_sample %>% 
+  left_join(
+    tibble(V91 = model.matrix(bartM)[,"V91"], .row = 1:nrow(dat)),
+    by = ".row"
+    ) %>% 
+  group_by(V91) %>%
+  point_interval(.width = c(.8,.95)) %>%
+  ggplot() + 
+      geom_lineribbon(aes(x = V91, y = cte)) +
+      scale_fill_brewer() +
+      theme_bw()
+
+
+```
 
 ## References

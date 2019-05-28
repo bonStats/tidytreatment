@@ -13,7 +13,7 @@
 #'
 fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
 
-  if(missing(newdata)) newdata <- model.matrix(X)
+  if(missing(newdata)) newdata <- model.matrix(model)
 
   stopifnot(
     is.data.frame(newdata),
