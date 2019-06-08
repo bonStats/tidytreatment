@@ -1,7 +1,7 @@
 #' Get fitted draws from posterior of \code{bartMachine} model
 #'
 #' @param model A \code{bartMachine} model.
-#' @param newdata Data frame to generate predictions from. If omitted, defaults to the data used to fit the model.
+#' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
 #' @param value The name of the output column for \code{fitted_draws}; default \code{".value"}.
 #' @param n Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble?
@@ -28,7 +28,7 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
 
   posterior <- bartMachine::bart_machine_get_posterior(bart_machine = model, new_data = newdata)
 
-  # bind newdata with predictions, wide format
+  # bind newdata with fitted, wide format
   out <- dplyr::bind_cols(
     if(include_newdata) dplyr::as_tibble(newdata) else NULL,
     dplyr::as_tibble(posterior$y_hat_posterior_samples, .name_repair = function(names){ paste0(".col_iter", as.character(1:length(names)) ) }),

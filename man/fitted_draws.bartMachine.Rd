@@ -10,7 +10,7 @@
 \arguments{
 \item{model}{A \code{bartMachine} model.}
 
-\item{newdata}{Data frame to generate predictions from. If omitted, defaults to the data used to fit the model.}
+\item{newdata}{Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.}
 
 \item{value}{The name of the output column for \code{fitted_draws}; default \code{".value"}.}
 

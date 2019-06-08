@@ -112,15 +112,16 @@ Some histogram summaries are presented below.
 
 ```{r cates-hist, echo=TRUE, cache=FALSE}
 
-posterior_cate_sample <- 
-  posterior_cate_from_sample(bartM, treatment = "A")
+# sample based (using data from fit) conditional treatment effects, posterior draws
+posterior_treat_eff <- 
+  treatment_effects(bartM, treatment = "A")
 
-posterior_cate_sample %>% 
+posterior_treat_eff %>% 
   ggplot() +
   geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
   theme_bw()
 
-posterior_cate_sample %>% summarise(cte_hat = median(cte)) %>%
+posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
   ggplot() +
   geom_histogram(aes(x = cte_hat), binwidth = 0.01, colour = "white") + 
   theme_bw()
@@ -132,7 +133,7 @@ Plots can be made that stack each subjects posterior CIs of the CATEs.
 
 ```{r cates-stack-plot, echo=TRUE, cache=FALSE}
 
-posterior_cate_sample %>% point_interval() %>%
+posterior_treat_eff %>% point_interval() %>%
   arrange(cte) %>% mutate(.orow = 1:n()) %>% 
   ggplot() + 
       geom_interval(aes(x = .orow, y= cte), size = 0.1) +
@@ -151,10 +152,7 @@ We can also plot the CATEs varying over particular covariates. In this example, 
 
 ```{r cates-line-plot, echo=TRUE, cache=FALSE}
 
-posterior_cate_sample <- 
-  posterior_cate_from_sample(bartM, treatment = "A")
-
-posterior_cate_sample %>% 
+posterior_treat_eff %>% 
   left_join(
     tibble(V91 = model.matrix(bartM)[,"V91"], .row = 1:nrow(dat)),
     by = ".row"

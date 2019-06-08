@@ -1,14 +1,16 @@
-#' Get CATE draws from posterior of \code{bartMachine} model
+#' Get treatment effect draws from posterior
 #'
-#' CATE = Conditional Average Treatment Effects
+#' CTE = Conditional Treatment Effects (or CATE, the average effects)
+#' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
 #'
-#' @param model A \code{bartMachine} model.
+#' @param model A supported Bayesian model fit that can provide fits and predictions.
 #' @param treatment A character string specifying the name of the treatment variable.
+#' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
 #'
 #' @return A tidy data frame (tibble) with CATE values.
 #' @export
 #'
-posterior_cate_from_sample <- function(model, treatment){
+treatment_effects <- function(model, treatment, newdata){
 
   stopifnot(
     !missing(treatment),
@@ -16,17 +18,20 @@ posterior_cate_from_sample <- function(model, treatment){
     length(treatment) == 1
   )
 
-  model_data <- model.matrix(model)
+  if(missing(newdata)){
+    newdata <- model.matrix(model)
+  }
 
   stopifnot(
-    treatment %in% colnames(model_data)
+    treatment %in% colnames(newdata),
+    is.data.frame(newdata)
   )
 
   stopifnot(
-    is_01_integer_vector(model_data[,treatment]) | is.logical(model_data[,treatment])
+    is_01_integer_vector(newdata[,treatment]) | is.logical(newdata[,treatment])
   )
 
-  treatment_class <- class( model_data[,treatment] )
+  treatment_class <- class( newdata[,treatment] )
 
   if(treatment_class == "integer"){
     treatment_on <- 1L
@@ -39,10 +44,10 @@ posterior_cate_from_sample <- function(model, treatment){
   posterior_treatment <-
     left_join(
       fitted_draws(model = model, value = "on",
-                   newdata = mutate(model_data, !!treatment := treatment_on),
+                   newdata = mutate(newdata, !!treatment := treatment_on),
                    include_newdata = F),
       fitted_draws(model = model, value = "off",
-                   newdata = mutate(model_data, !!treatment := treatment_off),
+                   newdata = mutate(newdata, !!treatment := treatment_off),
                    include_newdata = F),
       by = c(".row", ".chain", ".iteration", ".draw")
     )
