@@ -133,7 +133,7 @@ Plots can be made that stack each subjects posterior CIs of the CATEs.
 
 ```{r cates-stack-plot, echo=TRUE, cache=FALSE}
 
-posterior_treat_eff %>% point_interval() %>%
+posterior_treat_eff %>% select(-A) %>% point_interval() %>%
   arrange(cte) %>% mutate(.orow = 1:n()) %>% 
   ggplot() + 
       geom_interval(aes(x = .orow, y= cte), size = 0.1) +
@@ -152,7 +152,7 @@ We can also plot the CATEs varying over particular covariates. In this example, 
 
 ```{r cates-line-plot, echo=TRUE, cache=FALSE}
 
-posterior_treat_eff %>% 
+posterior_treat_eff %>%  select(-A) %>%
   left_join(
     tibble(V91 = model.matrix(bartM)[,"V91"], .row = 1:nrow(dat)),
     by = ".row"

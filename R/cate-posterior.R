@@ -19,7 +19,7 @@ treatment_effects <- function(model, treatment, newdata){
   )
 
   if(missing(newdata)){
-    newdata <- model.matrix(model)
+    newdata <- stats::model.matrix(model)
   }
 
   stopifnot(
@@ -41,21 +41,75 @@ treatment_effects <- function(model, treatment, newdata){
     treatment_off <- FALSE
   }
 
-  posterior_treatment <-
-    left_join(
-      fitted_draws(model = model, value = "on",
-                   newdata = mutate(newdata, !!treatment := treatment_on),
-                   include_newdata = F),
-      fitted_draws(model = model, value = "off",
-                   newdata = mutate(newdata, !!treatment := treatment_off),
-                   include_newdata = F),
-      by = c(".row", ".chain", ".iteration", ".draw")
-    )
+  posterior_fit_with_cf <- fitted_with_counter_factual_draws(model = model, treatment = treatment)
 
-  posterior_treatment <- select(
-    mutate(posterior_treatment, cte = on - off),
-    -on, -off)
+  posterior_treatment <- dplyr::select(
+   dplyr::mutate(posterior_fit_with_cf, cte = (2 * as.integer( !!rlang::sym(treatment) ) - 1) * (observed - cfactual) ), # equivelant to treatment - non_treatment
+    -observed, -cfactual)
+
+### TODO: add removal of observations without support here if indicator argument says to use common support methodology
 
   return(posterior_treatment)
+
+}
+
+fitted_with_counter_factual_draws <- function(model, treatment){
+
+  stopifnot(
+    has_tidytreatment_methods(model)
+    )
+
+  modeldata <- stats::model.matrix(model)
+
+  stopifnot(
+    treatment %in% colnames(modeldata),
+    is.data.frame(modeldata)
+  )
+
+  stopifnot(
+    is_01_integer_vector(modeldata[,treatment]) | is.logical(modeldata[,treatment])
+  )
+
+  obs_fitted <- tidybayes::fitted_draws(
+    model = model, value = "observed",
+    newdata = modeldata,
+    include_newdata = F
+  )
+
+  cfactual_fitted <- tidybayes::fitted_draws(
+    model = model, value = "cfactual",
+    newdata = dplyr::mutate(modeldata, !!treatment := counter_factual( !!rlang::sym(treatment) ) ),
+    include_newdata = F
+  )
+
+  obs_fitted <- dplyr::left_join(
+    obs_fitted,
+    dplyr::mutate( dplyr::select(modeldata, !!treatment), .row = 1:dplyr::n()),
+    by = c(".row")
+  )
+
+  dplyr::left_join(
+    obs_fitted,
+    cfactual_fitted,
+    by = c(".row", ".chain", ".iteration", ".draw")
+  )
+
+}
+
+counter_factual <- function(x){
+
+  if( is.integer(x) ){
+
+    return( 1L - x )
+
+  } else if( is.logical(x) ) {
+
+    return( !x )
+
+  } else {
+
+    return( rep(NA, times = length(x)) )
+
+  }
 
 }
