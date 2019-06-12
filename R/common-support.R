@@ -1,10 +1,10 @@
 #' Evaluate if observations have common support.
 #'
-#' Cite Hill and Su 2013
+#' The common support identification methods are based on Hill and Su (2013), The Annals of Applied Statistics, 7(3).
 #'
 #' @param model A supported Bayesian model fit that can provide fits and predictions.
 #' @param treatment A character string specifying the name of the treatment variable.
-#' @param method Method to use in determining common support. 'chisq', ...
+#' @param method Method to use in determining common support. 'chisq', or 'sd'.
 #' @param cutoff Cutoff point to use for method.
 #'
 #' @return Tibble with a row for each observation and a column indicating whether common support exists.
@@ -38,6 +38,7 @@ has_common_support <- function(model, treatment, method, cutoff){
     )
 
   common_support_cutoff <- switch(method,
+                                  sd = common_support_sd_method,
                                   chisq = common_support_chisq_method,
                                   common_support_default
                                   )
@@ -46,20 +47,34 @@ has_common_support <- function(model, treatment, method, cutoff){
          common_support =
            common_support_cutoff(sd_obs = sd_observed,
                                  sd_cf = sd_cfactual,
-                                 cutoff = cutoff)
+                                 cutoff = cutoff,
+                                 treatment = modeldata[,treatment])
          )
 
 
 }
 
-common_support_chisq_method <- function(sd_obs, sd_cf, cutoff){
+common_support_chisq_method <- function(sd_obs, sd_cf, cutoff, ...){
 
+  # the sd of the counterfactual divided by the sd of
+  # the actual observation is approx Chi^2.
   (sd_cf/sd_obs)^2 < stats::qchisq(1 - cutoff, 1)
+
+}
+
+common_support_sd_method <- function(sd_obs, sd_cf, treatment, ...){
+
+  sd_obs_treated <- sd_obs[treatment == 1L]
+
+  m_a <- max(sd_obs_treated)
+
+  sd_cf < m_a + stats::sd(sd_obs_treated)
 
 }
 
 common_support_default <- function(sd_obs, sd_cf, cutoff){
 
+  warning("Please specify common support 'method'.")
   rep(NA, times = length(sd_obs))
 
 }

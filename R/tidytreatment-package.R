@@ -6,5 +6,6 @@
 #' @name tidytreatment
 #' @importFrom tidybayes fitted_draws predicted_draws add_predicted_draws add_fitted_draws
 #' @importFrom stats rnorm
+#' @importFrom rlang := !!
 #'
 NULL

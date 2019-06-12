@@ -19,4 +19,5 @@ RoxygenNote: 6.1.1
 Imports: 
     tidybayes,
     tidyr,
-    dplyr
+    dplyr,
+    rlang

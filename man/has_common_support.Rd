@@ -11,7 +11,7 @@ has_common_support(model, treatment, method, cutoff)
 
 \item{treatment}{A character string specifying the name of the treatment variable.}
 
-\item{method}{Method to use in determining common support. 'chisq', ...}
+\item{method}{Method to use in determining common support. 'chisq', or 'sd'.}
 
 \item{cutoff}{Cutoff point to use for method.}
 }
@@ -19,5 +19,5 @@ has_common_support(model, treatment, method, cutoff)
 Tibble with a row for each observation and a column indicating whether common support exists.
 }
 \description{
-Cite Hill and Su 2013
+The common support identification methods are based on Hill and Su (2013), The Annals of Applied Statistics, 7(3).
 }
