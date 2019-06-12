@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-This vignette uses simulated data from the [2019 Causal Inference Challenge](https://www.mcgill.ca/epi-biostat-occh/news-events/atlantic-causal-inference-conference-2019/). First we load it in (it's included in this package):
+This vignette simulates data using the scheme described by @Hill2013. It it implemented in the function `simulate_hill_su_data()`:
 
 ```{r load-data}
 
@@ -34,10 +34,10 @@ This vignette uses simulated data from the [2019 Causal Inference Challenge](htt
     library(ggplot2)
   })
 
-  dat <- highDim_testdataset3
+  dat <- simulate_su_hill_data(100)
   
   # a selection of data
-  dat %>% select(Y, A, V1, V60:V63, V185) %>% head()
+  dat %>% select(y, z, x1:x3, x11, x12) %>% head()
 
 ```
 
@@ -53,7 +53,7 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
   set_bart_machine_num_cores(2)
   
   # set serialize = T if using the fit over multiple sessions
-  bartM <- bartMachine(X = select(dat,-Y), y = select(dat, Y)[[1]], serialize = T) 
+  bartM <- bartMachine(X = select(dat,-y), y = select(dat, y)[[1]], serialize = T, num_burn_in = 2000, num_iterations_after_burn_in = 4000, verbose = F) 
   
 ```
 
@@ -85,17 +85,17 @@ Since `tidytreatment` follows the `tidybayes` output specifications, functions f
 
 ```{r plot-tidy-bart, echo=TRUE, cache=FALSE}
 
-  treatment_var_and_V91 <- 
+  treatment_var_and_x11 <- 
     dat %>% 
-    select(A,V91) %>%
-    mutate(.row = 1:n(), A = as.factor(A), V91 = as.integer(V91))
+    select(z,x11) %>%
+    mutate(.row = 1:n(), A = as.factor(z), x11 = as.factor(x11))
 
   posterior_pred %>%
-    left_join(treatment_var_and_V91, by = ".row") %>%
+    left_join(treatment_var_and_x11, by = ".row") %>%
     ggplot() + 
       geom_eye(aes(x = A, y = .prediction)) + 
-      facet_wrap(~V91, labeller = as_labeller( function(x) paste("V91 =",x) ) ) +
-      xlab("Treatment (A)") + ylab("Posterior predicted value") +
+      facet_wrap(~x11, labeller = as_labeller( function(x) paste("x11 =",x) ) ) +
+      xlab("Treatment (z)") + ylab("Posterior predicted value") +
       theme_bw()
 
 ```
@@ -114,7 +114,7 @@ Some histogram summaries are presented below.
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- 
-  treatment_effects(bartM, treatment = "A")
+  treatment_effects(bartM, treatment = "z")
 
 posterior_treat_eff %>% 
   ggplot() +
@@ -123,7 +123,7 @@ posterior_treat_eff %>%
 
 posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
   ggplot() +
-  geom_histogram(aes(x = cte_hat), binwidth = 0.01, colour = "white") + 
+  geom_histogram(aes(x = cte_hat), binwidth = 0.1, colour = "white") + 
   theme_bw()
 
 
@@ -133,10 +133,10 @@ Plots can be made that stack each subjects posterior CIs of the CATEs.
 
 ```{r cates-stack-plot, echo=TRUE, cache=FALSE}
 
-posterior_treat_eff %>% select(-A) %>% point_interval() %>%
+posterior_treat_eff %>% select(-z) %>% point_interval() %>%
   arrange(cte) %>% mutate(.orow = 1:n()) %>% 
   ggplot() + 
-      geom_interval(aes(x = .orow, y= cte), size = 0.1) +
+      geom_interval(aes(x = .orow, y= cte), size = 0.5) +
   geom_point(aes(x = .orow, y = cte), shape = "circle open", alpha = 0.1) + 
       ylab("Median posterior CATE for each subject (95% CI)") +
       theme_bw() + coord_flip() + scale_colour_brewer() +
@@ -152,16 +152,14 @@ We can also plot the CATEs varying over particular covariates. In this example, 
 
 ```{r cates-line-plot, echo=TRUE, cache=FALSE}
 
-posterior_treat_eff %>%  select(-A) %>%
-  left_join(
-    tibble(V91 = model.matrix(bartM)[,"V91"], .row = 1:nrow(dat)),
-    by = ".row"
-    ) %>% 
-  group_by(V91) %>%
-  point_interval(.width = c(.8,.95)) %>%
+posterior_treat_eff %>%
+  left_join(tibble(x12 = dat$x12, .row = 1:length(dat$x12) ), by = ".row") %>%
+  group_by(x12,z) %>%
+  point_interval(.width = c(0.8,0.95)) %>%
   ggplot() + 
-      geom_lineribbon(aes(x = V91, y = cte)) +
+      geom_lineribbon(aes(x = x12, y = cte)) +
       scale_fill_brewer() +
+      facet_wrap(~z) +
       theme_bw()
 
 
