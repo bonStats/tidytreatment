@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-This vignette simulates data using the scheme described by @Hill2013. It it implemented in the function `simulate_hill_su_data()`:
+This vignette simulates data using the scheme described by @Hill2013 with the additional of 1 categorical variable. It it implemented in the function `simulate_hill_su_data()`:
 
 ```{r load-data}
 
@@ -34,10 +34,15 @@ This vignette simulates data using the scheme described by @Hill2013. It it impl
     library(ggplot2)
   })
 
-  dat <- simulate_su_hill_data(100)
+  sim <- simulate_su_hill_data(n = 200, treatment_linear = F,  omega = 0, add_categorical = T,
+                               coef_categorical_treatment = c(0,0,1),  
+                               coef_categorical_nontreatment = c(-1,0,-1)
+                               )
   
+  dat <- sim$data
+  dat$c1 <- as.integer(dat$c1)
   # a selection of data
-  dat %>% select(y, z, x1:x3, x11, x12) %>% head()
+  dat %>% select(y, z, c1, x1:x3) %>% head()
 
 ```
 
@@ -53,8 +58,37 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
   set_bart_machine_num_cores(2)
   
   # set serialize = T if using the fit over multiple sessions
-  bartM <- bartMachine(X = select(dat,-y), y = select(dat, y)[[1]], serialize = T, num_burn_in = 2000, num_iterations_after_burn_in = 4000, verbose = F) 
+  # The first bart model will be for the propensity score...
+  # i.e. propensity for selection of treatment?
   
+  prop_bart <- bartMachine(
+    X = select(dat,-y,-z), 
+    y = as.factor(select(dat, z)[[1]]), 
+    num_burn_in = 2000, 
+    num_iterations_after_burn_in = 5000, 
+    serialize = T, 
+    verbose = F
+    ) 
+
+  dat$prop_score <-  prop_bart$p_hat_train
+  
+  destroy_bart_machine(prop_bart)
+  
+  prior_incl_prob <- setNames(rep(1, times = ncol(dat) - 1), colnames(dat)[colnames(dat) != "y"])
+  
+  prior_incl_prob["z"] <- 2
+  
+  bartM <- bartMachine(
+    X = select(dat,-y),
+    y = select(dat, y)[[1]],
+    num_burn_in = 2000, 
+    num_iterations_after_burn_in = 5000,
+    serialize = T,
+    verbose = F,
+    cov_prior_vec = prior_incl_prob
+    ) 
+
+  #
 ```
 
 ## Extract the posterior (tidy style)
@@ -75,6 +109,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
   # Function to tidy predicted draws also...
   posterior_pred <- predicted_draws(bartM, include_newdata = F)
   
+  # but this only adds random noise using posterior model variance
   posterior_pred
   
 ```
@@ -85,16 +120,16 @@ Since `tidytreatment` follows the `tidybayes` output specifications, functions f
 
 ```{r plot-tidy-bart, echo=TRUE, cache=FALSE}
 
-  treatment_var_and_x11 <- 
+  treatment_var_and_c1 <- 
     dat %>% 
-    select(z,x11) %>%
-    mutate(.row = 1:n(), A = as.factor(z), x11 = as.factor(x11))
+    select(z,c1) %>%
+    mutate(.row = 1:n(), z = as.factor(z))
 
-  posterior_pred %>%
-    left_join(treatment_var_and_x11, by = ".row") %>%
+  posterior_fitted %>%
+    left_join(treatment_var_and_c1, by = ".row") %>%
     ggplot() + 
-      geom_eye(aes(x = A, y = .prediction)) + 
-      facet_wrap(~x11, labeller = as_labeller( function(x) paste("x11 =",x) ) ) +
+      geom_eye(aes(x = z, y = fit)) + 
+      facet_wrap(~c1, labeller = as_labeller( function(x) paste("c1 =",x) ) ) +
       xlab("Treatment (z)") + ylab("Posterior predicted value") +
       theme_bw()
 
@@ -114,7 +149,7 @@ Some histogram summaries are presented below.
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- 
-  treatment_effects(bartM, treatment = "z")
+  treatment_effects(bartM, treatment = "z") # add common support method heer
 
 posterior_treat_eff %>% 
   ggplot() +
@@ -145,6 +180,11 @@ posterior_treat_eff %>% select(-z) %>% point_interval() %>%
             axis.ticks.y = element_blank(),
             legend.position = "none")
 
+csupp1 <- has_common_support(bartM,treatment = "z", method = "chisq", cutoff = 0.05)
+csupp1 %>% filter(!common_support)
+
+csupp2 <- has_common_support(bartM,treatment = "z", method = "sd", cutoff = 1)
+csupp2 %>% filter(!common_support)
 
 ```
 
@@ -153,15 +193,30 @@ We can also plot the CATEs varying over particular covariates. In this example, 
 ```{r cates-line-plot, echo=TRUE, cache=FALSE}
 
 posterior_treat_eff %>%
-  left_join(tibble(x12 = dat$x12, .row = 1:length(dat$x12) ), by = ".row") %>%
-  group_by(x12,z) %>%
-  point_interval(.width = c(0.8,0.95)) %>%
+  left_join(tibble(c1 = dat$c1, .row = 1:length(dat$c1) ), by = ".row") %>%
+  group_by(c1, z) %>%
+  point_interval(.width = c(0.95)) %>%
   ggplot() + 
-      geom_lineribbon(aes(x = x12, y = cte)) +
+      geom_pointinterval(aes(x = c1, y = cte), alpha = 0.2) +
       scale_fill_brewer() +
       facet_wrap(~z) +
       theme_bw()
 
+
+```
+
+```{r interaction-investigator, echo=T, cache=F}
+
+  treatment_interactions <-
+    covariate_with_treatment_importance(bartM, treatment = "z")
+
+  # heterogenity in treatment effect
+  treatment_interactions %>% 
+    ggplot() + geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
+    theme_bw()
+  
+  
+  
 
 ```
 
