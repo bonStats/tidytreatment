@@ -2,16 +2,51 @@
 % Please edit documentation in R/simulate-hill-su.R
 \name{simulate_su_hill_data}
 \alias{simulate_su_hill_data}
-\title{Simulate data with scenario from Su and Hill (2013)}
+\title{Simulate data with scenarios from Hill and Su (2013)}
 \usage{
-simulate_su_hill_data(n)
+simulate_su_hill_data(n, treatment_linear = T,
+  response_parallel = TRUE, response_aligned = T, y_sd = 1,
+  tau = 4, omega = 0, add_categorical = F,
+  coef_categorical_treatment = NULL,
+  coef_categorical_nontreatment = NULL)
 }
 \arguments{
-\item{n}{}
+\item{n}{Size of simulated sample.}
+
+\item{treatment_linear}{Treatment assignment mechanism is linear?}
+
+\item{response_parallel}{Response surface is parallel?}
+
+\item{response_aligned}{Response surface is aligned?}
+
+\item{y_sd}{Observation noise.}
+
+\item{tau}{Treatment effect for parallel response surfaces. Not applicable if surface is nonparallel.}
+
+\item{omega}{Offset to control treatment assignment ratios.}
+
+\item{add_categorical}{(Not in Hill and Su) Should a categorical variable be added?}
+
+\item{coef_categorical_treatment}{(Not in Hill and Su) What are the coefficients of the categorical variable under treatment?}
+
+\item{coef_categorical_nontreatment}{(Not in Hill and Su) What are the coefficients of the categorical variable under nontreatment?}
 }
 \value{
-data.frame with data.
+List with data.frame of data, mean y values, and arguments, response formula and coefficients.
 }
 \description{
-Under construction.
+Sample \eqn{n} observations with the following scheme:
+\enumerate{
+  \item Covariates: \eqn{X_j ~ N(0,1)}.
+  \item Assignment: \eqn{Z ~ Bin(n, p)}  with \eqn{p = logit^{-1}(\omega + X \gamma^L + Q \gamma^N)}.
+  \item Mean response: \eqn{E(Y(0)|X) = X \beta_0^L + Q \beta_0^N } and \eqn{E(Y(1)|X) = X \beta_1^L + Q \beta_1^N}.
+  \item Observation: \eqn{Y ~ N(\mu,\sigma_y^2))}.
+}
+}
+\details{
+Coefficients used are returned in the list this function creates. See Table 1 in Su and Hill (2013) for the table of coefficients.
+The \eqn{X_j} are in a data.frame named \code{data} in the returned list.
+The formula for the model matrix \eqn{[X,Q]} is named \code{su_hill_formula} in the returned list.
+The coefficients used for the model matrix are contained in \code{coefs}.
+Hill, Jennifer; Su, Yu-Sung. Ann. Appl. Stat. 7 (2013), no. 3, 1386--1420. doi:10.1214/13-AOAS630. \url{https://projecteuclid.org/euclid.aoas/1380804800}
 }
