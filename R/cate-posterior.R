@@ -2,15 +2,18 @@
 #'
 #' CTE = Conditional Treatment Effects (or CATE, the average effects)
 #' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
+#' Assumes treated column is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 #'
 #' @param model A supported Bayesian model fit that can provide fits and predictions.
 #' @param treatment A character string specifying the name of the treatment variable.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
+#' @param subset Either "treated", "nontreated", or "all". Default is "all".
+#' @param common_support_method Either "sd", or "chisq". Default is unspecified, and no common support calculation is done.
 #'
-#' @return A tidy data frame (tibble) with CATE values.
+#' @return A tidy data frame (tibble) with treatment effect values.
 #' @export
 #'
-treatment_effects <- function(model, treatment, newdata){
+treatment_effects <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff){
 
   stopifnot(
     !missing(treatment),
@@ -18,11 +21,51 @@ treatment_effects <- function(model, treatment, newdata){
     length(treatment) == 1
   )
 
+  posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, newdata, treatment, subset)
+
+  posterior_treatment <- dplyr::select(
+   dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer( !!rlang::sym(treatment) ) - 1L) * (observed - cfactual) ), # equivelant to treatment - non_treatment
+    -observed, -cfactual)
+
+  # add boolean for common support
+  if(!missing(common_support_method)){
+
+    stopifnot(
+      !missing(cutoff),
+      missing(newdata) # should use mode data only.
+    )
+
+    common_supp <-
+      calc_common_support_from_fitted_and_cf(
+        fitted_and_cf = posterior_fit_with_cf,
+        modeldata = stats::model.matrix(model),
+        treatment = treatment,
+        method = common_support_method,
+        cutoff = cutoff
+      )
+
+    posterior_treatment <- dplyr::left_join(posterior_treatment, common_supp, by = ".row")
+
+  }
+
+
+  return(posterior_treatment)
+
+}
+
+fitted_with_counter_factual_draws <- function(model, newdata, treatment, subset){
+
+  stopifnot(
+    has_tidytreatment_methods(model)
+    )
+
   if(missing(newdata)){
     newdata <- stats::model.matrix(model)
   }
 
-  stopifnot(
+  use_subset <- match.arg( subset, c("all","treated","nontreated") )
+
+ stopifnot(
     treatment %in% colnames(newdata),
     is.data.frame(newdata)
   )
@@ -31,68 +74,41 @@ treatment_effects <- function(model, treatment, newdata){
     is_01_integer_vector(newdata[,treatment]) | is.logical(newdata[,treatment])
   )
 
-  treatment_class <- class( newdata[,treatment] )
-
-  if(treatment_class == "integer"){
-    treatment_on <- 1L
-    treatment_off <- 0L
-  } else if(treatment_class == "logical"){
-    treatment_on <- TRUE
-    treatment_off <- FALSE
-  }
-
-  posterior_fit_with_cf <- fitted_with_counter_factual_draws(model = model, treatment = treatment)
-
-  posterior_treatment <- dplyr::select(
-   dplyr::mutate(posterior_fit_with_cf, cte = (2 * as.integer( !!rlang::sym(treatment) ) - 1) * (observed - cfactual) ), # equivelant to treatment - non_treatment
-    -observed, -cfactual)
-
-### TODO: add removal of observations without support here if indicator argument says to use common support methodology
-
-  return(posterior_treatment)
-
-}
-
-fitted_with_counter_factual_draws <- function(model, treatment){
-
-  stopifnot(
-    has_tidytreatment_methods(model)
-    )
-
-  modeldata <- stats::model.matrix(model)
-
-  stopifnot(
-    treatment %in% colnames(modeldata),
-    is.data.frame(modeldata)
-  )
-
-  stopifnot(
-    is_01_integer_vector(modeldata[,treatment]) | is.logical(modeldata[,treatment])
-  )
-
   obs_fitted <- tidybayes::fitted_draws(
     model = model, value = "observed",
-    newdata = modeldata,
+    newdata = newdata,
     include_newdata = F
   )
 
   cfactual_fitted <- tidybayes::fitted_draws(
     model = model, value = "cfactual",
-    newdata = dplyr::mutate(modeldata, !!treatment := counter_factual( !!rlang::sym(treatment) ) ),
+    newdata = dplyr::mutate(newdata, !!treatment := counter_factual( !!rlang::sym(treatment) ) ),
     include_newdata = F
   )
 
   obs_fitted <- dplyr::left_join(
     obs_fitted,
-    dplyr::mutate( dplyr::select(modeldata, !!treatment), .row = 1:dplyr::n()),
+    dplyr::mutate( dplyr::select(newdata, !!treatment), .row = 1:n()),
     by = c(".row")
   )
 
-  dplyr::left_join(
+  out <- dplyr::left_join(
     obs_fitted,
     cfactual_fitted,
     by = c(".row", ".chain", ".iteration", ".draw")
   )
+
+  if(use_subset == "treated"){
+
+    out <- dplyr::filter(out, is_treated( !!rlang::sym(treatment) ) )
+
+  } else if(use_subset == "nontreated"){
+
+    out <- dplyr::filter(out, !is_treated( !!rlang::sym(treatment) ) )
+
+  }
+
+  return(out)
 
 }
 
@@ -105,6 +121,24 @@ counter_factual <- function(x){
   } else if( is.logical(x) ) {
 
     return( !x )
+
+  } else {
+
+    return( rep(NA, times = length(x)) )
+
+  }
+
+}
+
+is_treated <- function(x){
+
+  if( is.integer(x) ){
+
+    return( x == 1L )
+
+  } else if( is.logical(x) ) {
+
+    return( x )
 
   } else {
 

@@ -4,7 +4,8 @@
 \alias{treatment_effects}
 \title{Get treatment effect draws from posterior}
 \usage{
-treatment_effects(model, treatment, newdata)
+treatment_effects(model, treatment, newdata, subset = "all",
+  common_support_method, cutoff)
 }
 \arguments{
 \item{model}{A supported Bayesian model fit that can provide fits and predictions.}
@@ -12,11 +13,16 @@ treatment_effects(model, treatment, newdata)
 \item{treatment}{A character string specifying the name of the treatment variable.}
 
 \item{newdata}{Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.}
+
+\item{subset}{Either "treated", "nontreated", or "all". Default is "all".}
+
+\item{common_support_method}{Either "sd", or "chisq". Default is unspecified, and no common support calculation is done.}
 }
 \value{
-A tidy data frame (tibble) with CATE values.
+A tidy data frame (tibble) with treatment effect values.
 }
 \description{
 CTE = Conditional Treatment Effects (or CATE, the average effects)
 \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
+Assumes treated colum is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 }

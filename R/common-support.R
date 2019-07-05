@@ -16,7 +16,8 @@ has_common_support <- function(model, treatment, method, cutoff){
 
   stopifnot(
     treatment %in% colnames(modeldata),
-    is.data.frame(modeldata)
+    is.data.frame(modeldata),
+    !missing(cutoff)
   )
 
   stopifnot(
@@ -31,28 +32,41 @@ has_common_support <- function(model, treatment, method, cutoff){
     counter_factual <- function(x){ !x }
   }
 
-  posterior_obs_cf_sd <- dplyr::summarise(
-    fitted_with_counter_factual_draws(model = model, treatment = treatment),
-      sd_observed = stats::sd(observed),
-      sd_cfactual = stats::sd(cfactual)
+  calc_common_support_from_fitted_and_cf(
+    fitted_and_cf = fitted_with_counter_factual_draws(model = model, treatment = treatment, subset = "all"),
+    modeldata = modeldata,
+    treatment = treatment,
+    method = method,
+    cutoff = cutoff
     )
+
+}
+
+calc_common_support_from_fitted_and_cf <- function(fitted_and_cf, modeldata, treatment, method, cutoff){
+
+  posterior_obs_cf_sd <- dplyr::summarise(
+    fitted_and_cf,
+    sd_observed = stats::sd(observed),
+    sd_cfactual = stats::sd(cfactual)
+  )
 
   common_support_cutoff <- switch(method,
                                   sd = common_support_sd_method,
                                   chisq = common_support_chisq_method,
                                   common_support_default
-                                  )
+  )
 
   dplyr::mutate(posterior_obs_cf_sd,
-         common_support =
-           common_support_cutoff(sd_obs = sd_observed,
-                                 sd_cf = sd_cfactual,
-                                 cutoff = cutoff,
-                                 treatment = modeldata[,treatment])
-         )
+                common_support =
+                  common_support_cutoff(sd_obs = sd_observed,
+                                        sd_cf = sd_cfactual,
+                                        cutoff = cutoff,
+                                        treatment = modeldata[posterior_obs_cf_sd$.row,treatment])
+  )
 
 
 }
+
 
 common_support_chisq_method <- function(sd_obs, sd_cf, cutoff, ...){
 
