@@ -38,6 +38,8 @@ This vignette simulates data using the scheme described by @Hill2013 with the ad
                                coef_categorical_treatment = c(0,0,1),  
                                coef_categorical_nontreatment = c(-1,0,-1)
                                )
+  # non-treated vs treated counts:
+  table(sim$data$z)
   
   dat <- sim$data
   dat$c1 <- as.integer(dat$c1)
@@ -50,7 +52,7 @@ This vignette simulates data using the scheme described by @Hill2013 with the ad
 
 Run the model to be used to assess treatment effects. Here we will use `bartMachine`, which is one implementation of Bayesian Additive Regression Trees in `R` [@Kapelner2016]. The package can be found on [CRAN](https://cran.r-project.org/package=bartMachine).
  
-```{r run-bart, echo=TRUE, results='hide', cache=TRUE}
+```{r run-bart, echo=TRUE, results='hide', cache=FALSE}
 
   # if you increase the number of cores, the memory needs to be increased,
   # this requires restarting R, setting the 'java.parameters' option then 
@@ -61,8 +63,22 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
   # The first bart model will be for the propensity score...
   # i.e. propensity for selection of treatment?
   
-  prop_bart <- bartMachine(
+  # regress y ~ covariates
+  var_select_bart <- bartMachine(
     X = select(dat,-y,-z), 
+    y = select(dat, y)[[1]], 
+    num_burn_in = 2000, 
+    num_iterations_after_burn_in = 5000, 
+    serialize = T, 
+    verbose = F
+    ) 
+
+  # select most important vars from y ~ covariates model
+  var_select <- bartMachine::var_selection_by_permute_cv(var_select_bart, k_folds = 5)
+
+  # regress z ~ most important covariates to get propensity score
+  prop_bart <- bartMachine(
+    X = select(dat,var_select$important_vars_cv), 
     y = as.factor(select(dat, z)[[1]]), 
     num_burn_in = 2000, 
     num_iterations_after_burn_in = 5000, 
@@ -72,10 +88,11 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
 
   dat$prop_score <-  prop_bart$p_hat_train
   
+  destroy_bart_machine(var_select_bart)
   destroy_bart_machine(prop_bart)
   
+  # Give z double prior inclusion probability
   prior_incl_prob <- setNames(rep(1, times = ncol(dat) - 1), colnames(dat)[colnames(dat) != "y"])
-  
   prior_incl_prob["z"] <- 2
   
   bartM <- bartMachine(
@@ -88,14 +105,53 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
     cov_prior_vec = prior_incl_prob
     ) 
 
-  #
+  
+```
+
+## Model checking and convergence
+
+Here are some examples of model checking we can do.
+
+```{r convergence-bart, echo=TRUE, cache=FALSE}
+
+  print(bartM)
+
+  res <- residual_draws(bartM, include_newdata = F)
+  res %>%   
+    point_interval(.residual, y, .width = c(0.95) ) %>%
+    select(-y.lower, -y.upper) %>%
+  ggplot() + 
+      geom_pointinterval(aes(x = y, y = .residual, ymin = .residual.lower,  ymax = .residual.upper), alpha = 0.2) +
+      scale_fill_brewer() +
+      theme_bw() + ggtitle("Residuals vs observations")
+
+  res %>% summarise(.fitted = mean(.fitted), y = first(y)) %>% 
+    ggplot(aes(x = y, y = .fitted)) +
+    geom_point() + 
+    geom_smooth(method = "lm") + 
+    theme_bw() + ggtitle("Observations vs fitted")
+  
+  res %>% summarise(.residual = mean(.residual)) %>%
+    ggplot(aes(sample = .residual)) + 
+    geom_qq() + 
+    geom_qq_line() + 
+    theme_bw() + ggtitle("Q-Q plot of residuals")
+  
+  bartMachine:::plot_sigsqs_convergence_diagnostics(bartM)
+  
+  bartMachine:::plot_mh_acceptance_reject(bartM)
+  
+  bartMachine:::plot_tree_num_nodes(bartM)
+  
+  bartMachine:::plot_tree_depths(bartM)
+  
 ```
 
 ## Extract the posterior (tidy style)
 
 Methods for extracting the posterior in a tidy format is included in the `tidytreatment`.
 
-```{r tidy-bart, echo=TRUE, cache=TRUE}
+```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
   posterior_fitted <- fitted_draws(bartM, value = "fit", include_newdata = F)
   # The newdata argument (omitted) defaults to the data from the model.
@@ -106,15 +162,16 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
   
   posterior_fitted
   
+```
+
+```{r tidy-bart-pred, eval=FALSE, echo=TRUE, cache=FALSE}
+
   # Function to tidy predicted draws also...
   posterior_pred <- predicted_draws(bartM, include_newdata = F)
   
-  # but this only adds random noise using posterior model variance
-  posterior_pred
-  
 ```
 
-## Use some functions from the `tidybayes` package
+## Use some plotting functions from the `tidybayes` package
 
 Since `tidytreatment` follows the `tidybayes` output specifications, functions from `tidybayes` should work.
 
@@ -131,13 +188,13 @@ Since `tidytreatment` follows the `tidybayes` output specifications, functions f
       geom_eye(aes(x = z, y = fit)) + 
       facet_wrap(~c1, labeller = as_labeller( function(x) paste("c1 =",x) ) ) +
       xlab("Treatment (z)") + ylab("Posterior predicted value") +
-      theme_bw()
+      theme_bw() + ggtitle("Effect of treatment with 'c1' on posterior fitted values")
 
 ```
 
-## Calculate CATEs
+## Calculate Treatment Effects
 
-Posterior conditional (average) treatment effects can be calculated using the `posterior_cate_from_sample` function. This function finds the posterior values of
+Posterior conditional (average) treatment effects can be calculated using the `treatment_effects` function. This function finds the posterior values of
 $$
 \text{E}(y ~ \vert~ T = 1, X = x_{i}) - \text{E}(y ~ \vert~ T = 0, X = x_{i}) 
 $$
@@ -149,18 +206,33 @@ Some histogram summaries are presented below.
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- 
-  treatment_effects(bartM, treatment = "z") # add common support method heer
+  treatment_effects(bartM, treatment = "z") 
 
 posterior_treat_eff %>% 
   ggplot() +
   geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
-  theme_bw()
+  theme_bw() + ggtitle("Histogram of treatment effect (all draws)")
+  
 
 posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
   ggplot() +
   geom_histogram(aes(x = cte_hat), binwidth = 0.1, colour = "white") + 
-  theme_bw()
+  theme_bw() + ggtitle("Histogram of treatment effect (median for each subject)")
+  
+```
 
+We can also focus on the treatment effects for just those that are treated. 
+
+```{r cates-hist-treated, echo=TRUE, cache=FALSE}
+
+# sample based (using data from fit) conditional treatment effects, posterior draws
+posterior_treat_eff_on_treated <- 
+  treatment_effects(bartM, treatment = "z", subset = "treated") 
+
+posterior_treat_eff_on_treated %>% 
+  ggplot() +
+  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
+  theme_bw() + ggtitle("Histogram of treatment effect (all draws from treated subjects)")
 
 ```
 
@@ -180,12 +252,6 @@ posterior_treat_eff %>% select(-z) %>% point_interval() %>%
             axis.ticks.y = element_blank(),
             legend.position = "none")
 
-csupp1 <- has_common_support(bartM,treatment = "z", method = "chisq", cutoff = 0.05)
-csupp1 %>% filter(!common_support)
-
-csupp2 <- has_common_support(bartM,treatment = "z", method = "sd", cutoff = 1)
-csupp2 %>% filter(!common_support)
-
 ```
 
 We can also plot the CATEs varying over particular covariates. In this example, instead of grouping by subject, we group by the variable of interest, and calculate the posterior summaries over this variable.
@@ -194,28 +260,59 @@ We can also plot the CATEs varying over particular covariates. In this example, 
 
 posterior_treat_eff %>%
   left_join(tibble(c1 = dat$c1, .row = 1:length(dat$c1) ), by = ".row") %>%
-  group_by(c1, z) %>%
-  point_interval(.width = c(0.95)) %>%
+  group_by(c1) %>%
   ggplot() + 
-      geom_pointinterval(aes(x = c1, y = cte), alpha = 0.2) +
+      geom_eye(aes(x = c1, y = cte), alpha = 0.2) +
       scale_fill_brewer() +
-      facet_wrap(~z) +
-      theme_bw()
+      theme_bw() + ggtitle("Treatment effect by `c1`")
 
 
 ```
+
+## Common support
+
+Common support testing [@hill] can be tested directly, or a Boolean can be included when calculating the treatment effects.
+
+```{r common-support, echo=T, cache=F}
+
+csupp1 <- has_common_support(bartM, treatment = "z", 
+                             method = "chisq", cutoff = 0.05)
+csupp1 %>% filter(!common_support)
+
+csupp2 <- has_common_support(bartM, treatment = "z", 
+                             method = "sd", cutoff = 1)
+csupp2 %>% filter(!common_support)
+
+posterior_treat_eff_on_treated <- 
+  treatment_effects(bartM, treatment = "z", 
+                    subset = "treated", 
+                    common_support_method = "sd", cutoff = 1) 
+
+```
+
+## Investigating variable importance
+
+We can count how many times a variables was included in the BART in conjunction with the treatment effect, or overall.
 
 ```{r interaction-investigator, echo=T, cache=F}
 
   treatment_interactions <-
     covariate_with_treatment_importance(bartM, treatment = "z")
 
-  # heterogenity in treatment effect
   treatment_interactions %>% 
-    ggplot() + geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
-    theme_bw()
+    ggplot() + 
+    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
+    theme_bw() + ggtitle("Important variables interacting with treatment ('z')") +
+    ylab("Inclusion counts")
   
-  
+  variable_importance <-
+    covariate_importance(bartM)
+
+  variable_importance %>% 
+    ggplot() + 
+    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
+    theme_bw() + ggtitle("Important variables overall") +
+    ylab("Inclusion counts")
   
 
 ```
