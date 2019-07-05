@@ -3,7 +3,7 @@
 #' Sample \eqn{n} observations with the following scheme:
 #' \enumerate{
 #'   \item Covariates: \eqn{X_j ~ N(0,1)}.
-#'   \item Assignment: \eqn{Z ~ Bin(n, p)}  with \eqn{p = logit^{-1}(\omega + X \gamma^L + Q \gamma^N)}.
+#'   \item Assignment: \eqn{Z ~ Bin(n, p)}  with \eqn{p = logit^{-1}(a + X \gamma^L + Q \gamma^N)} where \eqn{a = \omega - mean(X \gamma^L + Q \gamma^N)}.
 #'   \item Mean response: \eqn{E(Y(0)|X) = X \beta_0^L + Q \beta_0^N } and \eqn{E(Y(1)|X) = X \beta_1^L + Q \beta_1^N}.
 #'   \item Observation: \eqn{Y ~ N(\mu,\sigma_y^2))}.
 #' }
@@ -93,10 +93,14 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
 
 
   # assign to treatment
-  p <- invlogit(omega + model_matrix %*% coef_assign)
+  logit_mean_treat_assignment <- model_matrix %*% coef_assign
+
+  allocation_offset <- omega - mean(logit_mean_treat_assignment)
+
+  p <- invlogit(allocation_offset + logit_mean_treat_assignment)
   z <- stats::rbinom(n = n, size = 1, prob = p)
 
-  #(Add categorical variable. Note: not included in Hill and Su)
+  # Add categorical variable. Note: not included in Hill and Su
 
   if(add_categorical){
 
