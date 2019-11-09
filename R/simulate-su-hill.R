@@ -33,8 +33,8 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
   coefs <- dplyr::tribble(
     ~"class",      ~"linear", ~"parallel", ~"aligned", ~"treatment",  ~"values",
     # treatmeant assignment: linear, nonlinear
-    "treatment", TRUE,    NA,        NA,       NA,          c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.4, 0.2, 0.4, 0.2, 0.4, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    "treatment", FALSE,   NA,        NA,       NA,          c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.4, 0.2, 0.4, 0.2, 0.4, 0.2, 0.8, 0.8, 0.5, 0.3, 0.8, 0.2, 0.4, 0.3, 0.8, 0.5),
+    "treatment-assignment", TRUE,    NA,        NA,       NA,          c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.4, 0.2, 0.4, 0.2, 0.4, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+    "treatment-assignment", FALSE,   NA,        NA,       NA,          c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.4, 0.2, 0.4, 0.2, 0.4, 0.2, 0.8, 0.8, 0.5, 0.3, 0.8, 0.2, 0.4, 0.3, 0.8, 0.5),
     # response surface nonlinear and not parallel, aligned: treatment, nontreatment
     "response",  FALSE,   FALSE,     TRUE,     FALSE,       c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 2.0, 0.0, 0.5, 2.0, 0.4, 0.8, 0.0, 0.0, 0.5, 0.0, 0.5, 0.0, 0.5, 0.7),
     "response",  FALSE,   FALSE,     TRUE,     TRUE,        c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 1.0, 0.5, 0.0, 0.8, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
@@ -59,7 +59,7 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
 
   coefs_treatment_assignment <-
     dplyr::filter(coefs,
-                  class == "treatment",
+                  class == "treatment-assignment",
                   linear == treatment_linear
                   )
 
@@ -141,12 +141,43 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
 
   }
 
+  # prepare formula's to describe simulation truth
+  formula_terms <- attributes(terms(su_hill_formula))$term.labels
+
+  frmls <- list()
+
+  # formula for treatment assignment
+  which_treatment_assignment <- coefs_treatment_assignment$values[[1]]
+  chr_treatment_assignment_frm <- paste( paste0(which_treatment_assignment, "*", formula_terms)[which_treatment_assignment != 0], collapse = " + " )
+  frmls$treatment_assignment <- parse(text = chr_treatment_assignment_frm)
+
+  # formula for response from treatment group
+  which_response_treatment <- filter(coefs_response, treatment == T)$values[[1]]
+  chr_response_treatment_frm <- paste( paste0(which_response_treatment, "*", formula_terms)[which_response_treatment != 0], collapse = " + " )
+  if(add_categorical){
+    add_chr_response_treatment_frm_cat <- paste0(coef_categorical_treatment, "*I(c1==", paste0("'", 1:length(coef_categorical_treatment), "'"), ")")[coef_categorical_treatment != 0]
+    chr_response_treatment_frm <- paste(chr_response_treatment_frm, "+", paste(add_chr_response_treatment_frm_cat, collapse = " + "))
+  }
+  frmls$response_treatment <- parse(text = chr_response_treatment_frm)
+
+  # formula for response from nontreatment group
+  which_response_nontreatment <- filter(coefs_response, treatment == F)$values[[1]]
+  chr_response_nontreatment_frm <- paste( paste0(which_response_nontreatment, "*", formula_terms)[which_response_nontreatment != 0], collapse = " + " )
+  if(add_categorical){
+    add_chr_response_nontreatment_frm_cat <- paste0(coef_categorical_nontreatment, "*I(c1==", paste0("'", 1:length(coef_categorical_nontreatment), "'"), ")")[coef_categorical_nontreatment != 0]
+    chr_response_nontreatment_frm <- paste(chr_response_nontreatment_frm, "+", paste(add_chr_response_nontreatment_frm_cat, collapse = " + "))
+  }
+  frmls$response_nontreatment <- parse(text = chr_response_nontreatment_frm)
+
+  frmls$generic <- su_hill_formula
+
+
   return(
     list(
       data = rdata,
       mean_y = mean_y,
       args = fargs,
-      su_hill_formula = su_hill_formula,
+      formulas = frmls,
       coefs = dplyr::bind_rows(coefs_treatment_assignment, coefs_response)
       )
     )
