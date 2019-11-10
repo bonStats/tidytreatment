@@ -24,5 +24,5 @@ A tidy data frame (tibble) with treatment effect values.
 \description{
 CTE = Conditional Treatment Effects (or CATE, the average effects)
 \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
-Assumes treated colum is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
+Assumes treated column is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 }
