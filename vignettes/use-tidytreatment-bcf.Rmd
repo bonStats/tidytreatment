@@ -91,7 +91,29 @@ The `BART` and `bcf` packages are the ones used here, but several others are ava
     nskip = 1000
     )
 
-  treat_bart <- bcf(
+  # treat_bart <- bcf(
+  #   x_control = X_base,
+  #   x_moderate = X_base,
+  #   z = select(sim$dat, z)[[1]],
+  #   y = select(sim$dat, y)[[1]],
+  #   pihat = prop_bart$prob.train.mean,
+  #   include_pi = "both",
+  #   nsim = 5000,
+  #   nburn = 1000,
+  #   update_interval = 1000
+  #   )
+  # 
+  # # bcf doesn't give objects a class
+  # class(treat_bart) <- "bcf"
+  
+  treat_bart <- bartc(
+    response = select(sim$dat, y)[[1]],
+    treatment = select(sim$dat, z)[[1]], 
+    confounders = select(sim$dat, -y,-z)[[1]], 
+    p.scoreAsCovariate = T
+    )
+    
+    bb <- bcf2(
     x_control = X_base,
     x_moderate = X_base,
     z = select(sim$dat, z)[[1]],
@@ -102,9 +124,8 @@ The `BART` and `bcf` packages are the ones used here, but several others are ava
     nburn = 1000,
     update_interval = 1000
     )
-  
-  # bcf doesn't give objects a class
-  class(treat_bart) <- "bcf"
+    
+    bb$treatment %>% colMeans()
 
 ```
 

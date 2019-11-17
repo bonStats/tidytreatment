@@ -7,7 +7,6 @@
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #'
 #' @return A tidy data frame (tibble) with fitted values.
-#' @export
 #'
 fitted_draws_bcf <- function(model, newdata = NULL, value = ".value", include_newdata = T, include_sigsqs = F){
 
@@ -16,13 +15,14 @@ fitted_draws_bcf <- function(model, newdata = NULL, value = ".value", include_ne
          must be specified if 'include_newdata = T'.
          Use original data used to fit the model.")
 
-  if(!is.null(newdata)) warning("'newdata' must be data used to fit the model for bcf models.")
+  if(!is.null(newdata)) warning("'newdata' is data used to fit the model for bcf models.
+                                Supplying alternative is non")
 
   stopifnot(
     is.character(value),
     is.logical(include_newdata),
     is.logical(include_sigsqs),
-    class(model) %in% c("bcf")
+    class(model) %in% c("bcf_model")
   )
 
   # order for columns in output
