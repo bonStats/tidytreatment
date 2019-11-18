@@ -19,3 +19,9 @@ is_01_integer_vector <- function(x){
   class(x) == "integer" & all( x %in% c(0,1) )
 
 }
+
+has_installed_package <- function(package){
+
+  all(package %in% installed.packages()[,"Package"])
+
+}

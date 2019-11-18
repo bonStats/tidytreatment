@@ -10,6 +10,8 @@
 #'
 fitted_draws_bcf <- function(model, newdata = NULL, value = ".value", include_newdata = T, include_sigsqs = F){
 
+  stopifnot(has_installed_package("bcf"))
+
   if( is.null(newdata) & include_newdata)
     stop("For models from bcf package 'newdata'
          must be specified if 'include_newdata = T'.

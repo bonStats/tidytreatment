@@ -11,6 +11,8 @@
 #'
 fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = T, include_sigsqs = F){
 
+  stopifnot(has_installed_package("BART"))
+
   if( is.null(newdata) & include_newdata)
     stop("For models from BART package 'newdata'
           must be specified if 'include_newdata = T'.
