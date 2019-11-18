@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 bibliography: vignette.bib
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Using tidytreatment}
+  %\VignetteIndexEntry{Using tidytreatment with bcf}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -91,29 +91,8 @@ The `BART` and `bcf` packages are the ones used here, but several others are ava
     nskip = 1000
     )
 
-  # treat_bart <- bcf(
-  #   x_control = X_base,
-  #   x_moderate = X_base,
-  #   z = select(sim$dat, z)[[1]],
-  #   y = select(sim$dat, y)[[1]],
-  #   pihat = prop_bart$prob.train.mean,
-  #   include_pi = "both",
-  #   nsim = 5000,
-  #   nburn = 1000,
-  #   update_interval = 1000
-  #   )
-  # 
-  # # bcf doesn't give objects a class
-  # class(treat_bart) <- "bcf"
-  
-  treat_bart <- bartc(
-    response = select(sim$dat, y)[[1]],
-    treatment = select(sim$dat, z)[[1]], 
-    confounders = select(sim$dat, -y,-z)[[1]], 
-    p.scoreAsCovariate = T
-    )
-    
-    bb <- bcf2(
+  # Fit Bayesian causal forest: https://arxiv.org/abs/1706.09523
+  treat_bart <- bcf2( # use upgraded bcf 
     x_control = X_base,
     x_moderate = X_base,
     z = select(sim$dat, z)[[1]],
@@ -124,43 +103,9 @@ The `BART` and `bcf` packages are the ones used here, but several others are ava
     nburn = 1000,
     update_interval = 1000
     )
-    
-    bb$treatment %>% colMeans()
 
 ```
 
-## Model checking and convergence
-
-Here are some examples of model checking we can do.
-
-```{r convergence-bart, echo=TRUE, cache=FALSE}
-
-  res <- residual_draws(var_select_bart, response = sim$data$y, include_newdata = F)
-  
-  res %>%   
-    point_interval(.residual, .fitted, .width = c(0.95) ) %>%
-    select(-.fitted.lower, -.fitted.upper) %>%
-  ggplot() + 
-      geom_pointinterval(aes(x = .fitted, y = .residual, ymin = .residual.lower,  ymax = .residual.upper), alpha = 0.2) +
-      scale_fill_brewer() +
-      theme_bw() + ggtitle("Residuals vs observations")
-
-  res %>% summarise(.fitted = mean(.fitted), y = first(y)) %>% 
-    ggplot(aes(x = y, y = .fitted)) +
-    geom_point() + 
-    geom_smooth(method = "lm") + 
-    geom_abline(slope = 1, intercept = 0) +
-    theme_bw() + ggtitle("Observations vs fitted")
-  
-  res %>% summarise(.residual = mean(.residual)) %>%
-    ggplot(aes(sample = .residual)) + 
-    geom_qq() + 
-    geom_qq_line() + 
-    theme_bw() + ggtitle("Q-Q plot of residuals")
-  
-
-  
-```
 
 ## Extract the posterior (tidy style)
 
@@ -168,7 +113,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-  posterior_fitted <- fitted_draws(bartM, value = "fit", include_newdata = F)
+  posterior_fitted <- fitted_draws(treat_bart, value = "fit", include_newdata = F)
   # The newdata argument (omitted) defaults to the data from the model.
   # include_newdata = F, avoids returning the newdata with the fitted values
   # as it is so large. 
@@ -179,12 +124,6 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
   
 ```
 
-```{r tidy-bart-pred, eval=FALSE, echo=TRUE, cache=FALSE}
-
-  # Function to tidy predicted draws also...
-  posterior_pred <- predicted_draws(bartM, include_newdata = F)
-  
-```
 
 ## Use some plotting functions from the `tidybayes` package
 
@@ -193,7 +132,7 @@ Since `tidytreatment` follows the `tidybayes` output specifications, functions f
 ```{r plot-tidy-bart, echo=TRUE, cache=FALSE}
 
   treatment_var_and_c1 <- 
-    dat %>% 
+    sim$data %>% 
     select(z,c1) %>%
     mutate(.row = 1:n(), z = as.factor(z))
 
@@ -221,7 +160,7 @@ Some histogram summaries are presented below.
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- 
-  treatment_effects(bartM, treatment = "z") 
+  treatment_effects(treat_bart, treatment = "z") 
 
 posterior_treat_eff %>% 
   ggplot() +
@@ -240,14 +179,16 @@ We can also focus on the treatment effects for just those that are treated.
 
 ```{r cates-hist-treated, echo=TRUE, cache=FALSE}
 
-# sample based (using data from fit) conditional treatment effects, posterior draws
-posterior_treat_eff_on_treated <- 
-  treatment_effects(bartM, treatment = "z", subset = "treated") 
+# NOT IMPLEMENTED FOR BCF YET
 
-posterior_treat_eff_on_treated %>% 
-  ggplot() +
-  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
-  theme_bw() + ggtitle("Histogram of treatment effect (all draws from treated subjects)")
+# # sample based (using data from fit) conditional treatment effects, posterior draws
+# posterior_treat_eff_on_treated <- 
+#   treatment_effects(bartM, treatment = "z", subset = "treated") 
+# 
+# posterior_treat_eff_on_treated %>% 
+#   ggplot() +
+#   geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
+#   theme_bw() + ggtitle("Histogram of treatment effect (all draws from treated subjects)")
 
 ```
 
@@ -255,17 +196,19 @@ Plots can be made that stack each subjects posterior CIs of the CATEs.
 
 ```{r cates-stack-plot, echo=TRUE, cache=FALSE}
 
-posterior_treat_eff %>% select(-z) %>% point_interval() %>%
-  arrange(cte) %>% mutate(.orow = 1:n()) %>% 
-  ggplot() + 
-      geom_interval(aes(x = .orow, y= cte), size = 0.5) +
-  geom_point(aes(x = .orow, y = cte), shape = "circle open", alpha = 0.1) + 
-      ylab("Median posterior CATE for each subject (95% CI)") +
-      theme_bw() + coord_flip() + scale_colour_brewer() +
-      theme(axis.title.y = element_blank(), 
-            axis.text.y = element_blank(), 
-            axis.ticks.y = element_blank(),
-            legend.position = "none")
+# NOT IMPLEMENTED FOR BCF YET
+
+# posterior_treat_eff %>% select(-z) %>% point_interval() %>%
+#   arrange(cte) %>% mutate(.orow = 1:n()) %>% 
+#   ggplot() + 
+#       geom_interval(aes(x = .orow, y= cte), size = 0.5) +
+#   geom_point(aes(x = .orow, y = cte), shape = "circle open", alpha = 0.1) + 
+#       ylab("Median posterior CATE for each subject (95% CI)") +
+#       theme_bw() + coord_flip() + scale_colour_brewer() +
+#       theme(axis.title.y = element_blank(), 
+#             axis.text.y = element_blank(), 
+#             axis.ticks.y = element_blank(),
+#             legend.position = "none")
 
 ```
 
@@ -274,7 +217,7 @@ We can also plot the CATEs varying over particular covariates. In this example, 
 ```{r cates-line-plot, echo=TRUE, cache=FALSE}
 
 posterior_treat_eff %>%
-  left_join(tibble(c1 = dat$c1, .row = 1:length(dat$c1) ), by = ".row") %>%
+  left_join(tibble(c1 = sim$data$c1, .row = 1:length(sim$data$c1) ), by = ".row") %>%
   group_by(c1) %>%
   ggplot() + 
       geom_eye(aes(x = c1, y = cte), alpha = 0.2) +
@@ -290,18 +233,20 @@ Common support testing [@hill] can be tested directly, or a Boolean can be inclu
 
 ```{r common-support, echo=T, cache=F}
 
-csupp1 <- has_common_support(bartM, treatment = "z", 
-                             method = "chisq", cutoff = 0.05)
-csupp1 %>% filter(!common_support)
+# NOT IMPLEMENTED FOR BCF YET
 
-csupp2 <- has_common_support(bartM, treatment = "z", 
-                             method = "sd", cutoff = 1)
-csupp2 %>% filter(!common_support)
-
-posterior_treat_eff_on_treated <- 
-  treatment_effects(bartM, treatment = "z", 
-                    subset = "treated", 
-                    common_support_method = "sd", cutoff = 1) 
+# csupp1 <- has_common_support(bartM, treatment = "z", 
+#                              method = "chisq", cutoff = 0.05)
+# csupp1 %>% filter(!common_support)
+# 
+# csupp2 <- has_common_support(bartM, treatment = "z", 
+#                              method = "sd", cutoff = 1)
+# csupp2 %>% filter(!common_support)
+# 
+# posterior_treat_eff_on_treated <- 
+#   treatment_effects(bartM, treatment = "z", 
+#                     subset = "treated", 
+#                     common_support_method = "sd", cutoff = 1) 
 
 ```
 
@@ -311,23 +256,25 @@ We can count how many times a variables was included in the BART in conjunction 
 
 ```{r interaction-investigator, echo=T, cache=F}
 
-  treatment_interactions <-
-    covariate_with_treatment_importance(bartM, treatment = "z")
+# NOT IMPLEMENTED FOR BCF YET
 
-  treatment_interactions %>% 
-    ggplot() + 
-    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
-    theme_bw() + ggtitle("Important variables interacting with treatment ('z')") +
-    ylab("Inclusion counts")
-  
-  variable_importance <-
-    covariate_importance(bartM)
-
-  variable_importance %>% 
-    ggplot() + 
-    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
-    theme_bw() + ggtitle("Important variables overall") +
-    ylab("Inclusion counts")
+  # treatment_interactions <-
+  #   covariate_with_treatment_importance(bartM, treatment = "z")
+  # 
+  # treatment_interactions %>% 
+  #   ggplot() + 
+  #   geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
+  #   theme_bw() + ggtitle("Important variables interacting with treatment ('z')") +
+  #   ylab("Inclusion counts")
+  # 
+  # variable_importance <-
+  #   covariate_importance(bartM)
+  # 
+  # variable_importance %>% 
+  #   ggplot() + 
+  #   geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
+  #   theme_bw() + ggtitle("Important variables overall") +
+  #   ylab("Inclusion counts")
   
 
 ```

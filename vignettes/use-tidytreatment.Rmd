@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 bibliography: vignette.bib
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Using tidytreatment}
+  %\VignetteIndexEntry{Using tidytreatment with bartMachine}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

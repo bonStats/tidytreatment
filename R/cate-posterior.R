@@ -13,7 +13,25 @@
 #' @return A tidy data frame (tibble) with treatment effect values.
 #' @export
 #'
+
 treatment_effects <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff){
+
+  UseMethod("treatment_effects")
+
+}
+
+#' Get treatment effect draws from posterior
+#'
+#' CTE = Conditional Treatment Effects (or CATE, the average effects)
+#' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
+#' Assumes treated column is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
+#'
+#' @inheritParams treatment_effects
+#'
+#' @return A tidy data frame (tibble) with treatment effect values.
+#' @export
+#'
+treatment_effects.default <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff){
 
   stopifnot(
     !missing(treatment),
@@ -145,5 +163,63 @@ is_treated <- function(x){
     return( rep(NA, times = length(x)) )
 
   }
+
+}
+
+#' Get treatment effect draws from posterior
+#'
+#' CTE = Conditional Treatment Effects (or CATE, the average effects)
+#' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
+#' Assumes treated column is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
+#'
+#' @inheritParams treatment_effects
+#'
+#' @return A tidy data frame (tibble) with treatment effect values.
+#' @export
+#'
+treatment_effects.bcf <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff){
+
+  stopifnot(
+    !missing(treatment),
+    is.character(treatment),
+    length(treatment) == 1
+  )
+
+  if(!missing(common_support_method)) stop("Common support not implemented for bcf models.")
+  if(!missing(newdata)){
+    warning("Only use original fitted data with bcf models.")
+    include_newdata <- T
+  } else {
+    include_newdata <- F
+  }
+
+  # order for columns in output
+  col_order <- c(".row", ".chain", ".iteration", ".draw", "cte")
+
+  posterior <- model$treatment_effect
+
+  # bind newdata with fitted, wide format
+  out <- dplyr::bind_cols(
+    if(include_newdata) dplyr::as_tibble(newdata) else NULL,
+    dplyr::as_tibble(t(posterior), .name_repair = function(names){ paste0(".col_iter", as.character(1:length(names)) ) }),
+    .row = 1:ncol(posterior)
+  )
+
+  # convert to long format
+  out <- tidyr::gather(out, key = ".draw", value = 'cte', dplyr::starts_with(".col_iter"))
+
+  # add variables to keep to generic standard, remove string in
+  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer( gsub(pattern = ".col_iter", replacement = "", x =.draw) ) )
+
+  # rearrange
+  out <- dplyr::select(out, -!!col_order, !!col_order)
+
+  # group
+  row_groups <- names(out)[ ! names(out) %in% col_order[col_order != ".row"] ]
+
+  out <- dplyr::group_by(out, .dots = row_groups)
+
+
+  return(out)
 
 }

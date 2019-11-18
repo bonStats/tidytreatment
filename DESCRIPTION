@@ -12,6 +12,8 @@ Depends: R (>= 3.1.0)
 Suggests: 
     knitr,
     rmarkdown,
+    bcf,
+    BART,
     bartMachine,
     ggplot2
 VignetteBuilder: knitr

@@ -22,7 +22,7 @@ fitted_draws_bcf <- function(model, newdata = NULL, value = ".value", include_ne
     is.character(value),
     is.logical(include_newdata),
     is.logical(include_sigsqs),
-    class(model) %in% c("bcf_model")
+    class(model) %in% c("bcf")
   )
 
   # order for columns in output
@@ -68,3 +68,30 @@ fitted_draws_bcf <- function(model, newdata = NULL, value = ".value", include_ne
   return(out)
 
 }
+
+#' Get fitted draws from posterior of \code{bcf2} model
+#'
+#' @param model A model fit with \code{tidytreatment::bcf2} function.
+#' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
+#' @param value The name of the output column for \code{fitted_draws}; default \code{".value"}.
+#' @param n Not currently implemented.
+#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_sigsqs Should the posterior sigma-squared draw be included?
+#' @param ... Not currently in use.
+#'
+#' @return A tidy data frame (tibble) with fitted values.
+#' @export
+#'
+fitted_draws.bcf <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
+
+  if(missing(newdata)){
+    newdata <- NULL
+  }
+
+  fitted_draws_bcf(model = model, newdata = newdata, value = value,
+                   ...,
+                   include_newdata = include_newdata,
+                   include_sigsqs = include_sigsqs)
+
+}
+

@@ -2,7 +2,7 @@
 % Please edit documentation in R/bcf2.R
 \name{bcf2}
 \alias{bcf2}
-\title{bcf 2}
+\title{Bayesian Causal Forests 2}
 \usage{
 bcf2(y, z, x_control, x_moderate = x_control, pihat, nburn, nsim,
   nthin = 1, update_interval = 100, ntree_control = 200,
@@ -64,5 +64,6 @@ or "both" are HIGHLY recommended with observational data.}
 \item{use_tauscale}{Use a half-Normal prior on the scale of tau.}
 }
 \description{
-bcf 2
+A slightly upgraded version of \code{bcf::bcf}. The output list is given class \code{bcf}
+and the treatment effects are returned as an element of the list.
 }

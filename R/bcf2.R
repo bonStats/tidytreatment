@@ -1,4 +1,7 @@
-#' bcf 2
+#' Bayesian Causal Forests 2
+#'
+#' A slightly upgraded version of \code{bcf::bcf}. The output list is given class \code{bcf}
+#' and the treatment effects are returned as an element of the list.
 #'
 #' @inheritParams bcf::bcf
 #'
@@ -91,12 +94,15 @@ bcf2 <- function (y, z, x_control, x_moderate = x_control, pihat, nburn,
 
   m_post = muy + sdy * fitbcf$m_post[, order(perm)]
   tau_post = sdy * fitbcf$b_post[, order(perm)]
-  list(sigma = sdy * fitbcf$sigma,
+  out <- list(sigma = sdy * fitbcf$sigma,
        yhat = muy + sdy * fitbcf$yhat_post[, order(perm)],
        tau = tau_post,
        mu_scale = fitbcf$msd * sdy,
        tau_scale = fitbcf$bsd * sdy,
        perm = perm,
-       treatment = sdy * fitbcf$b_post[, order(perm)]
+       treatment_effect = sdy * fitbcf$b_post[, order(perm)]
        )
+  class(out) <- "bcf"
+
+  return(out)
 }
