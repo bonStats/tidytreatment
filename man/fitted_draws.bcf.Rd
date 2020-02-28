@@ -4,8 +4,15 @@
 \alias{fitted_draws.bcf}
 \title{Get fitted draws from posterior of \code{bcf2} model}
 \usage{
-\method{fitted_draws}{bcf}(model, newdata, value = ".value", ...,
-  n = NULL, include_newdata = T, include_sigsqs = F)
+\method{fitted_draws}{bcf}(
+  model,
+  newdata,
+  value = ".value",
+  ...,
+  n = NULL,
+  include_newdata = T,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{A model fit with \code{tidytreatment::bcf2} function.}

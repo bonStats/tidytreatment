@@ -4,9 +4,16 @@
 \alias{predicted_draws.bartMachine}
 \title{Get predict draws from posterior of \code{bartMachine} model}
 \usage{
-\method{predicted_draws}{bartMachine}(model, newdata,
-  prediction = ".prediction", ..., n = NULL, include_newdata = T,
-  include_fitted = F, include_sigsqs = F)
+\method{predicted_draws}{bartMachine}(
+  model,
+  newdata,
+  prediction = ".prediction",
+  ...,
+  n = NULL,
+  include_newdata = T,
+  include_fitted = F,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{A \code{bartMachine} model.}

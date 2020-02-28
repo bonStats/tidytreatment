@@ -3,7 +3,6 @@
 \docType{package}
 \name{tidytreatment}
 \alias{tidytreatment}
-\alias{tidytreatment-package}
 \title{tidytreatment: Tidy methods for Bayesian treatment effect models}
 \description{
 tidytreatment provides functions for extracting tidy data from Bayesian treatment effect models, estimating treatment effects, and plotting useful summaries of these.

@@ -4,8 +4,14 @@
 \alias{fitted_draws_BART}
 \title{Get fitted draws from posterior of \code{BART}-package models}
 \usage{
-fitted_draws_BART(model, newdata = NULL, value = ".value", ...,
-  include_newdata = T, include_sigsqs = F)
+fitted_draws_BART(
+  model,
+  newdata = NULL,
+  value = ".value",
+  ...,
+  include_newdata = T,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{A model from \code{BART} package.}

@@ -4,8 +4,14 @@
 \alias{residual_draws_BART}
 \title{Get residual draw for BART model}
 \usage{
-residual_draws_BART(model, response, newdata = NULL,
-  residual = ".residual", include_newdata = T, include_sigsqs = F)
+residual_draws_BART(
+  model,
+  response,
+  newdata = NULL,
+  residual = ".residual",
+  include_newdata = T,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{model from \code{BART} package.}

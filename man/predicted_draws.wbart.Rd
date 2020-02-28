@@ -4,9 +4,16 @@
 \alias{predicted_draws.wbart}
 \title{Get predict draws from posterior of \code{wbart} model}
 \usage{
-\method{predicted_draws}{wbart}(model, newdata,
-  prediction = ".prediction", ..., n = NULL, include_newdata = T,
-  include_fitted = F, include_sigsqs = F)
+\method{predicted_draws}{wbart}(
+  model,
+  newdata,
+  prediction = ".prediction",
+  ...,
+  n = NULL,
+  include_newdata = T,
+  include_fitted = F,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{A \code{wbart} model.}

@@ -4,8 +4,15 @@
 \alias{fitted_draws.bartMachine}
 \title{Get fitted draws from posterior of \code{bartMachine} model}
 \usage{
-\method{fitted_draws}{bartMachine}(model, newdata, value = ".value", ...,
-  n = NULL, include_newdata = T, include_sigsqs = F)
+\method{fitted_draws}{bartMachine}(
+  model,
+  newdata,
+  value = ".value",
+  ...,
+  n = NULL,
+  include_newdata = T,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{A \code{bartMachine} model.}

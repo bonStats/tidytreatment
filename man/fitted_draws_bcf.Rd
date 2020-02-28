@@ -4,8 +4,13 @@
 \alias{fitted_draws_bcf}
 \title{Get fitted draws from posterior of \code{bcf}-package models}
 \usage{
-fitted_draws_bcf(model, newdata = NULL, value = ".value",
-  include_newdata = T, include_sigsqs = F)
+fitted_draws_bcf(
+  model,
+  newdata = NULL,
+  value = ".value",
+  include_newdata = T,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{A model from \code{bcf} package.}

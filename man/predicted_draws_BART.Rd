@@ -4,9 +4,15 @@
 \alias{predicted_draws_BART}
 \title{Get predict draws from posterior of \code{BART}-package models}
 \usage{
-predicted_draws_BART(model, newdata = NULL, prediction = ".prediction",
-  rng = stats::rnorm, include_newdata = T, include_fitted = F,
-  include_sigsqs = F)
+predicted_draws_BART(
+  model,
+  newdata = NULL,
+  prediction = ".prediction",
+  rng = stats::rnorm,
+  include_newdata = T,
+  include_fitted = F,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{A \code{BART}-package model.}

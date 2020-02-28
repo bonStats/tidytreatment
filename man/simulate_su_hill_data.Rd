@@ -4,11 +4,18 @@
 \alias{simulate_su_hill_data}
 \title{Simulate data with scenarios from Hill and Su (2013)}
 \usage{
-simulate_su_hill_data(n, treatment_linear = T,
-  response_parallel = TRUE, response_aligned = T, y_sd = 1,
-  tau = 4, omega = 0, add_categorical = F,
+simulate_su_hill_data(
+  n,
+  treatment_linear = T,
+  response_parallel = TRUE,
+  response_aligned = T,
+  y_sd = 1,
+  tau = 4,
+  omega = 0,
+  add_categorical = F,
   coef_categorical_treatment = NULL,
-  coef_categorical_nontreatment = NULL)
+  coef_categorical_nontreatment = NULL
+)
 }
 \arguments{
 \item{n}{Size of simulated sample.}

@@ -74,7 +74,7 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
 fitted_with_counter_factual_draws <- function(model, newdata, treatment, subset){
 
   stopifnot(
-    has_tidytreatment_methods(model)
+    has_tidytreatment_methods(model) | !missing(newdata)
     )
 
   if(missing(newdata)){

@@ -4,9 +4,15 @@
 \alias{residual_draws.bartMachine}
 \title{Get residual draw for \code{bartMachine} model}
 \usage{
-\method{residual_draws}{bartMachine}(model, newdata,
-  residual = ".residual", ..., n = NULL, include_newdata = T,
-  include_sigsqs = F)
+\method{residual_draws}{bartMachine}(
+  model,
+  newdata,
+  residual = ".residual",
+  ...,
+  n = NULL,
+  include_newdata = T,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{\code{bartMachine} model.}

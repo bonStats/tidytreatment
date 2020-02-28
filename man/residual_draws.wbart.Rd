@@ -4,8 +4,15 @@
 \alias{residual_draws.wbart}
 \title{Get residual draw for \code{wbart} model}
 \usage{
-\method{residual_draws}{wbart}(model, newdata, residual = ".residual",
-  ..., n = NULL, include_newdata = T, include_sigsqs = F)
+\method{residual_draws}{wbart}(
+  model,
+  newdata,
+  residual = ".residual",
+  ...,
+  n = NULL,
+  include_newdata = T,
+  include_sigsqs = F
+)
 }
 \arguments{
 \item{model}{\code{wbart} model.}

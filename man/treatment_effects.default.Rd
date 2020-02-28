@@ -4,8 +4,14 @@
 \alias{treatment_effects.default}
 \title{Get treatment effect draws from posterior}
 \usage{
-\method{treatment_effects}{default}(model, treatment, newdata,
-  subset = "all", common_support_method, cutoff)
+\method{treatment_effects}{default}(
+  model,
+  treatment,
+  newdata,
+  subset = "all",
+  common_support_method,
+  cutoff
+)
 }
 \arguments{
 \item{model}{A supported Bayesian model fit that can provide fits and predictions.}
