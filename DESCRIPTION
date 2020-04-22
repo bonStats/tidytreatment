@@ -12,7 +12,6 @@ Depends: R (>= 3.1.0)
 Suggests: 
     knitr,
     rmarkdown,
-    bcf,
     BART,
     bartMachine,
     ggplot2
@@ -22,4 +21,5 @@ Imports:
     tidybayes,
     tidyr,
     dplyr,
-    rlang
+    rlang,
+    bcf
