@@ -6,13 +6,16 @@
 #' @param treatment A character string specifying the name of the treatment variable.
 #' @param method Method to use in determining common support. 'chisq', or 'sd'.
 #' @param cutoff Cutoff point to use for method.
+#' @param modeldata Manually provide model data for some models (e.g. from BART package)
 #'
 #' @return Tibble with a row for each observation and a column indicating whether common support exists.
 #' @export
 #'
-has_common_support <- function(model, treatment, method, cutoff){
+has_common_support <- function(model, treatment, method, cutoff, modeldata = NULL){
 
-  modeldata <- stats::model.matrix(model)
+  if(is.null(modeldata)){
+    modeldata <- stats::model.matrix(model)
+  }
 
   stopifnot(
     treatment %in% colnames(modeldata),
@@ -33,7 +36,11 @@ has_common_support <- function(model, treatment, method, cutoff){
   }
 
   calc_common_support_from_fitted_and_cf(
-    fitted_and_cf = fitted_with_counter_factual_draws(model = model, treatment = treatment, subset = "all"),
+    fitted_and_cf = fitted_with_counter_factual_draws(
+      model = model,
+      newdata = modeldata,
+      treatment = treatment,
+      subset = "all"),
     modeldata = modeldata,
     treatment = treatment,
     method = method,

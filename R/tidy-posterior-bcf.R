@@ -18,7 +18,7 @@ fitted_draws_bcf <- function(model, newdata = NULL, value = ".value", include_ne
          Use original data used to fit the model.")
 
   if(!is.null(newdata)) warning("'newdata' is data used to fit the model for bcf models.
-                                Supplying alternative is non")
+                                Supplying alternative data to predict from is not possible")
 
   stopifnot(
     is.character(value),

@@ -15,8 +15,7 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
 
   if( is.null(newdata) & include_newdata)
     stop("For models from BART package 'newdata'
-          must be specified if 'include_newdata = T'.
-          Use original data used to fit the model.")
+          must be specified if 'include_newdata = T'.")
 
   stopifnot(
     is.character(value),
@@ -28,9 +27,12 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   # order for columns in output
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
 
-  if(missing(newdata)){
+  if(! (missing(newdata) | is.null(newdata)) ){
     # S3 predict methods in BART get yhat values.
-    posterior <- predict(object = model, newdata = newdata, ...)
+    xvars <- names(model$treedraws$cutpoints)
+    bartdata <- BART:::bartModelMatrix(newdata)[,xvars]
+    # dodraws=T => all draws (not just mean)
+    posterior <- predict(object = model, newdata = bartdata, dodraws=T, ...)
   } else {
     posterior <- model$yhat.train
   }
@@ -168,7 +170,11 @@ residual_draws_BART <- function(model, response, newdata = NULL, residual = ".re
 #'
 fitted_draws.wbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
 
-  fitted_draws_BART(model = model, newdata, value = value,
+  if(missing(newdata)){
+    newdata <- NULL
+  }
+
+  fitted_draws_BART(model = model, newdata = newdata, value = value,
                     ...,
                     include_newdata = include_newdata,
                     include_sigsqs = include_sigsqs)
@@ -275,9 +281,10 @@ predicted_draws.wbart <- function(model, newdata, prediction = ".prediction", ..
     newdata <- NULL
   }
 
-  predict_draws_(model = model, newdata = newdata, residual = residual,
-                      include_newdata = include_newdata,
-                      include_sigsqs = include_sigsqs, ...)
+  predicted_draws_BART(model = model, newdata = newdata,
+                       prediction = prediction,
+                        include_newdata = include_newdata,
+                        include_sigsqs = include_sigsqs, ...)
 
 }
 

@@ -16,7 +16,7 @@ Suggests:
     bartMachine,
     ggplot2
 VignetteBuilder: knitr
-RoxygenNote: 7.0.0
+RoxygenNote: 7.1.0
 Imports: 
     tidybayes,
     tidyr,

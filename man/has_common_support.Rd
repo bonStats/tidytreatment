@@ -4,7 +4,7 @@
 \alias{has_common_support}
 \title{Evaluate if observations have common support.}
 \usage{
-has_common_support(model, treatment, method, cutoff)
+has_common_support(model, treatment, method, cutoff, modeldata = NULL)
 }
 \arguments{
 \item{model}{A supported Bayesian model fit that can provide fits and predictions.}
@@ -14,6 +14,8 @@ has_common_support(model, treatment, method, cutoff)
 \item{method}{Method to use in determining common support. 'chisq', or 'sd'.}
 
 \item{cutoff}{Cutoff point to use for method.}
+
+\item{modeldata}{Manually provide model data for some models (e.g. from BART package)}
 }
 \value{
 Tibble with a row for each observation and a column indicating whether common support exists.
