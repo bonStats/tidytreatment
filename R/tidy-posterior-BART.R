@@ -33,6 +33,7 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
     bartdata <- BART:::bartModelMatrix(newdata)[,xvars]
     # dodraws=T => all draws (not just mean)
     posterior <- predict(object = model, newdata = bartdata, dodraws=T, ...)
+    if(!is.matrix(posterior)) posterior <- posterior$yhat.test
   } else {
     posterior <- model$yhat.train
   }
