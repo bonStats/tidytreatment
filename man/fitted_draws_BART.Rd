@@ -10,7 +10,8 @@ fitted_draws_BART(
   value = ".value",
   ...,
   include_newdata = T,
-  include_sigsqs = F
+  include_sigsqs = F,
+  scale = "real"
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ fitted_draws_BART(
 \item{include_newdata}{Should the newdata be included in the tibble?}
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
+
+\item{scale}{Should the fitted values be on the real, probit or logit scale?}
 }
 \value{
 A tidy data frame (tibble) with fitted values.

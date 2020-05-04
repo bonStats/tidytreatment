@@ -9,12 +9,14 @@
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
 #' @param subset Either "treated", "nontreated", or "all". Default is "all".
 #' @param common_support_method Either "sd", or "chisq". Default is unspecified, and no common support calculation is done.
+#' @param cutoff Cutoff for common support (if in use).
+#' @param ... Arguments to be passed to \code{tidybayes::fitted_draws} typically scale for \code{BART} models.
 #'
 #' @return A tidy data frame (tibble) with treatment effect values.
 #' @export
 #'
 
-treatment_effects <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff){
+treatment_effects <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff, ...){
 
   UseMethod("treatment_effects")
 
@@ -31,7 +33,7 @@ treatment_effects <- function(model, treatment, newdata, subset = "all", common_
 #' @return A tidy data frame (tibble) with treatment effect values.
 #' @export
 #'
-treatment_effects.default <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff){
+treatment_effects.default <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff, ...){
 
   stopifnot(
     !missing(treatment),
@@ -39,7 +41,7 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
     length(treatment) == 1
   )
 
-  posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, newdata, treatment, subset)
+  posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, newdata, treatment, subset, ...)
 
   posterior_treatment <- dplyr::select(
    dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer( !!rlang::sym(treatment) ) - 1L) * (observed - cfactual) ), # equivelant to treatment - non_treatment
@@ -71,7 +73,7 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
 
 }
 
-fitted_with_counter_factual_draws <- function(model, newdata, treatment, subset){
+fitted_with_counter_factual_draws <- function(model, newdata, treatment, subset, ...){
 
   stopifnot(
     has_tidytreatment_methods(model) | !missing(newdata)
@@ -95,13 +97,15 @@ fitted_with_counter_factual_draws <- function(model, newdata, treatment, subset)
   obs_fitted <- tidybayes::fitted_draws(
     model = model, value = "observed",
     newdata = newdata,
-    include_newdata = F
+    include_newdata = F,
+    ...
   )
 
   cfactual_fitted <- tidybayes::fitted_draws(
     model = model, value = "cfactual",
     newdata = dplyr::mutate(newdata, !!treatment := counter_factual( !!rlang::sym(treatment) ) ),
-    include_newdata = F
+    include_newdata = F,
+    ...
   )
 
   obs_fitted <- dplyr::left_join(

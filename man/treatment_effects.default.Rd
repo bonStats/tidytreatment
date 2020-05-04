@@ -10,7 +10,8 @@
   newdata,
   subset = "all",
   common_support_method,
-  cutoff
+  cutoff,
+  ...
 )
 }
 \arguments{
@@ -23,6 +24,10 @@
 \item{subset}{Either "treated", "nontreated", or "all". Default is "all".}
 
 \item{common_support_method}{Either "sd", or "chisq". Default is unspecified, and no common support calculation is done.}
+
+\item{cutoff}{Cutoff for common support (if in use).}
+
+\item{...}{Arguments to be passed to \code{tidybayes::fitted_draws} typically scale for \code{BART} models.}
 }
 \value{
 A tidy data frame (tibble) with treatment effect values.

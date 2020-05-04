@@ -5,11 +5,12 @@
 #' @param value The name of the output column for \code{fitted_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
+#' @param scale Should the fitted values be on the real, probit or logit scale?
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
-fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = T, include_sigsqs = F){
+fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = T, include_sigsqs = F, scale = "real"){
 
   stopifnot(has_installed_package("BART"))
 
@@ -24,6 +25,10 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
     class(model) %in% c("wbart","pbart","lbart","mbart","mbart2")
   )
 
+  use_scale <- match.arg(scale,
+                         c("real", "prob"),
+                         several.ok = F)
+
   # order for columns in output
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
 
@@ -37,6 +42,9 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   } else {
     posterior <- model$yhat.train
   }
+
+  if(use_scale == "prob" & "lbart" %in% class(model) ) posterior <- stats::plogis(posterior)
+  if(use_scale == "prob" & "pbart" %in% class(model) ) posterior <- stats::pnorm(posterior)
 
   # bind newdata with fitted, wide format
   out <- dplyr::bind_cols(
