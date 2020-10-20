@@ -47,7 +47,7 @@ This vignette simulates data using the scheme described by @Hill2013 with the ad
 
 ## Bayesian causal forests using `bcf` and help from `BART`
 
-Let's run the model to be used to assess treatment effects. The process described in @Hahn2017 is to:
+Let's run the model to be used to assess treatment effects. The process described in @Hahn2020 is to:
 
 1. Perform variable selection on the non-treatment variables $X$ that are related to the outcome $y$. 
   - We will use `BART` to find this subset $X_{S}$.
@@ -59,7 +59,7 @@ Let's run the model to be used to assess treatment effects. The process describe
   - We will use `bcf` for this.
 
 
-The `BART` and `bcf` packages are the ones used here, but several others are available^[`bartMachine` or `rbart` for example.].  `BART` will fit our standard Bayesian Additive Regression Trees (BART) [@Chipman2010], whilst `bcf` will fit our causal BARTs [@Hahn2017]. The packages can be found on CRAN ( [bcf](https://cran.r-project.org/package=bcf [BART](https://cran.r-project.org/package=BART).
+The `BART` and `bcf` packages are the ones used here, but several others are available^[`bartMachine` or `rbart` for example.].  `BART` will fit our standard Bayesian Additive Regression Trees (BART) [@Chipman2010], whilst `bcf` will fit our causal BARTs [@Hahn2020]. The packages can be found on CRAN ( [bcf](https://cran.r-project.org/package=bcf [BART](https://cran.r-project.org/package=BART).
  
 ```{r run-bart, echo=TRUE, results='hide', cache=FALSE}
   
