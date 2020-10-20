@@ -41,6 +41,8 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
     length(treatment) == 1
   )
 
+  if(missing(newdata)) check_method(model, method = "model.matrix", helper = "Please specify 'newdata' argument = data from model fitting.")
+
   posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, newdata, treatment, subset, ...)
 
   posterior_treatment <- dplyr::select(
