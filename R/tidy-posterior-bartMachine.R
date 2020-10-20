@@ -97,18 +97,10 @@ predicted_draws.bartMachine <- function(model, newdata, prediction = ".predictio
   out <- dplyr::mutate(out, !!prediction := stats::rnorm(n = n(), mean = .fit, sd = sqrt(sigsq) ) )
 
   # remove sigma^2 value if necessary
-  if(!include_sigsqs){
-
-    out <- dplyr::select(out, -sigsq)
-
-  }
+  if(!include_sigsqs) out <- dplyr::select(out, -sigsq)
 
   # remove fitted value if necessary
-  if(!include_fitted){
-
-    out <- dplyr::select(out, -.fit)
-
-  }
+  if(!include_fitted)  out <- dplyr::select(out, -.fit)
 
   return(out)
 

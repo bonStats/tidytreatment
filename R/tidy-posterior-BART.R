@@ -112,18 +112,10 @@ predicted_draws_BART <- function(model, newdata = NULL, prediction = ".predictio
   out <- dplyr::mutate(out, !!prediction := rng(n = n(), mean = .fit, sd = sqrt(sigsq) ) )
 
   # remove sigma^2 value if necessary
-  if(!include_sigsqs){
-
-    out <- dplyr::select(out, -sigsq)
-
-  }
+  if(!include_sigsqs) out <- dplyr::select(out, -sigsq)
 
   # remove fitted value if necessary
-  if(!include_fitted){
-
-    out <- dplyr::select(out, -.fit)
-
-  }
+  if(!include_fitted) out <- dplyr::select(out, -.fit)
 
   return(out)
 
@@ -154,7 +146,6 @@ residual_draws_BART <- function(model, response, newdata = NULL, residual = ".re
   fitted <- fitted_draws(model, newdata, value = ".fitted", n = NULL,
                          include_newdata = include_newdata,
                          include_sigsqs = include_sigsqs)
-
 
   out <- dplyr::mutate(
     dplyr::left_join(fitted, obs, by = ".row"),
