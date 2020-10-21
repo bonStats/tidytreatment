@@ -1,8 +1,8 @@
-#' Get treatment effect draws from posterior
+#' Get (individual) treatment effect draws from posterior
 #'
-#' CTE = Conditional Treatment Effects (or CATE, the average effects)
+#' CTE = Conditional Treatment Effects (usually used to generate (C)ATE or ATT)
 #' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
-#' Assumes treated column is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
+#' Assumes treated column is either a integer column of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 #'
 #' @param model A supported Bayesian model fit that can provide fits and predictions.
 #' @param treatment A character string specifying the name of the treatment variable.
@@ -26,7 +26,7 @@ treatment_effects <- function(model, treatment, newdata, subset = "all", common_
 #'
 #' CTE = Conditional Treatment Effects (or CATE, the average effects)
 #' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
-#' Assumes treated column is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
+#' Assumes treated column is either a integer column of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 #'
 #' @inheritParams treatment_effects
 #'
@@ -176,7 +176,7 @@ is_treated <- function(x){
 #'
 #' CTE = Conditional Treatment Effects (or CATE, the average effects)
 #' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
-#' Assumes treated column is either a integer colum of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
+#' Assumes treated column is either a integer column of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 #'
 #' @inheritParams treatment_effects
 #'

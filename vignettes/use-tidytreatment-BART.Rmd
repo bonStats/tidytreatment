@@ -68,8 +68,8 @@ Run the model to be used to assess treatment effects. Here we will use `BART`, w
   # regress z ~ most important covariates to get propensity score
   # BART::pbart is for probit regression 
   prop_bart <- pbart(
-    x.train = select(dat,var_select), 
-    y.train = select(dat, z)[[1]], 
+    x.train = select(dat, all_of(var_select)), 
+    y.train = pull(dat, z), 
     nskip = 2000,
     ndpost = 5000
     ) 
