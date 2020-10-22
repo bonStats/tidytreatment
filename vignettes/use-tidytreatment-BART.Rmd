@@ -187,6 +187,12 @@ posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
   geom_histogram(aes(x = cte_hat), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (median for each subject)")
   
+# get the ATE and ATT directly:
+
+  posterior_ate <- tidy_ate(bartM, treatment = "z", newdata = dat)
+  posterior_att <- tidy_att(bartM, treatment = "z", newdata = dat)
+
+
 ```
 
 We can also focus on the treatment effects for just those that are treated. 
