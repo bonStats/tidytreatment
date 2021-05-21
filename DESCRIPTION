@@ -14,7 +14,8 @@ Suggests:
     rmarkdown,
     BART,
     bartMachine,
-    ggplot2
+    ggplot2,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
 RoxygenNote: 7.1.1
 Imports: 
@@ -23,3 +24,4 @@ Imports:
     dplyr,
     rlang,
     bcf
+Config/testthat/edition: 3
