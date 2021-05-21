@@ -36,15 +36,15 @@ bcf2(
 
 \item{z}{Treatment variable}
 
-\item{x_control}{Design matrix for the "prognostic" function mu(x)}
+\item{x_control}{Design matrix for the prognostic function mu(x)}
 
 \item{x_moderate}{Design matrix for the covariate-dependent treatment effects tau(x)}
 
-\item{pihat}{Length n estimates of}
+\item{pihat}{Length n estimates of propensity score}
 
 \item{nburn}{Number of burn-in MCMC iterations}
 
-\item{nsim}{Number of MCMC iterations to save after burn-in}
+\item{nsim}{Number of MCMC iterations to save after burn-in. The chain will run for nsim*nthin iterations after burn-in}
 
 \item{nthin}{Save every nthin'th MCMC iterate. The total number of MCMC iterations will be nsim*nthin + nburn.}
 

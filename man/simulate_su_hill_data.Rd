@@ -6,9 +6,9 @@
 \usage{
 simulate_su_hill_data(
   n,
-  treatment_linear = T,
+  treatment_linear = TRUE,
   response_parallel = TRUE,
-  response_aligned = T,
+  response_aligned = TRUE,
   y_sd = 1,
   tau = 4,
   omega = 0,
@@ -32,14 +32,19 @@ simulate_su_hill_data(
 
 \item{omega}{Offset to control treatment assignment ratios.}
 
-\item{add_categorical}{(Not in Hill and Su) Should a categorical variable be added?}
+\item{add_categorical}{Should a categorical variable be added? (Not in Hill and Su)}
 
-\item{coef_categorical_treatment}{(Not in Hill and Su) What are the coefficients of the categorical variable under treatment?}
+\item{coef_categorical_treatment}{What are the coefficients of the categorical variable under treatment? (Not in Hill and Su)}
 
-\item{coef_categorical_nontreatment}{(Not in Hill and Su) What are the coefficients of the categorical variable under nontreatment?}
+\item{coef_categorical_nontreatment}{What are the coefficients of the categorical variable under nontreatment? (Not in Hill and Su)}
 }
 \value{
-List with data.frame of data, mean y values, and arguments, response formula and coefficients.
+An object of class \code{suhillsim} that is a list with elements
+\item{data}{Simulated data in data.frame}
+\item{mean_y}{The mean y values for each individual (row)}
+\item{args}{List of arguments passed to function}
+\item{formulas}{Response formulas used to generate data}
+\item{coefs}{Coefficients for the formulas}
 }
 \description{
 Sample \eqn{n} observations with the following scheme:
@@ -49,11 +54,15 @@ Sample \eqn{n} observations with the following scheme:
   \item Mean response: \eqn{E(Y(0)|X) = X \beta_0^L + Q \beta_0^N } and \eqn{E(Y(1)|X) = X \beta_1^L + Q \beta_1^N}.
   \item Observation: \eqn{Y ~ N(\mu,\sigma_y^2))}.
 }
+Superscript \eqn{L} denotes the linear components, whilst \eqn{N} deontes the non-linear
+components.
 }
 \details{
 Coefficients used are returned in the list this function creates. See Table 1 in Su and Hill (2013) for the table of coefficients.
 The \eqn{X_j} are in a data.frame named \code{data} in the returned list.
 The formula for the model matrix \eqn{[X,Q]} is named \code{su_hill_formula} in the returned list.
 The coefficients used for the model matrix are contained in \code{coefs}.
+The Su and Hill (2013) simulations did not include categorical variables, but you can add them here using arguments: \code{add_categorical}, \code{coef_categorical_treatment}, \code{coef_categorical_nontreatment}.
+
 Hill, Jennifer; Su, Yu-Sung. Ann. Appl. Stat. 7 (2013), no. 3, 1386--1420. doi:10.1214/13-AOAS630. \url{https://projecteuclid.org/euclid.aoas/1380804800}
 }

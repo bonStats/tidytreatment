@@ -7,11 +7,15 @@
 #'   \item Mean response: \eqn{E(Y(0)|X) = X \beta_0^L + Q \beta_0^N } and \eqn{E(Y(1)|X) = X \beta_1^L + Q \beta_1^N}.
 #'   \item Observation: \eqn{Y ~ N(\mu,\sigma_y^2))}.
 #' }
+#' Superscript \eqn{L} denotes the linear components, whilst \eqn{N} deontes the non-linear
+#' components.
 #'
 #' Coefficients used are returned in the list this function creates. See Table 1 in Su and Hill (2013) for the table of coefficients.
 #' The \eqn{X_j} are in a data.frame named \code{data} in the returned list.
 #' The formula for the model matrix \eqn{[X,Q]} is named \code{su_hill_formula} in the returned list.
 #' The coefficients used for the model matrix are contained in \code{coefs}.
+#' The Su and Hill (2013) simulations did not include categorical variables, but you can add them here using arguments: \code{add_categorical}, \code{coef_categorical_treatment}, \code{coef_categorical_nontreatment}.
+#'
 #' Hill, Jennifer; Su, Yu-Sung. Ann. Appl. Stat. 7 (2013), no. 3, 1386--1420. doi:10.1214/13-AOAS630. \url{https://projecteuclid.org/euclid.aoas/1380804800}
 #'
 #' @param n Size of simulated sample.
@@ -21,18 +25,23 @@
 #' @param response_parallel Response surface is parallel?
 #' @param response_aligned Response surface is aligned?
 #' @param y_sd Observation noise.
-#' @param add_categorical (Not in Hill and Su) Should a categorical variable be added?
-#' @param coef_categorical_treatment (Not in Hill and Su) What are the coefficients of the categorical variable under treatment?
-#' @param coef_categorical_nontreatment (Not in Hill and Su) What are the coefficients of the categorical variable under nontreatment?
-#' @return List with data.frame of data, mean y values, and arguments, response formula and coefficients.
+#' @param add_categorical Should a categorical variable be added? (Not in Hill and Su)
+#' @param coef_categorical_treatment What are the coefficients of the categorical variable under treatment? (Not in Hill and Su)
+#' @param coef_categorical_nontreatment What are the coefficients of the categorical variable under nontreatment? (Not in Hill and Su)
+#' @return An object of class \code{suhillsim} that is a list with elements
+#' \item{data}{Simulated data in data.frame}
+#' \item{mean_y}{The mean y values for each individual (row)}
+#' \item{args}{List of arguments passed to function}
+#' \item{formulas}{Response formulas used to generate data}
+#' \item{coefs}{Coefficients for the formulas}
 #' @export
-simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = TRUE, response_aligned = T, y_sd = 1, tau = 4, omega = 0, add_categorical = F, coef_categorical_treatment = NULL, coef_categorical_nontreatment = NULL){
+simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel = TRUE, response_aligned = TRUE, y_sd = 1, tau = 4, omega = 0, add_categorical = F, coef_categorical_treatment = NULL, coef_categorical_nontreatment = NULL){
 
   fargs <- as.list(match.call())
 
   coefs <- dplyr::tribble(
     ~"class",      ~"linear", ~"parallel", ~"aligned", ~"treatment",  ~"values",
-    # treatmeant assignment: linear, nonlinear
+    # treatment assignment: linear, nonlinear
     "treatment-assignment", TRUE,    NA,        NA,       NA,          c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.4, 0.2, 0.4, 0.2, 0.4, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     "treatment-assignment", FALSE,   NA,        NA,       NA,          c( 0.0, 0.0, 0.0, 0.0, 0.0, 0.4, 0.2, 0.4, 0.2, 0.4, 0.2, 0.8, 0.8, 0.5, 0.3, 0.8, 0.2, 0.4, 0.3, 0.8, 0.5),
     # response surface nonlinear and not parallel, aligned: treatment, nontreatment
@@ -55,7 +64,7 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
     treatment = TRUE
     )
 
-  coefs <- bind_rows(coefs, add_parallel_nontreatment, add_parallel_treatment)
+  coefs <- dplyr::bind_rows(coefs, add_parallel_nontreatment, add_parallel_treatment)
 
   coefs_treatment_assignment <-
     dplyr::filter(coefs,
@@ -152,7 +161,7 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
   frmls$treatment_assignment <- parse(text = chr_treatment_assignment_frm)
 
   # formula for response from treatment group
-  which_response_treatment <- filter(coefs_response, treatment == T)$values[[1]]
+  which_response_treatment <- dplyr::filter(coefs_response, treatment == T)$values[[1]]
   chr_response_treatment_frm <- paste( paste0(which_response_treatment, "*", formula_terms)[which_response_treatment != 0], collapse = " + " )
   if(add_categorical){
     add_chr_response_treatment_frm_cat <- paste0(coef_categorical_treatment, "*I(c1==", paste0("'", 1:length(coef_categorical_treatment), "'"), ")")[coef_categorical_treatment != 0]
@@ -160,8 +169,8 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
   }
   frmls$response_treatment <- parse(text = chr_response_treatment_frm)
 
-  # formula for response from nontreatment group
-  which_response_nontreatment <- filter(coefs_response, treatment == F)$values[[1]]
+  # formula for response from non-treatment group
+  which_response_nontreatment <- dplyr::filter(coefs_response, treatment == F)$values[[1]]
   chr_response_nontreatment_frm <- paste( paste0(which_response_nontreatment, "*", formula_terms)[which_response_nontreatment != 0], collapse = " + " )
   if(add_categorical){
     add_chr_response_nontreatment_frm_cat <- paste0(coef_categorical_nontreatment, "*I(c1==", paste0("'", 1:length(coef_categorical_nontreatment), "'"), ")")[coef_categorical_nontreatment != 0]
@@ -173,13 +182,27 @@ simulate_su_hill_data <- function(n, treatment_linear = T, response_parallel = T
 
 
   return(
-    list(
+    structure(list(
       data = rdata,
       mean_y = mean_y,
       args = fargs,
       formulas = frmls,
       coefs = dplyr::bind_rows(coefs_treatment_assignment, coefs_response)
-      )
+      ), class = "suhillsim"
     )
+  )
+
+}
+
+#' @export
+print.suhillsim <- function(x){
+
+  st = "Su-Hill Simulation"
+  ta = paste0("\n  Treatment assignment: ", as.character(x$formulas$treatment_assignment))
+  rt = paste0("\n  Response (treated): ", as.character(x$formulas$response_treatment))
+  rnt = paste0("\n  Response (nontreated): ", as.character(x$formulas$response_nontreatment))
+  en = paste0("\nList with elements\n", paste0("\t$", names(x), collapse = "\n"))
+
+  cat(st,ta,rt,rnt,en)
 
 }
