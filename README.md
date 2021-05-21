@@ -10,20 +10,10 @@ The package currently supports the following models:
 
 ## How to install
 
-1. Make sure at least one of the above model fitting packages is installed. If using with `bartMachine` see the additional prerequisites below.
-2. In `R` make sure `devtools` is installed. Install with `install.packages("devtools")`.
-    - For help: see the Rtools (windows) and Xcode (macOS) links on [this page](https://www.rstudio.com/products/rpackages/devtools/).
-3. Run `devtools::install_github("bonStats/tidytreatment")`
-
-### Prerequisites for usage with `bartMachine` package (required for vignette too)
-
-1. Install JDK and `rJava`
-    - Here is a [macOS guide](https://zhiyzuo.github.io/installation-rJava/), and
-    - a [Windows guide](https://cimentadaj.github.io/blog/2018-05-25-installing-rjava-on-windows-10/installing-rjava-on-windows-10/)
+1. Make sure at least one of the above model fitting packages is installed.
 2. In `R` make sure `remotes` is installed. Install with `install.packages("remotes")`.
     - For help: see the Rtools (windows) and Xcode (macOS) links on [this page](https://www.rstudio.com/products/rpackages/devtools/).
-3. Install the following (if not already installed): `install.packages(c("knitr","rmarkdown"))`
-4. Run `remotes::install_github("bonStats/tidytreatment", build_opts = c("--no-resave-data", "--no-manual"), dependencies = T )` 
+3. Run `remotes::install_github("bonStats/tidytreatment")`
 
 ## Package development aims
 
