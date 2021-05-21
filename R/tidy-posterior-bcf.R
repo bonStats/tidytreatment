@@ -65,7 +65,7 @@ fitted_draws_bcf <- function(model, newdata = NULL, value = ".value", include_ne
   # group
   row_groups <- names(out)[ ! names(out) %in% col_order[col_order != ".row"] ]
 
-  out <- dplyr::group_by(out, .dots = row_groups)
+  out <- dplyr::group_by(out, dplyr::across(row_groups))
 
   return(out)
 

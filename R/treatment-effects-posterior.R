@@ -46,7 +46,7 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
   posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, newdata, treatment, subset, ...)
 
   posterior_treatment <- dplyr::select(
-   dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer( !!rlang::sym(treatment) ) - 1L) * (observed - cfactual) ), # equivelant to treatment - non_treatment
+   dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer( !!rlang::sym(treatment) ) - 1L) * (observed - cfactual) ), # equivalent to treatment - non_treatment
     -observed, -cfactual)
 
   # add boolean for common support
@@ -223,7 +223,7 @@ treatment_effects.bcf <- function(model, treatment, newdata, subset = "all", com
   # group
   row_groups <- names(out)[ ! names(out) %in% col_order[col_order != ".row"] ]
 
-  out <- dplyr::group_by(out, .dots = row_groups)
+  out <- dplyr::group_by(out, dplyr::across(row_groups))
 
 
   return(out)

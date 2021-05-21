@@ -61,7 +61,7 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
   # group
   row_groups <- names(out)[ ! names(out) %in% col_order[col_order != ".row"] ]
 
-  out <- dplyr::group_by_(out, .dots = row_groups)
+  out <- dplyr::group_by(out, dplyr::across(row_groups))
 
   return(out)
 
