@@ -20,10 +20,10 @@ The package currently supports the following models:
 1. Install JDK and `rJava`
     - Here is a [macOS guide](https://zhiyzuo.github.io/installation-rJava/), and
     - a [Windows guide](https://cimentadaj.github.io/blog/2018-05-25-installing-rjava-on-windows-10/installing-rjava-on-windows-10/)
-2. In `R` make sure `devtools` is installed. Install with `install.packages("devtools")`.
+2. In `R` make sure `remotes` is installed. Install with `install.packages("remotes")`.
     - For help: see the Rtools (windows) and Xcode (macOS) links on [this page](https://www.rstudio.com/products/rpackages/devtools/).
 3. Install the following (if not already installed): `install.packages(c("knitr","rmarkdown"))`
-4. Run `devtools::install_github("bonStats/tidytreatment", build_opts = c("--no-resave-data", "--no-manual"), dependencies = T )` 
+4. Run `remotes::install_github("bonStats/tidytreatment", build_opts = c("--no-resave-data", "--no-manual"), dependencies = T )` 
 
 ## Package development aims
 
