@@ -11,3 +11,28 @@
 #' }
 #' @source \url{https://www.mcgill.ca/epi-biostat-occh/news-events/atlantic-causal-inference-conference-2019/data-challenge}
 "highDim_testdataset3"
+
+#' Example simulated dataset 1
+#'
+#' Simulated with \code{simulate_su_hill_data(...)}, see details.
+#' Includes propensity score estimated using BART (\code{prop_score}), see source.
+#'
+#' \preformatted{set.seed(101)
+#'  suhillsim1 <- simulate_su_hill_data(n = 200, treatment_linear = F,  omega = 0, add_categorical = T,
+#'    coef_categorical_treatment = c(0,0,1),
+#'    coef_categorical_nontreatment = c(-1,0,-1))
+#' }
+#'
+#' @format See \code{?simulate_su_hill_data} for output format.
+#' @source \url{https://github.com/bonStats/tidytreatment/tree/master/data-raw}
+"suhillsim1"
+
+#' Example model 1
+#'
+#' Model fit with simulated data from simulated dataset \code{suhillsim1}.
+#'
+#' Propensity score estimated and included \code{suhillsim1} for fittting the model.
+#'
+#' @format Object of type \code{BART::wbart}
+#' @source \url{https://github.com/bonStats/tidytreatment/tree/master/data-raw}
+"bartmodel1"
