@@ -2,9 +2,9 @@
 library(tidytreatment)
 library(BART)
 library(dplyr)
-tidytreatment:::with_seed(101, {
+withr::with_seed(101, {
 
-  sim <- simulate_su_hill_data(n = 200, treatment_linear = F,  omega = 0, add_categorical = T,
+  sim <- simulate_su_hill_data(n = 100, treatment_linear = F,  omega = 0, add_categorical = T,
                                coef_categorical_treatment = c(0,0,1),
                                coef_categorical_nontreatment = c(-1,0,-1)
   )
@@ -58,3 +58,4 @@ bartmodel1_modelmatrix <- datamatrix1
 usethis::use_data(suhillsim1, overwrite = T)
 usethis::use_data(bartmodel1, overwrite = T)
 usethis::use_data(bartmodel1_modelmatrix, overwrite = T)
+

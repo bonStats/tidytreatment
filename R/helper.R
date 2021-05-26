@@ -36,11 +36,3 @@ check_method <- function(x, method, helper = ""){
   if(!has_method_str(x_cl, method))
     stop("Object of class '",x_cl,"' does not have method '", method,"'.\n", helper, call. = F)
 }
-
-with_seed <- function(seed, code) {
-  code <- substitute(code)
-  orig.seed <- .Random.seed
-  on.exit(.Random.seed <<- orig.seed)
-  set.seed(seed)
-  eval.parent(code)
-}

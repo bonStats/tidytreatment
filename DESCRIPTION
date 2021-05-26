@@ -15,7 +15,8 @@ Suggests:
     BART,
     bartMachine,
     ggplot2,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 VignetteBuilder: knitr
 RoxygenNote: 7.1.1
 Imports: 
