@@ -14,7 +14,8 @@ tidytreatment:::with_seed(101, {
                            y.train = pull(sim$data, y),
                            sparse = T,
                            nskip = 2000,
-                           ndpost = 5000)
+                           ndpost = 5000,
+                           printevery = 1000L)
 
   # select most important vars from y ~ covariates model
   # very simple selection mechanism. Should use cross-validation in practice
@@ -28,25 +29,32 @@ tidytreatment:::with_seed(101, {
     x.train = select(sim$data, all_of(var_select)),
     y.train = pull(sim$data, z),
     nskip = 2000,
-    ndpost = 5000
+    ndpost = 5000,
+    printevery = 1000L
   )
 
   sim$data$prop_score <-  prop_bart$prob.train.mean
 
+  x.train = select(sim$data,-y)
+  y.train = pull(sim$data, y)
+
   bmodel <- wbart(
-    x.train = select(sim$data,-y),
-    y.train = pull(sim$data, y),
+    x.train = x.train,
+    y.train = y.train,
     nskip = 10000L,
     ndpost = 200L, # keep small to manage size on CRAN
     keepevery = 100L,
-    printevery= 3000L
+    printevery = 3000L
   )
 
+  datamatrix1 <- bartModelMatrix(X = x.train)
 
 })
 
 suhillsim1 <- sim
-bartmodel1 <- bart_model
+bartmodel1 <- bmodel
+bartmodel1_modelmatrix <- datamatrix1
 
 usethis::use_data(suhillsim1, overwrite = T)
 usethis::use_data(bartmodel1, overwrite = T)
+usethis::use_data(bartmodel1_modelmatrix, overwrite = T)

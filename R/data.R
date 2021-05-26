@@ -31,8 +31,16 @@
 #'
 #' Model fit with simulated data from simulated dataset \code{suhillsim1}.
 #'
-#' Propensity score estimated and included \code{suhillsim1} for fittting the model.
+#' Propensity score estimated and included \code{suhillsim1} for fitting the model.
 #'
 #' @format Object of type \code{BART::wbart}
 #' @source \url{https://github.com/bonStats/tidytreatment/tree/master/data-raw}
 "bartmodel1"
+
+#' Model matrix used for \code{bartmodel1}
+#'
+#' Useful for testing tidytreatment package functions.
+#'
+#' @format Object of type \code{BART::wbart}
+#' @source \url{https://github.com/bonStats/tidytreatment/tree/master/data-raw}
+"bartmodel1_modelmatrix"
