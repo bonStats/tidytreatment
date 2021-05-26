@@ -112,7 +112,7 @@ fitted_with_counter_factual_draws <- function(model, newdata, treatment, subset,
 
   obs_fitted <- dplyr::left_join(
     obs_fitted,
-    dplyr::mutate( dplyr::select(newdata, !!treatment), .row = 1:n()),
+    dplyr::mutate( dplyr::select(newdata, !!treatment), .row = 1:dplyr::n()),
     by = c(".row")
   )
 

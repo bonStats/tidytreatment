@@ -26,7 +26,7 @@ avg_treatment_effects <- function(model, treatment, newdata, subset = "all", com
         .chain, .iteration, .draw
   )
 
-  summarise(te, ate = mean(cte), .groups = "drop")
+  dplyr::summarise(te, ate = mean(cte), .groups = "drop")
 
 }
 
@@ -50,7 +50,7 @@ tidy_ate <- function(model, treatment, common_support_method, cutoff, ...){
   .dots <- list(...)
   if(!"newdata" %in% names(.dots)) check_method(model, method = "model.matrix", helper = "Please use 'avg_treatment_effects' function with 'newdata'.")
 
-  te <- group_by(
+  te <- dplyr::group_by(
     .data = treatment_effects(model = model, treatment = treatment,
                               subset = "all",
                               common_support_method = common_support_method,
@@ -58,7 +58,7 @@ tidy_ate <- function(model, treatment, common_support_method, cutoff, ...){
     .chain, .iteration, .draw
   )
 
-  summarise(te, ate = mean(cte), .groups = "drop")
+  dplyr::summarise(te, ate = mean(cte), .groups = "drop")
 
 }
 
@@ -82,7 +82,7 @@ tidy_att <- function(model, treatment, common_support_method, cutoff, ...){
   .dots <- list(...)
   if(!"newdata" %in% names(.dots)) check_method(model, method = "model.matrix", helper = "Please use 'avg_treatment_effects' function with 'newdata'.")
 
-  te <- group_by(
+  te <- dplyr::group_by(
     .data = treatment_effects(model = model, treatment = treatment,
                               subset = "treated",
                               common_support_method = common_support_method,
@@ -90,6 +90,6 @@ tidy_att <- function(model, treatment, common_support_method, cutoff, ...){
     .chain, .iteration, .draw
   )
 
-  summarise(te, att = mean(cte), .groups = "drop")
+  dplyr::summarise(te, att = mean(cte), .groups = "drop")
 
 }

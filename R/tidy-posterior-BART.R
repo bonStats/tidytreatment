@@ -109,7 +109,7 @@ predicted_draws_BART <- function(model, newdata = NULL, prediction = ".predictio
   out <- fitted_draws(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = T)
 
   # draw prediction from estimated variance
-  out <- dplyr::mutate(out, !!prediction := rng(n = n(), mean = .fit, sd = sqrt(sigsq) ) )
+  out <- dplyr::mutate(out, !!prediction := rng(n = dplyr::n(), mean = .fit, sd = sqrt(sigsq) ) )
 
   # remove sigma^2 value if necessary
   if(!include_sigsqs) out <- dplyr::select(out, -sigsq)
