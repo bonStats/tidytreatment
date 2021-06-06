@@ -137,7 +137,7 @@ predicted_draws_BART <- function(model, newdata = NULL, prediction = ".predictio
 #'
 residual_draws_BART <- function(model, response, newdata = NULL, residual = ".residual", include_newdata = T, include_sigsqs = F){
 
-  if(missing(response)) stop("Models from BART pacakge require response (y) as argument")
+  if(missing(response)) stop("Models from BART pacakge require response (y) as argument. Specify 'response = <y variable>' as argument.")
 
   stopifnot(is.numeric(response))
 
