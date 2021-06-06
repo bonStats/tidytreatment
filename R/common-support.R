@@ -1,6 +1,11 @@
 #' Evaluate if observations have common support.
 #'
-#' The common support identification methods are based on Hill and Su (2013), The Annals of Applied Statistics, 7(3).
+#' The common support identification methods are based on Hill and Su (2013).
+#' Loosely speaker, an individuals treatment effect estimate has common support if the counter factual
+#' estimate is not too uncertain. The estimates are uncertain when the prediction is 'far away' from
+#' other observations.
+#'
+#' Hill, Jennifer; Su, Yu-Sung. Ann. Appl. Stat. 7 (2013), no. 3, 1386--1420. doi:10.1214/13-AOAS630. \url{https://projecteuclid.org/euclid.aoas/1380804800}
 #'
 #' @param model A supported Bayesian model fit that can provide fits and predictions.
 #' @param treatment A character string specifying the name of the treatment variable.
