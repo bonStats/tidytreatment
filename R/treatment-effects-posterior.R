@@ -41,9 +41,20 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
     length(treatment) == 1
   )
 
-  if(missing(newdata)) check_method(model, method = "model.matrix", helper = "Please specify 'newdata' argument = data from model fitting.")
+  if(missing(newdata)){
 
-  posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, newdata, treatment, subset, ...)
+    check_method(model, method = "model.matrix",
+                 helper = "Please specify 'newdata' argument = data from model fitting.")
+
+    modeldata <- stats::model.matrix(model)
+
+  } else {
+
+    modeldata <- newdata
+
+  }
+
+  posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, modeldata, treatment, subset, ...)
 
   posterior_treatment <- dplyr::select(
    dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer( !!rlang::sym(treatment) ) - 1L) * (observed - cfactual) ), # equivalent to treatment - non_treatment
@@ -54,13 +65,16 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
 
     stopifnot(
       !missing(cutoff),
-      missing(newdata) # should use mode data only.
+      # should use model data only, unless needs to be specified (e.g. for BART models).
+      missing(newdata) | !has_tidytreatment_methods(model)
     )
+
+    if( !missing(newdata) ) message("Note: Argument 'newdata' must be original dataset when calculating common support.")
 
     common_supp <-
       calc_common_support_from_fitted_and_cf(
         fitted_and_cf = posterior_fit_with_cf,
-        modeldata = stats::model.matrix(model),
+        modeldata = modeldata,
         treatment = treatment,
         method = common_support_method,
         cutoff = cutoff
