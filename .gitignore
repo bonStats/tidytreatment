@@ -6,3 +6,5 @@ inst/doc
 .RData
 .Ruserdata
 *_cache/
+/doc/
+/Meta/
