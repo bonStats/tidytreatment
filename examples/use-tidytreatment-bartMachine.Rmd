@@ -2,7 +2,7 @@
 title: "Using the tidytreatment package"
 author: "Joshua J Bon"
 date: "`r Sys.Date()`"
-bibliography: vignette.bib
+bibliography: ../vignettes/vignette.bib
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Using tidytreatment with bartMachine}
