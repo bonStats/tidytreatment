@@ -57,8 +57,8 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
   posterior_fit_with_cf <- fitted_with_counter_factual_draws(model, modeldata, treatment, subset, ...)
 
   posterior_treatment <- dplyr::select(
-   dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer( !!rlang::sym(treatment) ) - 1L) * (observed - cfactual) ), # equivalent to treatment - non_treatment
-    -observed, -cfactual)
+   dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer( !!rlang::sym(treatment) ) - 1L) * (.data$observed - .data$cfactual) ), # equivalent to treatment - non_treatment
+    -.data$observed, -.data$cfactual)
 
   # add boolean for common support
   if(!missing(common_support_method)){

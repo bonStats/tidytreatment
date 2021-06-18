@@ -30,7 +30,7 @@ covariate_with_treatment_importance.bartMachine  <- function(model, treatment, .
     sd = ii$interaction_counts_sd[,treatment_col]
   )
 
-  dplyr::filter(res, variable != treatment)
+  dplyr::filter(res, .data$variable != treatment)
 
 }
 

@@ -59,8 +59,8 @@ calc_common_support_from_fitted_and_cf <- function(fitted_and_cf, modeldata, tre
 
   posterior_obs_cf_sd <- dplyr::summarise(
     fitted_and_cf,
-    sd_observed = stats::sd(observed),
-    sd_cfactual = stats::sd(cfactual)
+    sd_observed = stats::sd(.data$observed),
+    sd_cfactual = stats::sd(.data$cfactual)
   )
 
   common_support_cutoff <- switch(method,
@@ -71,8 +71,8 @@ calc_common_support_from_fitted_and_cf <- function(fitted_and_cf, modeldata, tre
 
   dplyr::mutate(posterior_obs_cf_sd,
                 common_support =
-                  common_support_cutoff(sd_obs = sd_observed,
-                                        sd_cf = sd_cfactual,
+                  common_support_cutoff(sd_obs = .data$sd_observed,
+                                        sd_cf = .data$sd_cfactual,
                                         cutoff = cutoff,
                                         treatment = modeldata[posterior_obs_cf_sd$.row,treatment])
   )

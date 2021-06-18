@@ -35,7 +35,7 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   if(! (missing(newdata) | is.null(newdata)) ){
     # S3 predict methods in BART get yhat values.
     xvars <- names(model$treedraws$cutpoints)
-    bartdata <- BART:::bartModelMatrix(newdata)[,xvars]
+    bartdata <- BART::bartModelMatrix(newdata)[,xvars]
     # dodraws=T => all draws (not just mean)
     posterior <- predict(object = model, newdata = bartdata, dodraws=T, ...)
     if(!is.matrix(posterior)) posterior <- posterior$yhat.test
@@ -57,7 +57,7 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   out <- tidyr::gather(out, key = ".draw", value = !!value, dplyr::starts_with(".col_iter"))
 
   # add variables to keep to generic standard, remove string in
-  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer( gsub(pattern = ".col_iter", replacement = "", x =.draw) ) )
+  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer( gsub(pattern = ".col_iter", replacement = "", x = .data$.draw) ) )
 
   # include sigma^2 if needed
   if(include_sigsqs){
@@ -109,13 +109,13 @@ predicted_draws_BART <- function(model, newdata = NULL, prediction = ".predictio
   out <- fitted_draws(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = T)
 
   # draw prediction from estimated variance
-  out <- dplyr::mutate(out, !!prediction := rng(n = dplyr::n(), mean = .fit, sd = sqrt(sigsq) ) )
+  out <- dplyr::mutate(out, !!prediction := rng(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq) ) )
 
   # remove sigma^2 value if necessary
-  if(!include_sigsqs) out <- dplyr::select(out, -sigsq)
+  if(!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
 
   # remove fitted value if necessary
-  if(!include_fitted) out <- dplyr::select(out, -.fit)
+  if(!include_fitted) out <- dplyr::select(out, -.data$.fit)
 
   return(out)
 
@@ -141,7 +141,7 @@ residual_draws_BART <- function(model, response, newdata = NULL, residual = ".re
 
   stopifnot(is.numeric(response))
 
-  obs <- tibble::tibble(y = response, .row = 1:length(response))
+  obs <- dplyr::tibble(y = response, .row = 1:length(response))
 
   fitted <- fitted_draws(model, newdata, value = ".fitted", n = NULL,
                          include_newdata = include_newdata,
@@ -149,9 +149,9 @@ residual_draws_BART <- function(model, response, newdata = NULL, residual = ".re
 
   out <- dplyr::mutate(
     dplyr::left_join(fitted, obs, by = ".row"),
-    !!residual := y - .fitted)
+    !!residual := .data$y - .data$.fitted)
 
-  group_by(out, .row)
+  dplyr::group_by(out, .row)
 
 }
 

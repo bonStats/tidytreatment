@@ -259,7 +259,7 @@ We can also plot the CATEs varying over particular covariates. In this example, 
 ```{r cates-line-plot, echo=TRUE, cache=FALSE}
 
 posterior_treat_eff %>%
-  left_join(tibble(c1 = dat$c1, .row = 1:length(dat$c1) ), by = ".row") %>%
+  left_join(dplyr::tibble(c1 = dat$c1, .row = 1:length(dat$c1) ), by = ".row") %>%
   group_by(c1) %>%
   ggplot() + 
       geom_eye(aes(x = c1, y = cte), alpha = 0.2) +

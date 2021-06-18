@@ -55,7 +55,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
   # add parallel response surfaces:
   add_parallel_nontreatment <-
     dplyr::mutate(
-      dplyr::filter(coefs, class == "response", !treatment),
+      dplyr::filter(coefs, class == "response", !.data$treatment),
      parallel = TRUE
   )
 
@@ -69,22 +69,22 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
   coefs_treatment_assignment <-
     dplyr::filter(coefs,
                   class == "treatment-assignment",
-                  linear == treatment_linear
+                  .data$linear == treatment_linear
                   )
 
   coefs_response <-
     dplyr::filter(coefs,
                   class == "response",
-                  parallel == response_parallel,
-                  aligned == response_aligned)
+                  .data$parallel == response_parallel,
+                  .data$aligned == response_aligned)
 
   stopifnot(nrow(coefs_treatment_assignment) == 1,
             nrow(coefs_response) == 2
             )
 
   coef_assign <- coefs_treatment_assignment$values[[1]]
-  coef_y_0 <- dplyr::filter(coefs_response, treatment == FALSE)$values[[1]]
-  coef_y_1 <- dplyr::filter(coefs_response, treatment == TRUE)$values[[1]]
+  coef_y_0 <- dplyr::filter(coefs_response, .data$treatment == FALSE)$values[[1]]
+  coef_y_1 <- dplyr::filter(coefs_response, .data$treatment == TRUE)$values[[1]]
 
   invlogit <- function(x){ exp(x) / ( 1 + exp(x) )  }
 
@@ -161,7 +161,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
   frmls$treatment_assignment <- parse(text = chr_treatment_assignment_frm)
 
   # formula for response from treatment group
-  which_response_treatment <- dplyr::filter(coefs_response, treatment == T)$values[[1]]
+  which_response_treatment <- dplyr::filter(coefs_response, .data$treatment == T)$values[[1]]
   chr_response_treatment_frm <- paste( paste0(which_response_treatment, "*", formula_terms)[which_response_treatment != 0], collapse = " + " )
   if(add_categorical){
     add_chr_response_treatment_frm_cat <- paste0(coef_categorical_treatment, "*I(c1==", paste0("'", 1:length(coef_categorical_treatment), "'"), ")")[coef_categorical_treatment != 0]
@@ -170,7 +170,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
   frmls$response_treatment <- parse(text = chr_response_treatment_frm)
 
   # formula for response from non-treatment group
-  which_response_nontreatment <- dplyr::filter(coefs_response, treatment == F)$values[[1]]
+  which_response_nontreatment <- dplyr::filter(coefs_response, .data$treatment == F)$values[[1]]
   chr_response_nontreatment_frm <- paste( paste0(which_response_nontreatment, "*", formula_terms)[which_response_nontreatment != 0], collapse = " + " )
   if(add_categorical){
     add_chr_response_nontreatment_frm_cat <- paste0(coef_categorical_nontreatment, "*I(c1==", paste0("'", 1:length(coef_categorical_nontreatment), "'"), ")")[coef_categorical_nontreatment != 0]
@@ -195,7 +195,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
 }
 
 #' @export
-print.suhillsim <- function(x){
+print.suhillsim <- function(x, ...){
 
   st = "Su-Hill Simulation"
   ta = paste0("\n  Treatment assignment: ", as.character(x$formulas$treatment_assignment))

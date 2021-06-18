@@ -18,15 +18,15 @@
 #'
 avg_treatment_effects <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff, ...){
 
-  te <- group_by(
+  te <- dplyr::group_by(
         .data = treatment_effects(model = model, treatment = treatment,
                           newdata = newdata, subset = subset,
                           common_support_method = common_support_method,
                           cutoff = cutoff, ...),
-        .chain, .iteration, .draw
+        .data$.chain, .data$.iteration, .data$.draw
   )
 
-  dplyr::summarise(te, ate = mean(cte), .groups = "drop")
+  dplyr::summarise(te, ate = mean(.data$cte), .groups = "drop")
 
 }
 
@@ -55,10 +55,10 @@ tidy_ate <- function(model, treatment, common_support_method, cutoff, ...){
                               subset = "all",
                               common_support_method = common_support_method,
                               cutoff = cutoff, ...),
-    .chain, .iteration, .draw
+    .data$.chain, .data$.iteration, .data$.draw
   )
 
-  dplyr::summarise(te, ate = mean(cte), .groups = "drop")
+  dplyr::summarise(te, ate = mean(.data$cte), .groups = "drop")
 
 }
 
@@ -87,9 +87,9 @@ tidy_att <- function(model, treatment, common_support_method, cutoff, ...){
                               subset = "treated",
                               common_support_method = common_support_method,
                               cutoff = cutoff, ...),
-    .chain, .iteration, .draw
+    .data$.chain, .data$.iteration, .data$.draw
   )
 
-  dplyr::summarise(te, att = mean(cte), .groups = "drop")
+  dplyr::summarise(te, att = mean(.data$cte), .groups = "drop")
 
 }
