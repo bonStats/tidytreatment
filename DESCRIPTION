@@ -23,6 +23,5 @@ Imports:
     tidybayes,
     tidyr,
     dplyr,
-    rlang,
-    bcf
+    rlang
 Config/testthat/edition: 3

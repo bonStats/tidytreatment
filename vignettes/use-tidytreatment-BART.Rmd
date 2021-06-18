@@ -35,7 +35,7 @@ suppressPackageStartupMessages({
   
 ```
 
-This vignette demonstrates an example workflow for heterogeneous treatment effect models using the `BART` package for fitting Bayesian Additive Regression Trees and `tidytreatment` for investigating the output of such models. The `tidytreatment` package can also be used with `bartMachine` models, support for `bcf` is coming soon. 
+This vignette demonstrates an example workflow for heterogeneous treatment effect models using the `BART` package for fitting Bayesian Additive Regression Trees and `tidytreatment` for investigating the output of such models. The `tidytreatment` package can also be used with `bartMachine` models, support for `bcf` is coming soon (see branch `bcf-hold` on github). 
 
 ## Simulate data
 

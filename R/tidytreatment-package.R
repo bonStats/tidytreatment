@@ -7,6 +7,5 @@
 #' @importFrom tidybayes fitted_draws predicted_draws residual_draws add_predicted_draws add_fitted_draws add_residual_draws
 #' @importFrom stats rnorm
 #' @importFrom rlang := !!
-#' @importFrom bcf bcf
 #'
 NULL

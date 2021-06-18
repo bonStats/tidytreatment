@@ -5,7 +5,7 @@
 The package currently supports the following models:
 
 - `BART`: see [CRAN](https://cran.r-project.org/package=BART)
-- `bcf`: see [CRAN](https://cran.r-project.org/package=bcf). Limited functionality, must use `tidytreatment::bcf2` to use.
+- `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (see branch `bcf-hold` on github).
 - `bartMachine`: see [CRAN](https://cran.r-project.org/package=bartMachine).
 
 ## How to install
@@ -24,7 +24,7 @@ The package currently supports the following models:
     - ~~`treatment_effects`~~: Conditional (Average) Treatment Effects
     - ~~Common support testing~~
     - Unit testing
-- Methods for `bcf` models.
+- Methods for `bcf` models (see branch `bcf-hold` on github).
     - ~~Implement `fitted_draws`~~ 
     - Implement `predicted_draws`
     - Implement `residual_draws`
