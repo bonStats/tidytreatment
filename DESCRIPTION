@@ -8,6 +8,8 @@ Description: Functions for extracting tidy data from Bayesian treatment effect m
 Encoding: UTF-8
 LazyData: true
 License: MIT + file LICENSE
+URL: https://github.com/bonStats/tidytreatment
+BugReports: https://github.com/bonStats/tidytreatment/issues
 Depends: R (>= 3.1.0)
 Suggests: 
     knitr,
