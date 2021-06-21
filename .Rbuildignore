@@ -6,3 +6,4 @@
 ^data-raw$
 ^examples$
 ^\.github$
+^cran-comments\.md$
