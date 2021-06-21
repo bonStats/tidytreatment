@@ -1,6 +1,6 @@
 Package: tidytreatment
 Type: Package
-Title: Tidy methods for Bayesian treatment effect models
+Title: Tidy Methods for Bayesian Treatment Effect Models
 Version: 0.2.0
 Authors@R: person("Joshua J", "Bon", email = "joshuajbon@gmail.com",
                   role = c("aut", "cre"))
