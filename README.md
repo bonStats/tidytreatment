@@ -9,8 +9,8 @@
 The package currently supports the following models:
 
 - `BART`: see [CRAN](https://cran.r-project.org/package=BART)
-- `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (see branch `bcf-hold` on github).
 - `bartMachine`: see [CRAN](https://cran.r-project.org/package=bartMachine).
+- `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (in development, see branch `bcf-hold` on github).
 
 ## How to install
 
