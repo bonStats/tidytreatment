@@ -342,6 +342,21 @@ We can count how many times a variable was included in the BART (on average) in 
 
 Here are some examples of model checking we can do.
 
+Code for trace plot of model variance ($\sigma^2$).
+
+```{r sigma-trace, echo=TRUE, cache=FALSE}
+
+# includes skipped MCMC samples
+variance_draws(te_model, value = "siqsq") %>% 
+  filter(.draw > 10000) %>%
+  ggplot(aes(x = .draw, y = siqsq)) +
+  geom_line() +
+  theme_bw() + 
+  ggtitle("Trace plot of model variance post warm-up")
+
+```
+Code for examining model residuals.
+
 ```{r convergence-bart, echo=TRUE, cache=FALSE}
 
 res <- residual_draws(te_model, response = pull(dat, y), include_newdata = F)
