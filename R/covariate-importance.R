@@ -36,6 +36,9 @@ covariate_with_treatment_importance.bartMachine  <- function(model, treatment, .
 
 #' Counts of variable overall inclusion
 #'
+#' Inclusion metric for bartMachine and BART are scaled differently.
+#' bartMachine averaged over number of trees, in addition to number of MCMC draws.
+#'
 #' @param model Model
 #' @param ... Arguments to pass to particular methods.
 #'
@@ -59,5 +62,124 @@ covariate_importance.bartMachine  <- function(model, ...){
   )
 
   res
+
+}
+
+covariate_with_treatment_importance_BART  <- function(model, treatment, ...){
+  # currently only use the (single) fitted BART model.
+  # Whereas bartMachine uses average over replicates (default 5)
+  ttree <- posterior_trees_BART(model)
+
+  ttree_treat <- dplyr::select(
+    dplyr::filter(ttree$trees, .data$var == treatment),
+    .data$iter,
+    .data$tree_id
+  )
+
+  # filtered to trees with treatment
+  var_counts <- table(
+    dplyr::left_join(ttree_treat, ttree$trees, by = c("iter", "tree_id"))$var,
+    useNA = "no")
+
+  res <- dplyr::tibble(
+    variable = names(var_counts),
+    avg_inclusion = as.numeric(var_counts),
+    sd = NA
+  )
+
+  # add vars if missing from table
+  var_names <- names(model$varprob.mean)
+  missing_vars <- ! var_names %in% res$variable
+
+  if(any(missing_vars)){
+    add_res <- dplyr::tibble(
+      variable = var_names[missing_vars],
+      avg_inclusion = 0,
+      sd = NA)
+    res <- dplyr::bind_rows(res, add_res)
+  }
+
+  dplyr::filter(res, .data$variable != treatment)
+
+}
+
+covariate_importance_BART  <- function(model, ...){
+
+  # mean over mcmc draws
+  vv <- model$varcount.mean
+
+  res <- dplyr::tibble(
+    variable = names(vv),
+    avg_inclusion = vv
+  )
+
+  res
+
+}
+
+#' @export
+covariate_importance.wbart  <- function(model, ...){
+
+  covariate_importance_BART(model, ...)
+
+}
+#' @export
+covariate_importance.pbart  <- function(model, ...){
+
+  covariate_importance_BART(model, ...)
+
+}
+#' @export
+covariate_importance.lbart  <- function(model, ...){
+
+  covariate_importance_BART(model, ...)
+
+}
+
+#' @export
+covariate_importance.mbart  <- function(model, ...){
+
+  covariate_importance_BART(model, ...)
+
+}
+#' @export
+covariate_importance.mbart2  <- function(model, ...){
+
+  covariate_importance_BART(model, ...)
+
+}
+
+#' @export
+covariate_with_treatment_importance.wbart  <- function(model, treatment, ...){
+
+  covariate_with_treatment_importance_BART(model, treatment, ...)
+
+}
+
+#' @export
+covariate_with_treatment_importance.pbart  <- function(model, treatment, ...){
+
+  covariate_with_treatment_importance_BART(model, treatment, ...)
+
+}
+
+#' @export
+covariate_with_treatment_importance.lbart  <- function(model, treatment, ...){
+
+  covariate_with_treatment_importance_BART(model, treatment, ...)
+
+}
+
+#' @export
+covariate_with_treatment_importance.mbart2  <- function(model, treatment, ...){
+
+  covariate_with_treatment_importance_BART(model, treatment, ...)
+
+}
+
+#' @export
+covariate_with_treatment_importance.mbart  <- function(model, treatment, ...){
+
+  covariate_with_treatment_importance_BART(model, treatment, ...)
 
 }

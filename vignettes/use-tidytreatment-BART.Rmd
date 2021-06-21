@@ -97,10 +97,13 @@ var_select_bart <- wbart(x.train = select(dat,-y,-z),
 # STEP 2: Variable selection
   # select most important vars from y ~ covariates model
   # very simple selection mechanism. Should use cross-validation in practice
-var_select <- var_select_bart$varprob.mean %>% {which(. > 1/length(.))} %>% names()
+covar_ranking <- covariate_importance(var_select_bart)
+var_select <- covar_ranking %>% 
+  filter(avg_inclusion >= quantile(avg_inclusion, 0.5)) %>%
+  pull(variable)
 
-# change categoricals to just one variable
-var_select <- gsub("c1[1-3]$","c1",var_select)
+# change categorical variables to just one variable
+var_select <- unique(gsub("c1[1-3]$","c1", var_select))
 
 var_select
 

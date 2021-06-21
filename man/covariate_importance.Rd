@@ -15,5 +15,6 @@ covariate_importance(model, ...)
 Tidy data with counts of variable inclusion, when interacting with treatment variable.
 }
 \description{
-Counts of variable overall inclusion
+Inclusion metric for bartMachine and BART are scaled differently.
+bartMachine averaged over number of trees, in addition to number of MCMC draws.
 }
