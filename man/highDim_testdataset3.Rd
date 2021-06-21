@@ -14,7 +14,7 @@ A data frame with 2000 observations, and 187 variables.
 }
 }
 \source{
-\url{https://www.mcgill.ca/epi-biostat-occh/news-events/atlantic-causal-inference-conference-2019/data-challenge}
+\url{https://www.mcgill.ca/epi-biostat-occh/seminars-events/atlantic-causal-inference-conference-2019/data-challenge}
 }
 \usage{
 highDim_testdataset3
