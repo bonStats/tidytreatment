@@ -7,7 +7,7 @@
 #'   \item Mean response: \eqn{E(Y(0)|X) = X \beta_0^L + Q \beta_0^N } and \eqn{E(Y(1)|X) = X \beta_1^L + Q \beta_1^N}.
 #'   \item Observation: \eqn{Y ~ N(\mu,\sigma_y^2))}.
 #' }
-#' Superscript \eqn{L} denotes the linear components, whilst \eqn{N} deontes the non-linear
+#' Superscript \eqn{L} denotes the linear components, whilst \eqn{N} denotes the non-linear
 #' components.
 #'
 #' Coefficients used are returned in the list this function creates. See Table 1 in Su and Hill (2013) for the table of coefficients.
