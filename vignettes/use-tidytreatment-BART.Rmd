@@ -216,6 +216,24 @@ posterior_att <- tidy_att(te_model, treatment = "z", newdata = dat)
 
 ```
 
+```{r ate-trace-setup, eval = T, echo = F}
+
+posterior_ate <- posterior_treat_eff %>% group_by(.chain, .iteration, .draw) %>%
+  summarise(ate = mean(cte), .groups = "drop")
+
+```
+
+We can create a trace plot for the treatment effect summaries easily too:
+
+```{r ate-trace, eval=TRUE, echo=TRUE}
+
+posterior_ate %>% ggplot(aes(x = .draw, y = ate)) +
+  geom_line() +
+  theme_bw() + 
+  ggtitle("Trace plot of ATE")
+
+```
+
 We can also focus on the treatment effects for just those that are treated. 
 
 ```{r post-te-treated, echo=TRUE, eval=FALSE}
@@ -295,7 +313,30 @@ posterior_treat_eff_on_treated <-
 
 ## Investigating variable importance
 
-Not yet implemented for `BART` models.
+We can count how many times a variable was included in the BART (on average) in conjunction with the treatment effect, or overall. This is a simple average see @bleich2014variable for more sophisticated methods.
+
+```{r interaction-investigator, echo=T, cache=F}
+
+  treatment_interactions <-
+    covariate_with_treatment_importance(te_model, treatment = "z")
+
+  treatment_interactions %>% 
+    ggplot() + 
+    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
+    theme_bw() + ggtitle("Important variables interacting with treatment ('z')") + ylab("Inclusion counts") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+  
+  variable_importance <-
+    covariate_importance(te_model)
+
+  variable_importance %>% 
+    ggplot() + 
+    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
+    theme_bw() + ggtitle("Important variables overall") +
+    ylab("Inclusion counts") +
+    theme(axis.text.x = element_text(angle = 45, hjust=1))
+  
+```
 
 ## Model checking and convergence
 
