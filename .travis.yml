@@ -8,8 +8,12 @@ r:
 os:
   - linux
   - osx
-osx_image: xcode12.5
 arch:
   - x64
   - x86
+jobs:
+  exclude:
+    - r: oldrel
+      os: osx
 cache: packages
+osx_image: xcode12.5
