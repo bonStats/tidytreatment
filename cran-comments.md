@@ -1,3 +1,10 @@
+## Resubmission
+This is a resubmission. In this version I have:
+
+* Converted all instances of 'T' and 'F' to 'TRUE' and 'FALSE'
+
+* Removed the dependence on 'installed.packages()'
+
 ## Test environments
 * local: ubuntu-16.04, R-4.1.0
 * github-actions: ubuntu-18.04, R-devel, R-release, R-3.6, R-3.5
