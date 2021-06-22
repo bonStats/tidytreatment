@@ -7,6 +7,6 @@
 #' @importFrom tidybayes fitted_draws predicted_draws residual_draws add_predicted_draws add_fitted_draws add_residual_draws
 #' @importFrom stats rnorm predict terms
 #' @importFrom rlang := !! .data
-#' @importFrom utils installed.packages methods
+#' @importFrom utils methods
 #'
 NULL

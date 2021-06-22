@@ -17,7 +17,7 @@ is_01_integer_vector <- function(x) {
 }
 
 has_installed_package <- function(package) {
-  all(package %in% installed.packages()[, "Package"])
+  length(find.package(package, quiet = TRUE)) >= 1
 }
 
 has_method_str <- function(cl, method) {
