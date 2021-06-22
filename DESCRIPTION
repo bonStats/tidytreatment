@@ -5,7 +5,7 @@ Version: 0.2.0
 Authors@R: person("Joshua J", "Bon", email = "joshuajbon@gmail.com",
                   role = c("aut", "cre"),
                   comment = c(ORCID = "0000-0003-2313-2949"))
-Description: Functions for extracting tidy data from Bayesian treatment effect models, in particular BART, but extensions are possible. Functionality includes extracting tidy posterior summaries as in tidybayes <https://github.com/mjskay/tidybayes>, estimating (average) treatment effects, common support calculations, and plotting useful summaries of these.
+Description: Functions for extracting tidy data from Bayesian treatment effect models, in particular BART, but extensions are possible. Functionality includes extracting tidy posterior summaries as in 'tidybayes' <https://github.com/mjskay/tidybayes>, estimating (average) treatment effects, common support calculations, and plotting useful summaries of these.
 Encoding: UTF-8
 LazyData: true
 License: MIT + file LICENSE
