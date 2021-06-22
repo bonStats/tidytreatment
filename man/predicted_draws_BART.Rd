@@ -9,9 +9,9 @@ predicted_draws_BART(
   newdata = NULL,
   prediction = ".prediction",
   rng = stats::rnorm,
-  include_newdata = T,
-  include_fitted = F,
-  include_sigsqs = F
+  include_newdata = TRUE,
+  include_fitted = FALSE,
+  include_sigsqs = FALSE
 )
 }
 \arguments{

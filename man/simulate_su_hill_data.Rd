@@ -12,7 +12,7 @@ simulate_su_hill_data(
   y_sd = 1,
   tau = 4,
   omega = 0,
-  add_categorical = F,
+  add_categorical = FALSE,
   coef_categorical_treatment = NULL,
   coef_categorical_nontreatment = NULL
 )

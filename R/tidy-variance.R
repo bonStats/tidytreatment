@@ -9,33 +9,30 @@
 #' @return A tidy data frame (tibble) with draws of variance parameter
 #'
 #' @export
-variance_draws <- function(model, value = ".sigma_sq", ...){
-
+variance_draws <- function(model, value = ".sigma_sq", ...) {
   UseMethod("variance_draws")
-
 }
 
 #' @export
-variance_draws.wbart <- function(model, value = ".sigma_sq", ...){
-
+variance_draws.wbart <- function(model, value = ".sigma_sq", ...) {
   sigma_draws <- model$sigma
 
-  dplyr::tibble(.chain = NA_integer_,
-                .iteration = NA_integer_,
-                .draw =  1:length(sigma_draws),
-                !!value := sigma_draws^2)
-
+  dplyr::tibble(
+    .chain = NA_integer_,
+    .iteration = NA_integer_,
+    .draw = 1:length(sigma_draws),
+    !!value := sigma_draws^2
+  )
 }
 
 #' @export
-variance_draws.bartMachine <- function(model, value = ".sigma_sq", ...){
-
+variance_draws.bartMachine <- function(model, value = ".sigma_sq", ...) {
   sigma2_draws <- bartMachine::get_sigsqs(model)
 
-  dplyr::tibble(.chain = NA_integer_,
-                .iteration = NA_integer_,
-                .draw =  1:length(sigma2_draws),
-                !!value := sigma2_draws)
-
+  dplyr::tibble(
+    .chain = NA_integer_,
+    .iteration = NA_integer_,
+    .draw = 1:length(sigma2_draws),
+    !!value := sigma2_draws
+  )
 }
-

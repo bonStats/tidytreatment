@@ -11,9 +11,8 @@
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)) newdata <- stats::model.matrix(model)
+fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) newdata <- stats::model.matrix(model)
 
   stopifnot(
     is.data.frame(newdata),
@@ -21,7 +20,7 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
     is.null(n) | (is.integer(n) & n > 0),
     is.logical(include_newdata),
     is.logical(include_sigsqs)
-    )
+  )
 
   # order for columns in output
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
@@ -30,8 +29,10 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
 
   # bind newdata with fitted, wide format
   out <- dplyr::bind_cols(
-    if(include_newdata) dplyr::as_tibble(newdata) else NULL,
-    dplyr::as_tibble(posterior$y_hat_posterior_samples, .name_repair = function(names){ paste0(".col_iter", as.character(1:length(names)) ) }),
+    if (include_newdata) dplyr::as_tibble(newdata) else NULL,
+    dplyr::as_tibble(posterior$y_hat_posterior_samples, .name_repair = function(names) {
+      paste0(".col_iter", as.character(1:length(names)))
+    }),
     .row = 1:nrow(newdata)
   )
 
@@ -39,11 +40,10 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
   out <- tidyr::gather(out, key = ".draw", value = !!value, dplyr::starts_with(".col_iter"))
 
   # add variables to keep to generic standard, remove string in
-  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer( gsub(pattern = ".col_iter", replacement = "", x = .data$.draw) ) )
+  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer(gsub(pattern = ".col_iter", replacement = "", x = .data$.draw)))
 
   # include sigma^2 if needed
-  if(include_sigsqs){
-
+  if (include_sigsqs) {
     sigsq <- dplyr::bind_cols(
       .draw = 1:model$num_iterations_after_burn_in,
       sigsq = bartMachine::get_sigsqs(model)
@@ -52,19 +52,17 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
     out <- dplyr::left_join(out, sigsq, by = ".draw")
 
     col_order <- c(col_order, "sigsq")
-
   }
 
   # rearrange
   out <- dplyr::select(out, -!!col_order, !!col_order)
 
   # group
-  row_groups <- names(out)[ ! names(out) %in% col_order[col_order != ".row"] ]
+  row_groups <- names(out)[!names(out) %in% col_order[col_order != ".row"]]
 
   out <- dplyr::group_by(out, dplyr::across(row_groups))
 
   return(out)
-
 }
 
 
@@ -82,8 +80,7 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.bartMachine <- function(model, newdata, prediction = ".prediction", ..., n = NULL, include_newdata = T, include_fitted = F, include_sigsqs = F){
-
+predicted_draws.bartMachine <- function(model, newdata, prediction = ".prediction", ..., n = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
   stopifnot(
     is.character(prediction),
     is.logical(include_fitted),
@@ -91,19 +88,18 @@ predicted_draws.bartMachine <- function(model, newdata, prediction = ".predictio
   )
 
   # get fitted values (need sigsq to start with)
-  out <- fitted_draws.bartMachine(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = T)
+  out <- fitted_draws.bartMachine(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
 
   # draw prediction from estimated variance
-  out <- dplyr::mutate(out, !!prediction := stats::rnorm(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq) ) )
+  out <- dplyr::mutate(out, !!prediction := stats::rnorm(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
 
   # remove sigma^2 value if necessary
-  if(!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
+  if (!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
 
   # remove fitted value if necessary
-  if(!include_fitted)  out <- dplyr::select(out, -.data$.fit)
+  if (!include_fitted) out <- dplyr::select(out, -.data$.fit)
 
   return(out)
-
 }
 
 #' Get residual draw for \code{bartMachine} model
@@ -119,21 +115,20 @@ predicted_draws.bartMachine <- function(model, newdata, prediction = ".predictio
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.bartMachine <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
+residual_draws.bartMachine <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   obs <- dplyr::tibble(y = model$y, .row = 1:model$n)
 
-  fitted <- fitted_draws(model, newdata, value = ".fitted", n = NULL,
-                         include_newdata = include_newdata,
-                         include_sigsqs = include_sigsqs)
+  fitted <- fitted_draws(model, newdata,
+    value = ".fitted", n = NULL,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs
+  )
 
 
   out <- dplyr::mutate(
     dplyr::left_join(fitted, obs, by = ".row"),
-    !!residual := .data$y - .data$.fitted)
+    !!residual := .data$y - .data$.fitted
+  )
 
   dplyr::group_by(out, .data$.row)
-
 }
-
-

@@ -16,18 +16,18 @@
 #' @export
 #'
 #'
-avg_treatment_effects <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff, ...){
-
+avg_treatment_effects <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff, ...) {
   te <- dplyr::group_by(
-        .data = treatment_effects(model = model, treatment = treatment,
-                          newdata = newdata, subset = subset,
-                          common_support_method = common_support_method,
-                          cutoff = cutoff, ...),
-        .data$.chain, .data$.iteration, .data$.draw
+    .data = treatment_effects(
+      model = model, treatment = treatment,
+      newdata = newdata, subset = subset,
+      common_support_method = common_support_method,
+      cutoff = cutoff, ...
+    ),
+    .data$.chain, .data$.iteration, .data$.draw
   )
 
   dplyr::summarise(te, ate = mean(.data$cte), .groups = "drop")
-
 }
 
 #' Get average treatment effect draws from posterior
@@ -45,21 +45,21 @@ avg_treatment_effects <- function(model, treatment, newdata, subset = "all", com
 #' @export
 #'
 #'
-tidy_ate <- function(model, treatment, common_support_method, cutoff, ...){
-
+tidy_ate <- function(model, treatment, common_support_method, cutoff, ...) {
   .dots <- list(...)
-  if(!"newdata" %in% names(.dots)) check_method(model, method = "model.matrix", helper = "Please use 'avg_treatment_effects' function with 'newdata'.")
+  if (!"newdata" %in% names(.dots)) check_method(model, method = "model.matrix", helper = "Please use 'avg_treatment_effects' function with 'newdata'.")
 
   te <- dplyr::group_by(
-    .data = treatment_effects(model = model, treatment = treatment,
-                              subset = "all",
-                              common_support_method = common_support_method,
-                              cutoff = cutoff, ...),
+    .data = treatment_effects(
+      model = model, treatment = treatment,
+      subset = "all",
+      common_support_method = common_support_method,
+      cutoff = cutoff, ...
+    ),
     .data$.chain, .data$.iteration, .data$.draw
   )
 
   dplyr::summarise(te, ate = mean(.data$cte), .groups = "drop")
-
 }
 
 #' Get average treatment effect on treated draws from posterior
@@ -77,19 +77,19 @@ tidy_ate <- function(model, treatment, common_support_method, cutoff, ...){
 #' @export
 #'
 #'
-tidy_att <- function(model, treatment, common_support_method, cutoff, ...){
-
+tidy_att <- function(model, treatment, common_support_method, cutoff, ...) {
   .dots <- list(...)
-  if(!"newdata" %in% names(.dots)) check_method(model, method = "model.matrix", helper = "Please use 'avg_treatment_effects' function with 'newdata'.")
+  if (!"newdata" %in% names(.dots)) check_method(model, method = "model.matrix", helper = "Please use 'avg_treatment_effects' function with 'newdata'.")
 
   te <- dplyr::group_by(
-    .data = treatment_effects(model = model, treatment = treatment,
-                              subset = "treated",
-                              common_support_method = common_support_method,
-                              cutoff = cutoff, ...),
+    .data = treatment_effects(
+      model = model, treatment = treatment,
+      subset = "treated",
+      common_support_method = common_support_method,
+      cutoff = cutoff, ...
+    ),
     .data$.chain, .data$.iteration, .data$.draw
   )
 
   dplyr::summarise(te, att = mean(.data$cte), .groups = "drop")
-
 }

@@ -1,6 +1,4 @@
 #' @export
-model.matrix.bartMachine <- function(object, ...){
-
+model.matrix.bartMachine <- function(object, ...) {
   object$X
-
 }

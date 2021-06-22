@@ -10,8 +10,8 @@
   value = ".value",
   ...,
   n = NULL,
-  include_newdata = T,
-  include_sigsqs = F
+  include_newdata = TRUE,
+  include_sigsqs = FALSE
 )
 }
 \arguments{

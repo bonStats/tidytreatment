@@ -54,7 +54,7 @@ library(ggplot2)
 set.seed(101)
 
 # simulate data
-sim <- simulate_su_hill_data(n = 100, treatment_linear = F,  omega = 0, add_categorical = T,
+sim <- simulate_su_hill_data(n = 100, treatment_linear = FALSE,  omega = 0, add_categorical = TRUE,
                              coef_categorical_treatment = c(0,0,1),
                              coef_categorical_nontreatment = c(-1,0,-1)
 )
@@ -90,7 +90,7 @@ We are following the procedure in @Hahn2020 (albeit without their more sophistic
 # STEP 1 VS Model: Regress y ~ covariates
 var_select_bart <- wbart(x.train = select(dat,-y,-z), 
                          y.train = pull(dat, y),
-                         sparse = T,
+                         sparse = TRUE,
                          nskip = 2000, 
                          ndpost = 5000)
 
@@ -138,8 +138,8 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-posterior_fitted <- fitted_draws(te_model, value = "fit", include_newdata = F)
-# include_newdata = F, avoids returning the newdata with the fitted values
+posterior_fitted <- fitted_draws(te_model, value = "fit", include_newdata = FALSE)
+# include_newdata = FALSE, avoids returning the newdata with the fitted values
 # as it is so large. newdata argument must be specified for this option in BART models. 
 # The `.row` variable makes sure we know which row in the newdata the fitted
 # value came from (if we dont include the data in the result).
@@ -151,7 +151,7 @@ posterior_fitted
 ```{r tidy-bart-pred, eval=FALSE, echo=TRUE, cache=FALSE}
 
 # Function to tidy predicted draws also, this adds random normal noise by default
-posterior_pred <- predicted_draws(te_model, include_newdata = F)
+posterior_pred <- predicted_draws(te_model, include_newdata = FALSE)
 
 ```
 
@@ -186,7 +186,7 @@ $$
 
 Some histogram summaries are presented below.
 
-```{r post-treatment, eval = F}
+```{r post-treatment, eval = FALSE}
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- 
@@ -216,7 +216,7 @@ posterior_att <- tidy_att(te_model, treatment = "z", newdata = dat)
 
 ```
 
-```{r ate-trace-setup, eval = T, echo = F}
+```{r ate-trace-setup, eval = TRUE, echo = FALSE}
 
 posterior_ate <- posterior_treat_eff %>% group_by(.chain, .iteration, .draw) %>%
   summarise(ate = mean(cte), .groups = "drop")
@@ -290,7 +290,7 @@ posterior_treat_eff %>%
 
 Common support testing [@Hill2013] can be tested directly, or a Boolean can be included when calculating the treatment effects.
 
-```{r common-support, echo=T, results='hide', cache=F}
+```{r common-support, echo=TRUE, results='hide', cache=FALSE}
 
 # calculate common support directly
 # argument 'modeldata' must be specified for BART models 
@@ -315,7 +315,7 @@ posterior_treat_eff_on_treated <-
 
 We can count how many times a variable was included in the BART (on average) in conjunction with the treatment effect, or overall. This method uses a simple average of occurrences, see @bleich2014variable for more sophisticated methods.
 
-```{r interaction-investigator, echo=T, cache=F}
+```{r interaction-investigator, echo=TRUE, cache=FALSE}
 
   treatment_interactions <-
     covariate_with_treatment_importance(te_model, treatment = "z")
@@ -359,7 +359,7 @@ Code for examining model residuals.
 
 ```{r convergence-bart, echo=TRUE, cache=FALSE}
 
-res <- residual_draws(te_model, response = pull(dat, y), include_newdata = F)
+res <- residual_draws(te_model, response = pull(dat, y), include_newdata = FALSE)
 res %>%   
   point_interval(.residual, y, .width = c(0.95) ) %>%
   select(-y.lower, -y.upper) %>%

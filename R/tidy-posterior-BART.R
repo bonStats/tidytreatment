@@ -10,46 +10,49 @@
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
-fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = T, include_sigsqs = F, scale = "real"){
-
+fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   stopifnot(has_installed_package("BART"))
 
-  if( is.null(newdata) & include_newdata)
+  if (is.null(newdata) & include_newdata) {
     stop("For models from BART package 'newdata'
-          must be specified if 'include_newdata = T'.")
+          must be specified if 'include_newdata = TRUE'.")
+  }
 
   stopifnot(
     is.character(value),
     is.logical(include_newdata),
     is.logical(include_sigsqs),
-    class(model) %in% c("wbart","pbart","lbart","mbart","mbart2")
+    class(model) %in% c("wbart", "pbart", "lbart", "mbart", "mbart2")
   )
 
   use_scale <- match.arg(scale,
-                         c("real", "prob"),
-                         several.ok = F)
+    c("real", "prob"),
+    several.ok = F
+  )
 
   # order for columns in output
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
 
-  if(! (missing(newdata) | is.null(newdata)) ){
+  if (!(missing(newdata) | is.null(newdata))) {
     # S3 predict methods in BART get yhat values.
     xvars <- names(model$treedraws$cutpoints)
-    bartdata <- BART::bartModelMatrix(newdata)[,xvars]
-    # dodraws=T => all draws (not just mean)
-    posterior <- predict(object = model, newdata = bartdata, dodraws=T, ...)
-    if(!is.matrix(posterior)) posterior <- posterior$yhat.test
+    bartdata <- BART::bartModelMatrix(newdata)[, xvars]
+    # dodraws=TRUE => all draws (not just mean)
+    posterior <- predict(object = model, newdata = bartdata, dodraws = TRUE, ...)
+    if (!is.matrix(posterior)) posterior <- posterior$yhat.test
   } else {
     posterior <- model$yhat.train
   }
 
-  if(use_scale == "prob" & "lbart" %in% class(model) ) posterior <- stats::plogis(posterior)
-  if(use_scale == "prob" & "pbart" %in% class(model) ) posterior <- stats::pnorm(posterior)
+  if (use_scale == "prob" & "lbart" %in% class(model)) posterior <- stats::plogis(posterior)
+  if (use_scale == "prob" & "pbart" %in% class(model)) posterior <- stats::pnorm(posterior)
 
   # bind newdata with fitted, wide format
   out <- dplyr::bind_cols(
-    if(include_newdata) dplyr::as_tibble(newdata) else NULL,
-    dplyr::as_tibble(t(posterior), .name_repair = function(names){ paste0(".col_iter", as.character(1:length(names)) ) }),
+    if (include_newdata) dplyr::as_tibble(newdata) else NULL,
+    dplyr::as_tibble(t(posterior), .name_repair = function(names) {
+      paste0(".col_iter", as.character(1:length(names)))
+    }),
     .row = 1:ncol(posterior)
   )
 
@@ -57,11 +60,10 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   out <- tidyr::gather(out, key = ".draw", value = !!value, dplyr::starts_with(".col_iter"))
 
   # add variables to keep to generic standard, remove string in
-  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer( gsub(pattern = ".col_iter", replacement = "", x = .data$.draw) ) )
+  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer(gsub(pattern = ".col_iter", replacement = "", x = .data$.draw)))
 
   # include sigma^2 if needed
-  if(include_sigsqs){
-
+  if (include_sigsqs) {
     sigsq <- dplyr::bind_cols(
       .draw = 1:length(model$sigma),
       sigsq = model$sigma^2
@@ -70,19 +72,17 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
     out <- dplyr::left_join(out, sigsq, by = ".draw")
 
     col_order <- c(col_order, "sigsq")
-
   }
 
   # rearrange
   out <- dplyr::select(out, -!!col_order, !!col_order)
 
   # group
-  row_groups <- names(out)[ ! names(out) %in% col_order[col_order != ".row"] ]
+  row_groups <- names(out)[!names(out) %in% col_order[col_order != ".row"]]
 
   out <- dplyr::group_by(out, dplyr::across(row_groups))
 
   return(out)
-
 }
 
 #' Get predict draws from posterior of \code{BART}-package models
@@ -97,8 +97,7 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #'
-predicted_draws_BART <- function(model, newdata = NULL, prediction = ".prediction", rng = stats::rnorm, include_newdata = T, include_fitted = F, include_sigsqs = F){
-
+predicted_draws_BART <- function(model, newdata = NULL, prediction = ".prediction", rng = stats::rnorm, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
   stopifnot(
     is.character(prediction),
     is.logical(include_fitted),
@@ -106,19 +105,18 @@ predicted_draws_BART <- function(model, newdata = NULL, prediction = ".predictio
   )
 
   # get fitted values (need sigsq to start with)
-  out <- fitted_draws(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = T)
+  out <- fitted_draws(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
 
   # draw prediction from estimated variance
-  out <- dplyr::mutate(out, !!prediction := rng(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq) ) )
+  out <- dplyr::mutate(out, !!prediction := rng(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
 
   # remove sigma^2 value if necessary
-  if(!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
+  if (!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
 
   # remove fitted value if necessary
-  if(!include_fitted) out <- dplyr::select(out, -.data$.fit)
+  if (!include_fitted) out <- dplyr::select(out, -.data$.fit)
 
   return(out)
-
 }
 
 
@@ -135,24 +133,25 @@ predicted_draws_BART <- function(model, newdata = NULL, prediction = ".predictio
 #'
 #' @return Tibble with residuals.
 #'
-residual_draws_BART <- function(model, response, newdata = NULL, residual = ".residual", include_newdata = T, include_sigsqs = F){
-
-  if(missing(response)) stop("Models from BART pacakge require response (y) as argument. Specify 'response = <y variable>' as argument.")
+residual_draws_BART <- function(model, response, newdata = NULL, residual = ".residual", include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(response)) stop("Models from BART pacakge require response (y) as argument. Specify 'response = <y variable>' as argument.")
 
   stopifnot(is.numeric(response))
 
   obs <- dplyr::tibble(y = response, .row = 1:length(response))
 
-  fitted <- fitted_draws(model, newdata, value = ".fitted", n = NULL,
-                         include_newdata = include_newdata,
-                         include_sigsqs = include_sigsqs)
+  fitted <- fitted_draws(model, newdata,
+    value = ".fitted", n = NULL,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs
+  )
 
   out <- dplyr::mutate(
     dplyr::left_join(fitted, obs, by = ".row"),
-    !!residual := .data$y - .data$.fitted)
+    !!residual := .data$y - .data$.fitted
+  )
 
   dplyr::group_by(out, .row)
-
 }
 
 #' Get fitted draws from posterior of \code{wbart} model
@@ -168,17 +167,17 @@ residual_draws_BART <- function(model, response, newdata = NULL, residual = ".re
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.wbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)){
+fitted_draws.wbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(model = model, newdata = newdata, value = value,
-                    ...,
-                    include_newdata = include_newdata,
-                    include_sigsqs = include_sigsqs)
-
+  fitted_draws_BART(
+    model = model, newdata = newdata, value = value,
+    ...,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs
+  )
 }
 
 #' Get fitted draws from posterior of \code{pbart} model
@@ -188,17 +187,17 @@ fitted_draws.wbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.pbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)){
+fitted_draws.pbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(model = model, newdata = newdata, value = value,
-                    ...,
-                    include_newdata = include_newdata,
-                    include_sigsqs = include_sigsqs)
-
+  fitted_draws_BART(
+    model = model, newdata = newdata, value = value,
+    ...,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs
+  )
 }
 
 #' Get fitted draws from posterior of \code{lbart} model
@@ -208,17 +207,17 @@ fitted_draws.pbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.lbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)){
+fitted_draws.lbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(model = model, newdata = newdata, value = value,
-                    ...,
-                    include_newdata = include_newdata,
-                    include_sigsqs = include_sigsqs)
-
+  fitted_draws_BART(
+    model = model, newdata = newdata, value = value,
+    ...,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs
+  )
 }
 
 #' Get fitted draws from posterior of \code{mbart} model
@@ -228,17 +227,17 @@ fitted_draws.lbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.mbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)){
+fitted_draws.mbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(model = model, newdata = newdata, value = value,
-                    ...,
-                    include_newdata = include_newdata,
-                    include_sigsqs = include_sigsqs)
-
+  fitted_draws_BART(
+    model = model, newdata = newdata, value = value,
+    ...,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs
+  )
 }
 
 #' Get fitted draws from posterior of \code{mbart2} model
@@ -248,17 +247,17 @@ fitted_draws.mbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.mbart2 <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)){
+fitted_draws.mbart2 <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(model = model, newdata = newdata, value = value,
-                    ...,
-                    include_newdata = include_newdata,
-                    include_sigsqs = include_sigsqs)
-
+  fitted_draws_BART(
+    model = model, newdata = newdata, value = value,
+    ...,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs
+  )
 }
 
 #' Get predict draws from posterior of \code{wbart} model
@@ -275,17 +274,17 @@ fitted_draws.mbart2 <- function(model, newdata, value = ".value", ..., n = NULL,
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.wbart <- function(model, newdata, prediction = ".prediction", ..., n = NULL, include_newdata = T, include_fitted = F, include_sigsqs = F){
-
-  if(missing(newdata)){
+predicted_draws.wbart <- function(model, newdata, prediction = ".prediction", ..., n = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  predicted_draws_BART(model = model, newdata = newdata,
-                       prediction = prediction,
-                        include_newdata = include_newdata,
-                        include_sigsqs = include_sigsqs, ...)
-
+  predicted_draws_BART(
+    model = model, newdata = newdata,
+    prediction = prediction,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs, ...
+  )
 }
 
 #' Get residual draw for \code{wbart} model
@@ -304,16 +303,16 @@ predicted_draws.wbart <- function(model, newdata, prediction = ".prediction", ..
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.wbart <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)){
+residual_draws.wbart <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  residual_draws_BART(model = model, newdata = newdata, residual = residual,
-                      include_newdata = include_newdata,
-                      include_sigsqs = include_sigsqs, ...)
-
+  residual_draws_BART(
+    model = model, newdata = newdata, residual = residual,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs, ...
+  )
 }
 
 #' Get residual draw for \code{pbart} model
@@ -326,14 +325,14 @@ residual_draws.wbart <- function(model, newdata, residual = ".residual", ..., n 
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.pbart <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = T, include_sigsqs = F){
-
-  if(missing(newdata)){
+residual_draws.pbart <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) {
     newdata <- NULL
   }
 
-  residual_draws_BART(model = model, newdata = newdata, residual = residual,
-                      include_newdata = include_newdata,
-                      include_sigsqs = include_sigsqs, ...)
-
+  residual_draws_BART(
+    model = model, newdata = newdata, residual = residual,
+    include_newdata = include_newdata,
+    include_sigsqs = include_sigsqs, ...
+  )
 }

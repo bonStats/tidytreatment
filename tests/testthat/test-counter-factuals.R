@@ -6,15 +6,19 @@ library(tidyr)
 
 # set up counter factual values
 md_cf <- bartmodel1_modelmatrix
-md_cf[,"z"] <- 1 - md_cf[,"z"] # 0 -> 1, 1 -> 0
+md_cf[, "z"] <- 1 - md_cf[, "z"] # 0 -> 1, 1 -> 0
 
 # rows = MCMC samples, cols = observations
 check_matrix <- predict(bartmodel1, newdata = md_cf)
 colnames(check_matrix) <- 1:ncol(check_matrix)
-check_df <- check_matrix %>% as_tibble() %>% mutate(.draw = 1:n()) %>%
-  pivot_longer(cols = all_of(1:ncol(check_matrix)),
-               names_to = ".row",
-               values_to = "cf_check") %>%
+check_df <- check_matrix %>%
+  as_tibble() %>%
+  mutate(.draw = 1:n()) %>%
+  pivot_longer(
+    cols = all_of(1:ncol(check_matrix)),
+    names_to = ".row",
+    values_to = "cf_check"
+  ) %>%
   mutate(.row = as.integer(.row))
 
 test_that("Counter factuals calculated correctly", {

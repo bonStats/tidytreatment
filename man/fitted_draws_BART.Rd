@@ -9,8 +9,8 @@ fitted_draws_BART(
   newdata = NULL,
   value = ".value",
   ...,
-  include_newdata = T,
-  include_sigsqs = F,
+  include_newdata = TRUE,
+  include_sigsqs = FALSE,
   scale = "real"
 )
 }

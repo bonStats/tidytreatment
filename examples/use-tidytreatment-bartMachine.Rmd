@@ -34,7 +34,7 @@ This vignette simulates data using the scheme described by @Hill2013 with the ad
     library(ggplot2)
   })
 
-  sim <- simulate_su_hill_data(n = 200, treatment_linear = F,  omega = 0, add_categorical = T,
+  sim <- simulate_su_hill_data(n = 200, treatment_linear = FALSE,  omega = 0, add_categorical = TRUE,
                                coef_categorical_treatment = c(0,0,1),  
                                coef_categorical_nontreatment = c(-1,0,-1)
                                )
@@ -59,7 +59,7 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
   # loading the bartMachine package.
   set_bart_machine_num_cores(2)
   
-  # set serialize = T if using the fit over multiple sessions
+  # set serialize = TRUE if using the fit over multiple sessions
   # The first bart model will be for the propensity score...
   # i.e. propensity for selection of treatment?
   
@@ -69,8 +69,8 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
     y = select(dat, y)[[1]], 
     num_burn_in = 2000, 
     num_iterations_after_burn_in = 5000, 
-    serialize = T, 
-    verbose = F
+    serialize = TRUE, 
+    verbose = FALSE
     ) 
 
   # select most important vars from y ~ covariates model
@@ -82,8 +82,8 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
     y = as.factor(select(dat, z)[[1]]), 
     num_burn_in = 2000, 
     num_iterations_after_burn_in = 5000, 
-    serialize = T, 
-    verbose = F
+    serialize = TRUE, 
+    verbose = FALSE
     ) 
 
   dat$prop_score <-  prop_bart$p_hat_train
@@ -100,8 +100,8 @@ Run the model to be used to assess treatment effects. Here we will use `bartMach
     y = select(dat, y)[[1]],
     num_burn_in = 2000, 
     num_iterations_after_burn_in = 5000,
-    serialize = T,
-    verbose = F,
+    serialize = TRUE,
+    verbose = FALSE,
     cov_prior_vec = prior_incl_prob
     ) 
 
@@ -116,7 +116,7 @@ Here are some examples of model checking we can do.
 
   print(bartM)
 
-  res <- residual_draws(bartM, include_newdata = F)
+  res <- residual_draws(bartM, include_newdata = FALSE)
   res %>%   
     point_interval(.residual, y, .width = c(0.95) ) %>%
     select(-y.lower, -y.upper) %>%
@@ -153,9 +153,9 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-  posterior_fitted <- fitted_draws(bartM, value = "fit", include_newdata = F)
+  posterior_fitted <- fitted_draws(bartM, value = "fit", include_newdata = FALSE)
   # The newdata argument (omitted) defaults to the data from the model.
-  # include_newdata = F, avoids returning the newdata with the fitted values
+  # include_newdata = FALSE, avoids returning the newdata with the fitted values
   # as it is so large. 
   # The `.row` variable makes sure we know which row in the newdata the fitted
   # value came from (if we dont include the data in the result).
@@ -167,7 +167,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 ```{r tidy-bart-pred, eval=FALSE, echo=TRUE, cache=FALSE}
 
   # Function to tidy predicted draws also...
-  posterior_pred <- predicted_draws(bartM, include_newdata = F)
+  posterior_pred <- predicted_draws(bartM, include_newdata = FALSE)
   
 ```
 
@@ -273,7 +273,7 @@ posterior_treat_eff %>%
 
 Common support testing [@hill] can be tested directly, or a Boolean can be included when calculating the treatment effects.
 
-```{r common-support, echo=T, cache=F}
+```{r common-support, echo=TRUE, cache=FALSE}
 
 csupp1 <- has_common_support(bartM, treatment = "z", 
                              method = "chisq", cutoff = 0.05)
@@ -294,7 +294,7 @@ posterior_treat_eff_on_treated <-
 
 We can count how many times a variables was included in the BART in conjunction with the treatment effect, or overall.
 
-```{r interaction-investigator, echo=T, cache=F}
+```{r interaction-investigator, echo=TRUE, cache=FALSE}
 
   treatment_interactions <-
     covariate_with_treatment_importance(bartM, treatment = "z")

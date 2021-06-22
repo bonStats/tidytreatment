@@ -6,12 +6,16 @@ library(tidyr)
 
 # rows = MCMC samples, cols = observations
 smpls <- nrow(bartmodel1$yhat.train)
-check_matrix <- matrix(rep(suhillsim1$data$y, smpls), nrow = smpls, byrow = T) - bartmodel1$yhat.train
+check_matrix <- matrix(rep(suhillsim1$data$y, smpls), nrow = smpls, byrow = TRUE) - bartmodel1$yhat.train
 colnames(check_matrix) <- 1:ncol(check_matrix)
-check_df <- check_matrix %>% as_tibble() %>% mutate(.draw = 1:n()) %>%
-  pivot_longer(cols = all_of(1:ncol(check_matrix)),
-               names_to = ".row",
-               values_to = "resid_check") %>%
+check_df <- check_matrix %>%
+  as_tibble() %>%
+  mutate(.draw = 1:n()) %>%
+  pivot_longer(
+    cols = all_of(1:ncol(check_matrix)),
+    names_to = ".row",
+    values_to = "resid_check"
+  ) %>%
   mutate(.row = as.integer(.row))
 
 test_that("Residual values calculated correctly", {
