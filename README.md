@@ -2,6 +2,7 @@
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/bonStats/tidytreatment/workflows/R-CMD-check/badge.svg)](https://github.com/bonStats/tidytreatment/actions)
+[![CRAN status](https://www.r-pkg.org/badges/version/tidytreatment)](https://CRAN.R-project.org/package=tidytreatment)
 <!-- badges: end -->
 
 `tidytreatment` is an `R` package that provides functions for extracting tidy data from Bayesian treatment effect models, estimating treatment effects, and plotting useful summaries of these. This package closely follows the output style from the [tidybayes](https://github.com/mjskay/tidybayes) `R` package in order to use some functions provided by `tidybayes`.
@@ -16,11 +17,13 @@ See `vignette("use-tidytreatment-BART")` for examples of usages.
 
 ## How to install
 
-### Release - CRAN
+### CRAN
 
-Coming soon
+Install the release version from CRAN with `install.packages("tidytreament")`.
 
-### Dev - Github 
+### Github 
+
+To install the latest development version:
 
 1. Make sure at least one of the above model fitting packages is installed.
 2. In `R` make sure `remotes` is installed. Install with `install.packages("remotes")`.
