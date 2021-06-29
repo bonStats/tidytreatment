@@ -13,7 +13,7 @@ The package currently supports the following models:
 - `bartMachine`: see [CRAN](https://cran.r-project.org/package=bartMachine).
 - `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (in development, see branch `bcf-hold` on github).
 
-See `vignette("use-tidytreatment-BART")` for examples of usages.
+See this [HTML vignette](https://cloud.r-project.org/web/packages/tidytreatment/vignettes/use-tidytreatment-BART.html) or `vignette("use-tidytreatment-BART")` for examples of usage.
 
 ## How to install
 
