@@ -3,6 +3,7 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/bonStats/tidytreatment/workflows/R-CMD-check/badge.svg)](https://github.com/bonStats/tidytreatment/actions)
 [![CRAN status](https://www.r-pkg.org/badges/version/tidytreatment)](https://CRAN.R-project.org/package=tidytreatment)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/tidytreatment)](https://cran.r-project.org/package=tidytreatment)
 <!-- badges: end -->
 
 `tidytreatment` is an `R` package that provides functions for extracting tidy data from Bayesian treatment effect models, estimating treatment effects, and plotting useful summaries of these. This package closely follows the output style from the [tidybayes](https://github.com/mjskay/tidybayes) `R` package in order to use some functions provided by `tidybayes`.
