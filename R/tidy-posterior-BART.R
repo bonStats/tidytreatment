@@ -87,9 +87,9 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
 
 #' Get predict draws from posterior of \code{BART}-package models
 #'
-#' @param model A \code{BART}-package model.
+#' @param object A \code{BART}-package model.
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
-#' @param prediction The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
+#' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param rng Random number generator function. Default is \code{rnorm} for models with Gaussian errors.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
@@ -97,18 +97,18 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #'
-predicted_draws_BART <- function(model, newdata = NULL, prediction = ".prediction", rng = stats::rnorm, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws_BART <- function(object, newdata = NULL, value = ".prediction", ..., rng = stats::rnorm, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
   stopifnot(
-    is.character(prediction),
+    is.character(value),
     is.logical(include_fitted),
     is.logical(include_sigsqs)
   )
 
   # get fitted values (need sigsq to start with)
-  out <- fitted_draws(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
+  out <- fitted_draws(object, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
 
   # draw prediction from estimated variance
-  out <- dplyr::mutate(out, !!prediction := rng(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
+  out <- dplyr::mutate(out, !!value := rng(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
 
   # remove sigma^2 value if necessary
   if (!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
@@ -124,23 +124,23 @@ predicted_draws_BART <- function(model, newdata = NULL, prediction = ".predictio
 #'
 #' Classes from \code{BART}-package models
 #'
-#' @param model model from \code{BART} package.
+#' @param object model from \code{BART} package.
 #' @param response Original response vector.
 #' @param newdata Data frame to generate predictions from. If omitted, original data used to fit the model.
-#' @param residual Name of the output column for residual_draws; default is \code{.residual}.
+#' @param value Name of the output column for residual_draws; default is \code{.residual}.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #'
 #' @return Tibble with residuals.
 #'
-residual_draws_BART <- function(model, response, newdata = NULL, residual = ".residual", include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws_BART <- function(object, response, newdata = NULL, value = ".residual", include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(response)) stop("Models from BART pacakge require response (y) as argument. Specify 'response = <y variable>' as argument.")
 
   stopifnot(is.numeric(response))
 
   obs <- dplyr::tibble(y = response, .row = 1:length(response))
 
-  fitted <- fitted_draws(model, newdata,
+  fitted <- fitted_draws(object, newdata,
     value = ".fitted", n = NULL,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
@@ -148,7 +148,7 @@ residual_draws_BART <- function(model, response, newdata = NULL, residual = ".re
 
   out <- dplyr::mutate(
     dplyr::left_join(fitted, obs, by = ".row"),
-    !!residual := .data$y - .data$.fitted
+    !!value := .data$y - .data$.fitted
   )
 
   dplyr::group_by(out, .row)
@@ -262,10 +262,10 @@ fitted_draws.mbart2 <- function(model, newdata, value = ".value", ..., n = NULL,
 
 #' Get predict draws from posterior of \code{wbart} model
 #'
-#' @param model A \code{wbart} model.
+#' @param object A \code{wbart} model.
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
-#' @param prediction The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
-#' @param n Not currently implemented.
+#' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
+#' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
@@ -274,14 +274,14 @@ fitted_draws.mbart2 <- function(model, newdata, value = ".value", ..., n = NULL,
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.wbart <- function(model, newdata, prediction = ".prediction", ..., n = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
   predicted_draws_BART(
-    model = model, newdata = newdata,
-    prediction = prediction,
+    object = object, newdata = newdata,
+    value = value,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs, ...
   )
@@ -292,24 +292,24 @@ predicted_draws.wbart <- function(model, newdata, prediction = ".prediction", ..
 #' The original response variable must be passed as an argument to this function.
 #' e.g. `response = y`
 #'
-#' @param model \code{wbart} model.
+#' @param object \code{wbart} model.
 #' @param newdata Data frame to generate predictions from. If omitted, original data used to fit the model.
-#' @param residual Name of the output column for residual_draws; default is \code{.residual}.
+#' @param value Name of the output column for residual_draws; default is \code{.residual}.
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param n Not currently implemented.
+#' @param ndraws Not currently implemented.
 #'
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.wbart <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.wbart <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
   residual_draws_BART(
-    model = model, newdata = newdata, residual = residual,
+    object = object, newdata = newdata, value = value,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs, ...
   )
@@ -325,13 +325,13 @@ residual_draws.wbart <- function(model, newdata, residual = ".residual", ..., n 
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.pbart <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.pbart <- function(object, newdata, value = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
   residual_draws_BART(
-    model = model, newdata = newdata, residual = residual,
+    object = object, newdata = newdata, value = value,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs, ...
   )

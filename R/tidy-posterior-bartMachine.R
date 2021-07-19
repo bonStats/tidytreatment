@@ -68,10 +68,10 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
 
 #' Get predict draws from posterior of \code{bartMachine} model
 #'
-#' @param model A \code{bartMachine} model.
+#' @param object A \code{bartMachine} model.
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
-#' @param prediction The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
-#' @param n Not currently implemented.
+#' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
+#' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
@@ -80,18 +80,18 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.bartMachine <- function(model, newdata, prediction = ".prediction", ..., n = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws.bartMachine <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
   stopifnot(
-    is.character(prediction),
+    is.character(value),
     is.logical(include_fitted),
     is.logical(include_sigsqs)
   )
 
   # get fitted values (need sigsq to start with)
-  out <- fitted_draws.bartMachine(model = model, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
+  out <- fitted_draws.bartMachine(object = object, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
 
   # draw prediction from estimated variance
-  out <- dplyr::mutate(out, !!prediction := stats::rnorm(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
+  out <- dplyr::mutate(out, !!value := stats::rnorm(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
 
   # remove sigma^2 value if necessary
   if (!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
@@ -104,21 +104,21 @@ predicted_draws.bartMachine <- function(model, newdata, prediction = ".predictio
 
 #' Get residual draw for \code{bartMachine} model
 #'
-#' @param model \code{bartMachine} model.
+#' @param object \code{bartMachine} model.
 #' @param newdata Data frame to generate predictions from. If omitted, original data used to fit the model.
-#' @param residual Name of the output column for residual_draws; default is \code{.residual}.
+#' @param value Name of the output column for residual_draws; default is \code{.residual}.
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param n Not currently implemented.
+#' @param ndraws Not currently implemented.
 #'
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.bartMachine <- function(model, newdata, residual = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
-  obs <- dplyr::tibble(y = model$y, .row = 1:model$n)
+residual_draws.bartMachine <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  obs <- dplyr::tibble(y = object$y, .row = 1:object$n)
 
-  fitted <- fitted_draws(model, newdata,
+  fitted <- fitted_draws(object, newdata,
     value = ".fitted", n = NULL,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
@@ -127,7 +127,7 @@ residual_draws.bartMachine <- function(model, newdata, residual = ".residual", .
 
   out <- dplyr::mutate(
     dplyr::left_join(fitted, obs, by = ".row"),
-    !!residual := .data$y - .data$.fitted
+    !!value := .data$y - .data$.fitted
   )
 
   dplyr::group_by(out, .data$.row)

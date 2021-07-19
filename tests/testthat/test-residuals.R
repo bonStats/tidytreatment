@@ -19,7 +19,7 @@ check_df <- check_matrix %>%
   mutate(.row = as.integer(.row))
 
 test_that("Residual values calculated correctly", {
-  td_fd <- residual_draws(bartmodel1, newdata = suhillsim1$data, response = suhillsim1$data$y, include_newdata = FALSE, residual = "resid")
+  td_fd <- residual_draws(bartmodel1, newdata = suhillsim1$data, response = suhillsim1$data$y, include_newdata = FALSE, value = "resid")
   comp_df <- td_fd %>% full_join(check_df, by = c(".row", ".draw"))
   expect_equal(comp_df$resid, comp_df$resid_check)
 })
