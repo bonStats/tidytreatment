@@ -5,22 +5,22 @@
 \title{Get residual draw for BART model}
 \usage{
 residual_draws_BART(
-  model,
+  object,
   response,
   newdata = NULL,
-  residual = ".residual",
+  value = ".residual",
   include_newdata = TRUE,
   include_sigsqs = FALSE
 )
 }
 \arguments{
-\item{model}{model from \code{BART} package.}
+\item{object}{model from \code{BART} package.}
 
 \item{response}{Original response vector.}
 
 \item{newdata}{Data frame to generate predictions from. If omitted, original data used to fit the model.}
 
-\item{residual}{Name of the output column for residual_draws; default is \code{.residual}.}
+\item{value}{Name of the output column for residual_draws; default is \code{.residual}.}
 
 \item{include_newdata}{Should the newdata be included in the tibble?}
 

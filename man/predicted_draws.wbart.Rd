@@ -5,26 +5,26 @@
 \title{Get predict draws from posterior of \code{wbart} model}
 \usage{
 \method{predicted_draws}{wbart}(
-  model,
+  object,
   newdata,
-  prediction = ".prediction",
+  value = ".prediction",
   ...,
-  n = NULL,
+  ndraws = NULL,
   include_newdata = TRUE,
   include_fitted = FALSE,
   include_sigsqs = FALSE
 )
 }
 \arguments{
-\item{model}{A \code{wbart} model.}
+\item{object}{A \code{wbart} model.}
 
 \item{newdata}{Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.}
 
-\item{prediction}{The name of the output column for \code{predicted_draws}; default \code{".prediction"}.}
+\item{value}{The name of the output column for \code{predicted_draws}; default \code{".prediction"}.}
 
 \item{...}{Use to specify random number generator, default is \code{rng=stats::rnorm}.}
 
-\item{n}{Not currently implemented.}
+\item{ndraws}{Not currently implemented.}
 
 \item{include_newdata}{Should the newdata be included in the tibble?}
 
