@@ -22,6 +22,8 @@ predicted_draws_BART(
 
 \item{value}{The name of the output column for \code{predicted_draws}; default \code{".prediction"}.}
 
+\item{...}{Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).}
+
 \item{rng}{Random number generator function. Default is \code{rnorm} for models with Gaussian errors.}
 
 \item{include_newdata}{Should the newdata be included in the tibble?}

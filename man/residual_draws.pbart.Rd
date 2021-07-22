@@ -9,7 +9,7 @@
   newdata,
   value = ".residual",
   ...,
-  n = NULL,
+  ndraws = NULL,
   include_newdata = TRUE,
   include_sigsqs = FALSE
 )
@@ -22,6 +22,8 @@
 \item{value}{Name of the output column for residual_draws; default is \code{.residual}.}
 
 \item{...}{Additional arguments passed to the underlying prediction method for the type of model given.}
+
+\item{ndraws}{Not currently implemented.}
 
 \item{include_newdata}{Should the newdata be included in the tibble?}
 

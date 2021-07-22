@@ -94,6 +94,7 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
+#' @param ... Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #'
@@ -325,7 +326,7 @@ residual_draws.wbart <- function(object, newdata, value = ".residual", ..., ndra
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.pbart <- function(object, newdata, value = ".residual", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.pbart <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
