@@ -1,5 +1,10 @@
 # tidytreatment
 
+## tidytreatment 0.2.1
+
+* Updates to handle breaking changes in upcoming `tidybayes` 3.0.0 release. 
+* Package tested with `tidybayes` 2.3.1 and 2.9.9.9000
+
 ## tidytreatment 0.2.0
 
 * First CRAN submission
