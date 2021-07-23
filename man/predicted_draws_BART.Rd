@@ -5,9 +5,10 @@
 \title{Get predict draws from posterior of \code{BART}-package models}
 \usage{
 predicted_draws_BART(
-  model,
+  object,
   newdata = NULL,
-  prediction = ".prediction",
+  value = ".prediction",
+  ...,
   rng = stats::rnorm,
   include_newdata = TRUE,
   include_fitted = FALSE,
@@ -15,11 +16,13 @@ predicted_draws_BART(
 )
 }
 \arguments{
-\item{model}{A \code{BART}-package model.}
+\item{object}{A \code{BART}-package model.}
 
 \item{newdata}{Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.}
 
-\item{prediction}{The name of the output column for \code{predicted_draws}; default \code{".prediction"}.}
+\item{value}{The name of the output column for \code{predicted_draws}; default \code{".prediction"}.}
+
+\item{...}{Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).}
 
 \item{rng}{Random number generator function. Default is \code{rnorm} for models with Gaussian errors.}
 

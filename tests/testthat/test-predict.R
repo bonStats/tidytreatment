@@ -27,7 +27,7 @@ check_df <- check_matrix %>%
 
 test_that("Predicted values calculated correctly", {
   td_pd <- predicted_draws(bartmodel1,
-    newdata = pdata, include_newdata = FALSE, prediction = "pred",
+    newdata = pdata, include_newdata = FALSE, value = "pred",
     rng = function(n, mean, ...) {
       mean + 0.1
     }

@@ -5,25 +5,25 @@
 \title{Get residual draw for \code{bartMachine} model}
 \usage{
 \method{residual_draws}{bartMachine}(
-  model,
+  object,
   newdata,
-  residual = ".residual",
+  value = ".residual",
   ...,
-  n = NULL,
+  ndraws = NULL,
   include_newdata = TRUE,
   include_sigsqs = FALSE
 )
 }
 \arguments{
-\item{model}{\code{bartMachine} model.}
+\item{object}{\code{bartMachine} model.}
 
 \item{newdata}{Data frame to generate predictions from. If omitted, original data used to fit the model.}
 
-\item{residual}{Name of the output column for residual_draws; default is \code{.residual}.}
+\item{value}{Name of the output column for residual_draws; default is \code{.residual}.}
 
 \item{...}{Additional arguments passed to the underlying prediction method for the type of model given.}
 
-\item{n}{Not currently implemented.}
+\item{ndraws}{Not currently implemented.}
 
 \item{include_newdata}{Should the newdata be included in the tibble?}
 
