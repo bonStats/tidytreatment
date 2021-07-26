@@ -1,4 +1,9 @@
-## New Submission
+## Resubmission
+This is a resubmission. In this version I have:
+
+* Changed CRAN URL in README.md to canonical version.
+
+In addition to previous submission:
 
 * Updated version of tidytreatment prior to update tidybayes to v3.0.0 which has breaking changes
 * This package has been tested with tested with `tidybayes` v2.3.1 (current) and v2.9.9.9000 (dev)
