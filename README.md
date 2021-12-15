@@ -12,7 +12,9 @@ The package currently supports the following models:
 
 - `BART`: see [CRAN](https://cran.r-project.org/package=BART)
 - `bartMachine`: see [CRAN](https://cran.r-project.org/package=bartMachine).
-- `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (in development, see branch `bcf-hold` on github).
+- `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (in development, see branch `bcf-hold` on github)
+
+in addition to models supported by [tidybayes](https://github.com/mjskay/tidybayes).
 
 See this [HTML vignette](https://CRAN.R-project.org/package=tidytreatment/vignettes/use-tidytreatment-BART.html) or `vignette("use-tidytreatment-BART")` for examples of usage.
 
