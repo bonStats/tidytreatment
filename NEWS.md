@@ -1,5 +1,9 @@
 # tidytreatment
 
+## tidytreatment 0.2.2
+
+* Updates to handle changes in ggdist required arguments.
+
 ## tidytreatment 0.2.1
 
 * Updates to handle breaking changes in upcoming `tidybayes` 3.0.0 release. 
