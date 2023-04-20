@@ -1,4 +1,4 @@
-## Code to prepare `suhillsim_ranef1` and `stan4bartmodel1`
+## Code to prepare `suhillsim_ranef1` and `stan4bartmodel1` ## NOW bartCause!
 library(tidytreatment)
 library(dbarts)
 library(stan4bart)
@@ -6,6 +6,8 @@ library(dplyr)
 withr::with_seed(101, {
   sim <- simulate_su_hill_data(
     n = 100, treatment_linear = F, omega = 0, add_categorical = T,
+    n_subjects = 10,
+    sd_subjects = 2,
     coef_categorical_treatment = c(0, 0, 1),
     coef_categorical_nontreatment = c(-1, 0, -1)
   )

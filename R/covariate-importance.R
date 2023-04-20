@@ -155,3 +155,34 @@ covariate_with_treatment_importance.mbart2 <- function(model, treatment, ...) {
 covariate_with_treatment_importance.mbart <- function(model, treatment, ...) {
   covariate_with_treatment_importance_BART(model, treatment, ...)
 }
+
+
+covariate_importance.stan4bartFit <- function(model, ...) {
+
+  # extract mcmc draws
+  vv <- extract(model, "varcount", combine_chains = F, include_warmup = F)
+
+  res <- dplyr::tibble(
+    variable = dimnames(vv)$predictor,
+    avg_inclusion = rowMeans(vv)
+  )
+
+  res
+}
+
+covariate_importance.stan4bartFit <- function(model, ...) {
+
+  # extract mcmc draws
+  vv <- extract(model, "varcount", combine_chains = F, include_warmup = F)
+
+  res <- dplyr::tibble(
+    variable = dimnames(vv)$predictor,
+    avg_inclusion = rowMeans(vv)
+  )
+
+  res
+}
+
+covariate_importance.bartcFit <- function(model, ...) {
+  covariate_importance(te_model$fit.rsp)
+}

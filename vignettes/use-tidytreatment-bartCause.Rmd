@@ -1,11 +1,11 @@
 ---
-title: "Using the tidytreatment package with stan4bart (with random effects)"
+title: "Using the tidytreatment package with bartCause"
 author: "Joshua J Bon"
 date: "`r Sys.Date()`"
 bibliography: vignette.bib
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Using the tidytreatment package with stan4bart (with random effects)}
+  %\VignetteIndexEntry{Using the tidytreatment package with bartCause}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -18,6 +18,7 @@ knitr::opts_chunk$set(
 )
 
 suppressPackageStartupMessages({
+    library(bartCause)
     library(stan4bart)
     library(tidytreatment)
     library(dplyr)
@@ -27,11 +28,16 @@ suppressPackageStartupMessages({
   
   # load pre-computed data and model
   sim <- suhillsim_ranef1
-  te_model <- stan4bartmodel1
+  te_bart <- ""
   
   # pre compute
-  posterior_treat_eff <- treatment_effects(te_model, treatment = "z", newdata = sim$data) 
-  posterior_treat_eff_on_treated <- treatment_effects(te_model, treatment = "z", newdata = sim$dat, subset = "treated") 
+  dt = as.data.frame(sim$data)
+  psbartmodel <- bartc(y, z, 
+                       confounders = c1 + x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10,
+                       parametric = (1 | group_id), data = dt, 
+                       commonSup.rule = "chisq",
+                       commonSup.cut = 0.05)
+
   
 ```
 
@@ -44,7 +50,8 @@ Below we load packages and simulate data using the scheme described by @Hill2013
 ```{r load-data-print, echo = TRUE, eval = FALSE}
 
 # load packages
-library(BART)
+library(bartCause)
+library(stan4bart)
 library(tidytreatment)
 library(dplyr)
 library(tidybayes)
@@ -55,6 +62,7 @@ set.seed(101)
 
 # simulate data
 sim <- simulate_su_hill_data(n = 100, treatment_linear = FALSE,  omega = 0, add_categorical = TRUE,
+                             n_subjects = 10, sd_subjects = 0.1,
                              coef_categorical_treatment = c(0,0,1),
                              coef_categorical_nontreatment = c(-1,0,-1)
 )
@@ -72,61 +80,53 @@ dat <- sim$data
 # a selection of data
 dat %>% select(y, z, c1, x1:x3) %>% head()
 
+# repeated observation counts for subjects:
+table(sim$data$subject_id)
+
 ```
 
 ## Fit the regression model
 
-Run the model to be used to assess treatment effects. Here we will use `BART`, which is one implementation of Bayesian Additive Regression Trees in `R` [@Chipman2010; @sparapani2016]. The package can be found on [CRAN](https://cran.r-project.org/package=BART).
+Run the model to be used to assess treatment effects. Here we will use the `bartCause`, for causal inference with Bayesian additive regression trees (BART) [@hill2011]. For more on BART see @Chipman2010 and @sparapani2016. The package can be found on [CRAN](https://cran.r-project.org/package=bartCause).
 
-We are following the procedure in @Hahn2020 (albeit without their more sophisticated model) where we estimate a propensity score for being assigned to the treatment regime, which improves estimation properties. The procedure is roughly as follows:
+We are following the procedure in @Hahn2020 (albeit without their more sophisticated model) where we estimate a propensity score for being assigned to the treatment regime, which improves estimation properties. This is done automatically in `bartCause`. The procedure is roughly as follows:
 
-1. Fit 'variable selection' model (VS): Regress outcome against covariates (excluding treatment variable)
-2. Select a subset of covariate from the VS model which are most associated with the outcome
-3. Fit a 'propensity score' model (PS): A probit/logit model estimating the propensity score using only the covariates selected in step 2
-4. Fit the treatment effect model (TE): Using the original covariates and propensity score from step 3
+1. Fit 'variable selection' model (VS): Regress response variable against all potential confounders (i.e. no treatment variable)
+2. Select a subset of confounders from the VS model which are most associated with the response variable
+3. Fit a 'propensity score' model (PS): A binary response model estimating the treatment assignment propensity score for using only the variables selected in step 2
+4. Fit the treatment effect model (TE): Using the all potential confounders and propensity score from step 3
+
+Note: Using the automatic treatment assignment model in `bartCause` ignores step 1-2 uses all potential confounders to estimate the PS model. 
 
 ```{r run-bart, echo = TRUE, eval = FALSE}
   
 # STEP 1 VS Model: Regress y ~ covariates
-var_select_bart <- wbart(x.train = select(dat,-y,-z), 
-                         y.train = pull(dat, y),
-                         sparse = TRUE,
-                         nskip = 2000, 
-                         ndpost = 5000)
+vs_bart <- stan4bart(y ~ bart(. - subject_id - z) + (1|subject_id), 
+                             data = dat, iter = 5000, verbose = -1)
 
 # STEP 2: Variable selection
   # select most important vars from y ~ covariates model
   # very simple selection mechanism. Should use cross-validation in practice
-covar_ranking <- covariate_importance(var_select_bart)
+covar_ranking <- covariate_importance(vs_bart)
 var_select <- covar_ranking %>% 
-  filter(avg_inclusion >= quantile(avg_inclusion, 0.5)) %>%
+  filter(avg_inclusion > mean(avg_inclusion) - sd(avg_inclusion)) %>% # at minimum: within 1 sd of mean inclusion
   pull(variable)
 
 # change categorical variables to just one variable
-var_select <- unique(gsub("c1[1-3]$","c1", var_select))
+var_select <- unique(gsub("c1.[1-3]$","c1", var_select))
 
 var_select
+# includes all covariates, but could remove some below:
 
 # STEP 3 PS Model: Regress z ~ selected covariates
-  # BART::pbart is for probit regression 
-prop_bart <- pbart(
-  x.train = select(dat, all_of(var_select)), 
-  y.train = pull(dat, z), 
-  nskip = 2000,
-  ndpost = 5000
-) 
+ps_bart <- stan4bart(z ~ bart(. - subject_id - y) + (1|subject_id), 
+                             data = dat, iter = 5000, verbose = -1)
 
 # store propensity score in data
-dat$prop_score <-  prop_bart$prob.train.mean
+prop_score <- fitted(ps_bart)
 
 # Step 4 TE Model: Regress y ~ z + covariates + propensity score
-te_model <- wbart(
-  x.train = select(dat,-y),
-  y.train = pull(dat, y),
-  nskip = 10000L,
-  ndpost = 200L, #*
-  keepevery = 100L #*
-)
+te_bart <- bartc(response = y, treatment = z, confounders = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10, parametric = (1|subject_id), data = dat, method.trt = prop_score, iter = 5000)
 
 #* The posterior samples are kept small to manage size on CRAN
 
@@ -138,11 +138,11 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-posterior_fitted <- fitted_draws(te_model, value = "fit", include_newdata = FALSE)
+posterior_fitted <- fitted_draws(te_bart, value = "fit", include_newdata = FALSE)
 # include_newdata = FALSE, avoids returning the newdata with the fitted values
 # as it is so large. newdata argument must be specified for this option in BART models. 
 # The `.row` variable makes sure we know which row in the newdata the fitted
-# value came from (if we dont include the data in the result).
+# value came from (if we don't include the data in the result).
 
 posterior_fitted
 
@@ -151,7 +151,7 @@ posterior_fitted
 ```{r tidy-bart-pred, eval=FALSE, echo=TRUE, cache=FALSE}
 
 # Function to tidy predicted draws also, this adds random normal noise by default
-posterior_pred <- predicted_draws(te_model, include_newdata = FALSE)
+posterior_pred <- predicted_draws(te_bart, include_newdata = FALSE)
 
 ```
 
@@ -190,7 +190,7 @@ Some histogram summaries are presented below.
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- 
-  treatment_effects(te_model, treatment = "z", newdata = dat) 
+  treatment_effects(te_bart, treatment = "z", newdata = dat) 
 
 ```
 ```{r cates-hist, echo=TRUE, cache=FALSE}
@@ -211,8 +211,8 @@ posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
 ```{r att-ate, eval=FALSE}
 # get the ATE and ATT directly:
 
-posterior_ate <- tidy_ate(te_model, treatment = "z", newdata = dat)
-posterior_att <- tidy_att(te_model, treatment = "z", newdata = dat)
+posterior_ate <- tidy_ate(te_bart, treatment = "z", newdata = dat)
+posterior_att <- tidy_att(te_bart, treatment = "z", newdata = dat)
 
 ```
 
@@ -240,7 +240,7 @@ We can also focus on the treatment effects for just those that are treated.
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff_on_treated <- 
-  treatment_effects(te_model, treatment = "z", newdata = dat, subset = "treated") 
+  treatment_effects(te_bart, treatment = "z", newdata = dat, subset = "treated") 
 
 ```
 
@@ -294,19 +294,19 @@ Common support testing [@Hill2013] can be tested directly, or a Boolean can be i
 
 # calculate common support directly
 # argument 'modeldata' must be specified for BART models 
-csupp_chisq <- has_common_support(te_model, treatment = "z", modeldata = dat,
+csupp_chisq <- has_common_support(te_bart, treatment = "z", modeldata = dat,
                              method = "chisq", cutoff = 0.05)
 
 csupp_chisq %>% filter(!common_support)
 
-csupp_sd <- has_common_support(te_model, treatment = "z", modeldata = dat,
+csupp_sd <- has_common_support(te_bart, treatment = "z", modeldata = dat,
                              method = "sd", cutoff = 1)
 csupp_sd %>% filter(!common_support)
 
 # calculate treatment effects (on those who were treated) 
 # and include only those estimates with common support
 posterior_treat_eff_on_treated <- 
-  treatment_effects(te_model, treatment = "z", subset = "treated", newdata = dat,
+  treatment_effects(te_bart, treatment = "z", subset = "treated", newdata = dat,
                     common_support_method = "sd", cutoff = 1) 
 
 ```
@@ -318,7 +318,7 @@ We can count how many times a variable was included in the BART (on average) in 
 ```{r interaction-investigator, echo=TRUE, cache=FALSE}
 
   treatment_interactions <-
-    covariate_with_treatment_importance(te_model, treatment = "z")
+    covariate_with_treatment_importance(te_bart, treatment = "z")
 
   treatment_interactions %>% 
     ggplot() + 
@@ -327,7 +327,7 @@ We can count how many times a variable was included in the BART (on average) in 
   theme(axis.text.x = element_text(angle = 45, hjust=1))
   
   variable_importance <-
-    covariate_importance(te_model)
+    covariate_importance(te_bart)
 
   variable_importance %>% 
     ggplot() + 
@@ -347,7 +347,7 @@ Code for trace plot of model variance ($\sigma^2$).
 ```{r sigma-trace, echo=TRUE, cache=FALSE}
 
 # includes skipped MCMC samples
-variance_draws(te_model, value = "siqsq") %>% 
+variance_draws(te_bart, value = "siqsq") %>% 
   filter(.draw > 10000) %>%
   ggplot(aes(x = .draw, y = siqsq)) +
   geom_line() +
@@ -359,7 +359,7 @@ Code for examining model residuals.
 
 ```{r convergence-bart, echo=TRUE, cache=FALSE}
 
-res <- residual_draws(te_model, response = pull(dat, y), include_newdata = FALSE)
+res <- residual_draws(te_bart, response = pull(dat, y), include_newdata = FALSE)
 res %>%   
   point_interval(.residual, y, .width = c(0.95) ) %>%
   select(-y.lower, -y.upper) %>%
