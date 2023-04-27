@@ -1,201 +1,191 @@
 
-#' @export
-tidy_draws.stan4bartFit = function(model, ...) {
-  # modelled from: https://github.com/mjskay/tidybayes/blob/199f13b759b6c93e9277fbd49a1728434cce7700/R/tidy_draws.R#L179
-  sample_matrix = as.array(model)
-  n_chain = dim(sample_matrix)[[2]]
-  mcmc_list = coda::as.mcmc.list(lapply(seq_len(n_chain), function(chain) as.mcmc(sample_matrix[, chain, ])))
-  draws = tidybayes::tidy_draws(mcmc_list, ...)
+# helper functions
+array_to_mcmclist <- function(arr, sample, variable, chain){
 
-  return(draws)
-}
+  stopifnot(sort(c(sample, variable, chain)) == 1:3)
 
-#' @export
-tidy_draws.bartcFit = function(model, stage = "rsp", ...) {
-
-  if(stage == "rsp"){
-    draws = tidy_draws(model$fit.rsp, ...)
+  if(sample > variable){
+    tt <- t
   } else {
-    draws = tidy_draws(model$fit.trt, ...)
+    tt <- identity
   }
 
-  return(draws)
+  chains <- dim(arr)[[chain]]
+  if(chain == 1){
+    # modeled from: https://github.com/mjskay/tidybayes/blob/199f13b759b6c93e9277fbd49a1728434cce7700/R/tidy_draws.R#L179
+    ss <- coda::as.mcmc.list(lapply(seq_len(chains), function(ch) coda::as.mcmc(tt(arr[ch, , ]))))
+  } else if(chain == 2) {
+    ss <- coda::as.mcmc.list(lapply(seq_len(chains), function(ch) coda::as.mcmc(tt(arr[ , ch,]))))
+  } else if(chain == 3) {
+    ss <- coda::as.mcmc.list(lapply(seq_len(chains), function(ch) coda::as.mcmc(tt(arr[ , ,ch]))))
+  }
+
+  return(ss)
+
 }
 
+matrix_to_mcmclist <- function(arr, sample, chain){
+
+  stopifnot(sort(c(sample, chain)) == 1:2)
+
+  chains <- dim(arr)[[chain]]
+  if(chain == 1){
+    ss <- coda::as.mcmc.list(lapply(seq_len(chains), function(ch) coda::as.mcmc(matrix(arr[ch, ], ncol = 1))))
+  } else if(chain == 2) {
+    ss <- coda::as.mcmc.list(lapply(seq_len(chains), function(ch) coda::as.mcmc(matrix(arr[ ,ch], ncol = 1))))
+  }
+
+  return(ss)
+
+}
+
+#' Get expected prediction draws from posterior of \code{stan4bart}-package models
+#'
+#' Typically referred to as fitted value draws on response scale, where appropriate.
+#'
+#' @param object A \code{stan4bartFit} object.
+#'
+#' @param newdata Data frame to generate predictions from [optional].
+#' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
+#' @param value The name of the output column.
+#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
+#'
 #' @export
 epred_draws.stan4bartFit = function(
     object, newdata, ...,
-    value = ".epred", ndraws = NULL, seed = NULL, re_formula = NULL,
-    category = ".category", dpar = NULL
+    value = ".epred", re_formula = NULL
 ) {
 
-  if(!missing(ndraws)) warning("ndraws not in use with stan4bartFit object")
-  if(!missing(seed)) warning("seed not in use with stan4bartFit object")
-  if(!missing(category)) warning("category not in use with stan4bartFit object")
-  if(!missing(dpar)) warning("dpar not in use with stan4bartFit object")
-
+  if( !is.atomic(re_formula) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
   # re_formula = NULL --> random effects == sample_new_levels = T
   # re_formula = NA --> no random effects == sample_new_levels = F
 
   if(missing(newdata)){
-    sample_matrix <- stan4bart:::extract.stan4bartFit(
-      object = object, type = "ev", sample_new_levels = is.null(re_formula),
+    sample_array <- dbarts::extract(object = object,
+      type = "ev", sample_new_levels = is.null(re_formula),
       combine_chains = FALSE, ...)
   } else {
-    stop("Methods using newdata not yet implemented")
+    sample_array <- predict(object = object,
+      newdata = newdata, type = "ev", sample_new_levels = is.null(re_formula),
+      combine_chains = FALSE, ...)
   }
 
-  n_chain = dim(sample_matrix)[[3]]
-  mcmc_list = coda::as.mcmc.list(lapply(seq_len(n_chain), function(chain) as.mcmc(t(sample_matrix[, , chain]))))
+  mcmc_list <- array_to_mcmclist(sample_array, 2, 1, 3)
 
-  tidy_draws(mcmc_list) %>%
+  array_to_mcmclist(sample_array, 2, 1, 3) %>%
+    tidybayes::tidy_draws() %>%
     tidyr::pivot_longer(cols = tidyr::starts_with("var"), names_to = ".row", values_to = value) %>%
-    mutate(.row = as.integer(gsub("var", "", .row))) %>%
+    dplyr::mutate(.row = as.integer(gsub("var", "", .row))) %>%
     dplyr::group_by(.row)
 
 }
 
+#' Get prediction draws from posterior of \code{stan4bart}-package models
+#'
+#' @param object A \code{stan4bartFit} object.
+#'
+#' @param newdata Data frame to generate predictions from [optional].
+#' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
+#' @param value The name of the output column.
+#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
+#'
+#' @export
+predicted_draws.stan4bartFit = function( # code from epred_draws.stan4bartFit, consider combining.
+    object, newdata, ...,
+    value = ".prediction", re_formula = NULL
+) {
+
+  if( !is.atomic(re_formula) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
+  # re_formula = NULL --> random effects == sample_new_levels = T
+  # re_formula = NA --> no random effects == sample_new_levels = F
+
+  if(missing(newdata)){
+    sample_array <- dbarts::extract(object = object,
+                                    type = "ppd", sample_new_levels = is.null(re_formula),
+                                    combine_chains = FALSE, ...)
+  } else {
+    sample_array <- predict(object = object,
+                            newdata = newdata, type = "ppd", sample_new_levels = is.null(re_formula),
+                            combine_chains = FALSE, ...)
+  }
+
+  mcmc_list <- array_to_mcmclist(sample_array, 2, 1, 3)
+
+  array_to_mcmclist(sample_array, 2, 1, 3) %>%
+    tidybayes::tidy_draws() %>%
+    tidyr::pivot_longer(cols = tidyr::starts_with("var"), names_to = ".row", values_to = value) %>%
+    dplyr::mutate(.row = as.integer(gsub("var", "", .row))) %>%
+    dplyr::group_by(.row)
+
+}
+
+#' Get expected prediction draws (on linear scale) from posterior of \code{stan4bart}-package models
+#'
+#' Typically referred to as fitted value draws on linear scale, where appropriate.
+#'
+#' @param object A \code{stan4bartFit} object.
+#'
+#' @param newdata Data frame to generate predictions from [optional].
+#' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
+#' @param value The name of the output column.
+#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
+#'
 #' @export
 linpred_draws.stan4bartFit = function(
     object, newdata, ...,
-    value = ".linpred", ndraws = NULL, seed = NULL, re_formula = NULL,
-    category = ".category", dpar = NULL
+    value = ".linpred", re_formula = NULL
 ) {
 
-  if(!missing(ndraws)) warning("ndraws not in use with stan4bartFit object")
-  if(!missing(seed)) warning("seed not in use with stan4bartFit object")
-  if(!missing(category)) warning("category not in use with stan4bartFit object")
-  if(!missing(dpar)) warning("dpar not in use with stan4bartFit object")
-
+  if( !is.atomic(re_formula) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
   # re_formula = NULL --> random effects == sample_new_levels = T
   # re_formula = NA --> no random effects == sample_new_levels = F
 
   is_bernoulli <- object$family$family == "binomial"
 
-  if(missing(newdata)){
-
-    if(!is_bernoulli){
-      draws <- epred_draws(object, ...,
-                  value = value, ndraws = ndraws, seed = seed, re_formula = re_formula,
-                  category = category, dpar = dpar)
-      return(draws)
+  if(!is_bernoulli){
+    if(missing(newdata)){
+      draws <- tidybayes::epred_draws(object, ..., value = value, re_formula = re_formula)
     } else {
-      sample_matrix <- Reduce("+", sapply(
-          c("indiv.fixef", "indiv.ranef", "indiv.bart"),
-          function(type) stan4bart:::extract.stan4bartFit(
-          object = object, type = type, sample_new_levels = is.null(re_formula),
-          combine_chains = FALSE, ...)
-        )
-      ) # see: https://github.com/vdorie/stan4bart/blob/2e474c4dbabd583fbaced3c89c05fdf06e963ebc/R/generics.R#L419
+      draws <- tidybayes::epred_draws(object, newdata = newdata, ..., value = value, re_formula = re_formula)
     }
-
-
-  } else {
-    stop("Methods using newdata not yet implemented")
+    return(draws)
   }
 
-  n_chain = dim(sample_matrix)[[3]]
-  mcmc_list = coda::as.mcmc.list(lapply(seq_len(n_chain), function(chain) as.mcmc(t(sample_matrix[, , chain]))))
+  # else ... is_bernoulli == TRUE
+  if(missing(newdata)){
+    sample_array <- Reduce("+", lapply(
+      c("indiv.fixef", "indiv.ranef", "indiv.bart"),
+      function(type) dbarts::extract(
+        object = object, type = type, sample_new_levels = is.null(re_formula),
+        combine_chains = FALSE, ...)
+    )
+    )
+    # can't find generic version of linpred...
+    # see: https://github.com/vdorie/stan4bart/blob/2e474c4dbabd583fbaced3c89c05fdf06e963ebc/R/generics.R#L419
+  } else {
+    sample_array <- Reduce("+", lapply(
+      c("indiv.fixef", "indiv.ranef", "indiv.bart"),
+      function(type) predict(
+        object = object, newdata = newdata, type = type, sample_new_levels = is.null(re_formula),
+        combine_chains = FALSE, ...)
+    )
+    )
+  }
 
-  draws <- tidy_draws(mcmc_list) %>%
+  array_to_mcmclist(sample_array, 2, 1, 3) %>%
+    tidybayes::tidy_draws() %>%
     tidyr::pivot_longer(cols = tidyr::starts_with("var"), names_to = ".row", values_to = value) %>%
-    mutate(.row = as.integer(gsub("var", "", .row))) %>%
+    dplyr::mutate(.row = as.integer(gsub("var", "", .row))) %>%
     dplyr::group_by(.row)
 
+}
+
+#' @export
+tidy_draws.stan4bartFit = function(object, ...) {
+  mcmc_list = array_to_mcmclist(as.array(object), 1, 3, 2)
+  draws = tidybayes::tidy_draws(mcmc_list, ...)
   return(draws)
-
 }
 
 
-
-
-
-
-
-#' Get fitted draws from posterior of \code{stan4bart}-package models
-#'
-#' @param model A model from \code{stan4bart} package.
-#' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
-#' @param value The name of the output column for \code{fitted_draws}; default \code{".value"}.
-#' @param include_newdata Should the newdata be included in the tibble?
-#' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the real, probit or logit scale?
-#' @param ... Arguments to pass to \code{predict} or \code{fitted} (e.g. \code{stan4bart:::extract}).
-#'
-#' @return A tidy data frame (tibble) with fitted values.
-#'
-fitted_draws_stan4bart <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
-  stopifnot(has_installed_package("stan4bart"))
-
-  if (is.null(newdata) & include_newdata) { #CHECK if we can add new data on
-    stop("For models from BART package 'newdata'
-          must be specified if 'include_newdata = TRUE'.")
-  }
-
-  stopifnot(
-    is.character(value),
-    is.logical(include_newdata),
-    is.logical(include_sigsqs)
-  )
-
-  use_scale <- match.arg(scale,
-                         c("real", "prob"),
-                         several.ok = F
-  )
-
-  type <- switch(use_scale,
-                 real = 'ev',
-                 prod = 'ppd')
-
-  # order for columns in output
-  col_order <- c(".row", ".chain", ".iteration", ".draw", value)
-
-  #HERE check extract type etc...
-
-  if (!(missing(newdata) | is.null(newdata))) {
-    posterior <- extract(model, newdata = newdata, type = type, ...)
-  } else {
-    posterior <- extract(model, type = type, ...)
-  }
-
-  if (use_scale == "prob" & "lbart" %in% class(model)) posterior <- stats::plogis(posterior)
-  if (use_scale == "prob" & "pbart" %in% class(model)) posterior <- stats::pnorm(posterior)
-
-  # bind newdata with fitted, wide format
-  out <- dplyr::bind_cols(
-    if (include_newdata) dplyr::as_tibble(newdata) else NULL,
-    dplyr::as_tibble(t(posterior), .name_repair = function(names) {
-      paste0(".col_iter", as.character(1:length(names)))
-    }),
-    .row = 1:ncol(posterior)
-  )
-
-  # convert to long format
-  out <- tidyr::gather(out, key = ".draw", value = !!value, dplyr::starts_with(".col_iter"))
-
-  # add variables to keep to generic standard, remove string in
-  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer(gsub(pattern = ".col_iter", replacement = "", x = .data$.draw)))
-
-  # include sigma^2 if needed
-  if (include_sigsqs) {
-    sigsq <- dplyr::bind_cols(
-      .draw = 1:length(model$sigma),
-      sigsq = model$sigma^2
-    )
-
-    out <- dplyr::left_join(out, sigsq, by = ".draw")
-
-    col_order <- c(col_order, "sigsq")
-  }
-
-  # rearrange
-  out <- dplyr::select(out, -!!col_order, !!col_order)
-
-  # group
-  row_groups <- names(out)[!names(out) %in% col_order[col_order != ".row"]]
-
-  out <- dplyr::group_by(out, dplyr::across(row_groups))
-
-  return(out)
-}
 

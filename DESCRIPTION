@@ -17,18 +17,23 @@ Suggests:
     knitr,
     rmarkdown,
     BART,
+    stan4bart,
+    bartCause,
     ggplot2,
     testthat (>= 3.0.0),
     withr
 VignetteBuilder: knitr
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.3
 Imports: 
     tidybayes,
     purrr,
     tidyr,
     dplyr,
     readr,
-    rlang
+    rlang,
+    dbarts,
+    coda,
+    magrittr
 Enhances:
     bartMachine
 Config/testthat/edition: 3

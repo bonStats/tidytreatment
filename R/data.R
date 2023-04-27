@@ -44,3 +44,27 @@
 #' @format Object of type \code{BART::wbart}
 #' @source \url{https://github.com/bonStats/tidytreatment/tree/master/data-raw}
 "bartmodel1_modelmatrix"
+
+#' Example simulated dataset 2: with subject specific random effects
+#'
+#' Simulated with \code{simulate_su_hill_data(...)}, see details.
+#'
+#' \preformatted{set.seed(101)
+#'  suhillsim1 <- simulate_su_hill_data(n = 100, treatment_linear = FALSE,  omega = 0, add_categorical = TRUE,
+#'    coef_categorical_treatment = c(0,0,1),
+#'    coef_categorical_nontreatment = c(-1,0,-1), sd_subjects = 2, n_subjects = 10)
+#' }
+#'
+#' @format See \code{?simulate_su_hill_data} for output format.
+#' @source \url{https://github.com/bonStats/tidytreatment/tree/master/data-raw}
+"suhillsim2_ranef"
+
+#' Example model 2
+#'
+#' Model fit with simulated data from simulated dataset \code{suhillsim1}.
+#'
+#' Propensity score estimated and included \code{suhillsim1} for fitting the model.
+#'
+#' @format Object of type \code{stan4bartFit}
+#' @source \url{https://github.com/bonStats/tidytreatment/tree/master/data-raw}
+#"stan4bartmodel2" # too large

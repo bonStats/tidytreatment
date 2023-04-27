@@ -27,16 +27,11 @@ suppressPackageStartupMessages({
   })
   
   # load pre-computed data and model
-  sim <- suhillsim_ranef1
-  te_bart <- ""
+  sim <- suhillsim2_ranef
+
   
   # pre compute
-  dt = as.data.frame(sim$data)
-  psbartmodel <- bartc(y, z, 
-                       confounders = c1 + x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10,
-                       parametric = (1 | group_id), data = dt, 
-                       commonSup.rule = "chisq",
-                       commonSup.cut = 0.05)
+  # ...
 
   
 ```
@@ -89,7 +84,7 @@ table(sim$data$subject_id)
 
 Run the model to be used to assess treatment effects. Here we will use the `bartCause`, for causal inference with Bayesian additive regression trees (BART) [@hill2011]. For more on BART see @Chipman2010 and @sparapani2016. The package can be found on [CRAN](https://cran.r-project.org/package=bartCause).
 
-We are following the procedure in @Hahn2020 (albeit without their more sophisticated model) where we estimate a propensity score for being assigned to the treatment regime, which improves estimation properties. This is done automatically in `bartCause`. The procedure is roughly as follows:
+We are following the procedure in @Hahn2020 (albeit without their causal forest model) where we estimate a propensity score for being assigned to the treatment regime, which improves estimation properties. This is done automatically in `bartCause`. The procedure is roughly as follows:
 
 1. Fit 'variable selection' model (VS): Regress response variable against all potential confounders (i.e. no treatment variable)
 2. Select a subset of confounders from the VS model which are most associated with the response variable
@@ -98,7 +93,7 @@ We are following the procedure in @Hahn2020 (albeit without their more sophistic
 
 Note: Using the automatic treatment assignment model in `bartCause` ignores step 1-2 uses all potential confounders to estimate the PS model. 
 
-```{r run-bart, echo = TRUE, eval = FALSE}
+```{r run-bart, echo = TRUE, eval = TRUE}
   
 # STEP 1 VS Model: Regress y ~ covariates
 vs_bart <- stan4bart(y ~ bart(. - subject_id - z) + (1|subject_id), 
@@ -116,7 +111,7 @@ var_select <- covar_ranking %>%
 var_select <- unique(gsub("c1.[1-3]$","c1", var_select))
 
 var_select
-# includes all covariates, but could remove some below:
+# includes all covariates
 
 # STEP 3 PS Model: Regress z ~ selected covariates
 ps_bart <- stan4bart(z ~ bart(. - subject_id - y) + (1|subject_id), 
@@ -138,20 +133,17 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-posterior_fitted <- fitted_draws(te_bart, value = "fit", include_newdata = FALSE)
-# include_newdata = FALSE, avoids returning the newdata with the fitted values
-# as it is so large. newdata argument must be specified for this option in BART models. 
-# The `.row` variable makes sure we know which row in the newdata the fitted
-# value came from (if we don't include the data in the result).
+# get model parameters (excluding BART paramaters)
+posterior_params <- tidy_draws(te_bart)
 
-posterior_fitted
+posterior_fitted <- epred_draws(te_bart, value = "fitted")
 
 ```
 
 ```{r tidy-bart-pred, eval=FALSE, echo=TRUE, cache=FALSE}
 
-# Function to tidy predicted draws also, this adds random normal noise by default
-posterior_pred <- predicted_draws(te_bart, include_newdata = FALSE)
+# Function to tidy predicted draws (adds predicted noise to fitted values)
+posterior_pred <- predicted_draws(te_bart, value = "predicted")
 
 ```
 
@@ -169,7 +161,7 @@ treatment_var_and_c1 <-
 posterior_fitted %>%
   left_join(treatment_var_and_c1, by = ".row") %>%
   ggplot() + 
-  stat_halfeye(aes(x = z, y = fit)) + 
+  stat_halfeye(aes(x = z, y = fitted)) + 
   facet_wrap(~c1, labeller = as_labeller( function(x) paste("c1 =",x) ) ) +
   xlab("Treatment (z)") + ylab("Posterior predicted value") +
   theme_bw() + ggtitle("Effect of treatment with 'c1' on posterior fitted values")

@@ -152,7 +152,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
 
   if (n_subjects > 0) {
     # add subject effects
-    rdata <- rdata %>% mutate(subject_id = factor(sample(1:n_subjects, nrow(rdata), replace = T)))
+    rdata <- rdata %>% dplyr::mutate(subject_id = factor(sample(1:n_subjects, nrow(rdata), replace = T)))
     subject_effect <- rnorm(n_subjects, sd = sd_subjects)
     rdata$y <- rdata$y + subject_effect[rdata$subject_id]
   }
