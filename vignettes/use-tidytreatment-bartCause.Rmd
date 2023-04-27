@@ -3,7 +3,7 @@ title: "Using the tidytreatment package with bartCause"
 author: "Joshua J Bon"
 date: "`r Sys.Date()`"
 bibliography: vignette.bib
-output: rmarkdown::html_vignette
+output: rmarkdown::pdf_document
 vignette: >
   %\VignetteIndexEntry{Using the tidytreatment package with bartCause}
   %\VignetteEngine{knitr::rmarkdown}
@@ -28,10 +28,6 @@ suppressPackageStartupMessages({
   
   # load pre-computed data and model
   sim <- suhillsim2_ranef
-
-  
-  # pre compute
-  # ...
 
   
 ```
@@ -121,7 +117,9 @@ ps_bart <- stan4bart(z ~ bart(. - subject_id - y) + (1|subject_id),
 prop_score <- fitted(ps_bart)
 
 # Step 4 TE Model: Regress y ~ z + covariates + propensity score
-te_bart <- bartc(response = y, treatment = z, confounders = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10, parametric = (1|subject_id), data = dat, method.trt = prop_score, iter = 5000)
+te_bart <- bartc(response = y, treatment = z, confounders = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10,  
+                 parametric = (1|subject_id), data = dat, method.trt = prop_score, 
+                 iter = 5000, bart_args = list(keepTrees = TRUE))
 
 #* The posterior samples are kept small to manage size on CRAN
 
@@ -178,6 +176,9 @@ $$
 
 Some histogram summaries are presented below.
 
+
+**NOTE: Vignette from here it is not working or not tested**
+
 ```{r post-treatment, eval = FALSE}
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
@@ -185,7 +186,7 @@ posterior_treat_eff <-
   treatment_effects(te_bart, treatment = "z", newdata = dat) 
 
 ```
-```{r cates-hist, echo=TRUE, cache=FALSE}
+```{r cates-hist, echo=TRUE, cache=FALSE, eval = F}
 
 # Histogram of treatment effect (all draws)
 posterior_treat_eff %>% 
@@ -208,7 +209,7 @@ posterior_att <- tidy_att(te_bart, treatment = "z", newdata = dat)
 
 ```
 
-```{r ate-trace-setup, eval = TRUE, echo = FALSE}
+```{r ate-trace-setup, eval = TRUE, echo = FALSE, eval = F}
 
 posterior_ate <- posterior_treat_eff %>% group_by(.chain, .iteration, .draw) %>%
   summarise(ate = mean(cte), .groups = "drop")
@@ -217,7 +218,7 @@ posterior_ate <- posterior_treat_eff %>% group_by(.chain, .iteration, .draw) %>%
 
 We can create a trace plot for the treatment effect summaries easily too:
 
-```{r ate-trace, eval=TRUE, echo=TRUE}
+```{r ate-trace, eval=TRUE, echo=TRUE, eval = F}
 
 posterior_ate %>% ggplot(aes(x = .draw, y = ate)) +
   geom_line() +
@@ -236,7 +237,7 @@ posterior_treat_eff_on_treated <-
 
 ```
 
-```{r cates-hist-treated, echo=TRUE, cache=FALSE}
+```{r cates-hist-treated, echo=TRUE, cache=FALSE, eval = F}
 
 posterior_treat_eff_on_treated %>% 
   ggplot() +
@@ -247,7 +248,7 @@ posterior_treat_eff_on_treated %>%
 
 Plots can be made that stack each subjects posterior CIs of the CATEs. 
 
-```{r cates-stack-plot, echo=TRUE, cache=FALSE}
+```{r cates-stack-plot, echo=TRUE, cache=FALSE, eval = F}
 
 posterior_treat_eff %>% select(-z) %>% point_interval() %>%
   arrange(cte) %>% mutate(.orow = 1:n()) %>% 
@@ -265,7 +266,7 @@ posterior_treat_eff %>% select(-z) %>% point_interval() %>%
 
 We can also plot the CATEs varying over particular covariates. In this example, instead of grouping by subject, we group by the variable of interest, and calculate the posterior summaries over this variable.
 
-```{r cates-line-plot, echo=TRUE, cache=FALSE}
+```{r cates-line-plot, echo=TRUE, cache=FALSE, eval = F}
 
 posterior_treat_eff %>%
   left_join(tibble(c1 = dat$c1, .row = 1:length(dat$c1) ), by = ".row") %>%
@@ -282,7 +283,7 @@ posterior_treat_eff %>%
 
 Common support testing [@Hill2013] can be tested directly, or a Boolean can be included when calculating the treatment effects.
 
-```{r common-support, echo=TRUE, results='hide', cache=FALSE}
+```{r common-support, echo=TRUE, results='hide', cache=FALSE, eval = F}
 
 # calculate common support directly
 # argument 'modeldata' must be specified for BART models 
@@ -307,7 +308,7 @@ posterior_treat_eff_on_treated <-
 
 We can count how many times a variable was included in the BART (on average) in conjunction with the treatment effect, or overall. This method uses a simple average of occurrences, see @bleich2014variable for more sophisticated methods.
 
-```{r interaction-investigator, echo=TRUE, cache=FALSE}
+```{r interaction-investigator, echo=TRUE, cache=FALSE, eval = F}
 
   treatment_interactions <-
     covariate_with_treatment_importance(te_bart, treatment = "z")
@@ -336,7 +337,7 @@ Here are some examples of model checking we can do.
 
 Code for trace plot of model variance ($\sigma^2$).
 
-```{r sigma-trace, echo=TRUE, cache=FALSE}
+```{r sigma-trace, echo=TRUE, cache=FALSE, eval = F}
 
 # includes skipped MCMC samples
 variance_draws(te_bart, value = "siqsq") %>% 
@@ -349,7 +350,7 @@ variance_draws(te_bart, value = "siqsq") %>%
 ```
 Code for examining model residuals.
 
-```{r convergence-bart, echo=TRUE, cache=FALSE}
+```{r convergence-bart, echo=TRUE, cache=FALSE, eval = F}
 
 res <- residual_draws(te_bart, response = pull(dat, y), include_newdata = FALSE)
 res %>%   

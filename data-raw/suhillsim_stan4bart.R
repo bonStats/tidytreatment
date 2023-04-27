@@ -50,6 +50,8 @@ withr::with_seed(101, {
 
 })
 
+
+sim$prop_score <- prop_score
 suhillsim2_ranef <- sim
 stan4bartmodel2 <- te_bart
 
