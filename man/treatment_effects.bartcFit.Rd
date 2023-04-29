@@ -2,24 +2,12 @@
 % Please edit documentation in R/treatment-effects-bartCause.R
 \name{treatment_effects.bartcFit}
 \alias{treatment_effects.bartcFit}
-\title{Get treatment effect draws from bartcFit posterior}
+\title{Get (individual) treatment effect draws from bartcFit posterior}
 \usage{
-\method{treatment_effects}{bartcFit}(
-  model,
-  treatment,
-  newdata,
-  subset = "all",
-  common_support_method,
-  cutoff,
-  ...
-)
+\method{treatment_effects}{bartcFit}(model, subset = "all", common_support_method, cutoff, ...)
 }
 \arguments{
 \item{model}{A supported Bayesian model fit that can provide fits and predictions.}
-
-\item{treatment}{A character string specifying the name of the treatment variable.}
-
-\item{newdata}{Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.}
 
 \item{subset}{Either "treated", "nontreated", or "all". Default is "all".}
 
@@ -33,6 +21,7 @@
 A tidy data frame (tibble) with treatment effect values.
 }
 \description{
-CTE = Conditional Treatment Effects (or CATE, the average effects)
+CTE = Conditional Treatment Effects (usually used to generate (C)ATE or ATT)
 \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
+Assumes treated column is either a integer column of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 }

@@ -1,17 +1,20 @@
 
-#' Get treatment effect draws from bartcFit posterior
+#' Get (individual) treatment effect draws from bartcFit posterior
 #'
-#' CTE = Conditional Treatment Effects (or CATE, the average effects)
+#' CTE = Conditional Treatment Effects (usually used to generate (C)ATE or ATT)
 #' \code{newdata} specifies the conditions, if unspecified it defaults to the original data.
+#' Assumes treated column is either a integer column of 1's (treated) and 0's (nontreated) or logical indicating treatment if TRUE.
 #'
-#' @inheritParams treatment_effects
+#' @param model A supported Bayesian model fit that can provide fits and predictions.
+#' @param subset Either "treated", "nontreated", or "all". Default is "all".
+#' @param common_support_method Either "sd", or "chisq". Default is unspecified, and no common support calculation is done.
+#' @param cutoff Cutoff for common support (if in use).
+#' @param ... Arguments to be passed to \code{tidybayes::fitted_draws} typically scale for \code{BART} models.
 #'
 #' @return A tidy data frame (tibble) with treatment effect values.
 #' @export
 #'
-treatment_effects.bartcFit <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff, ...) {
-
-  stop("Not currently implemented, use summary(model,...) see ?summary.bartcFit")
+treatment_effects.bartcFit <- function(model, subset = "all", common_support_method, cutoff, ...) {
 
   # update specified common support arguments
   if(missing(common_support_method)){
@@ -35,32 +38,22 @@ treatment_effects.bartcFit <- function(model, treatment, newdata, subset = "all"
 
   # extract treatment effect
 
-  commonsupport <- tibble(.row = 1:length(refitmodel$commonSup.sub), supported = refitmodel$commonSup.sub)
+  rowinfo <- tibble(.row = 1:length(refitmodel$commonSup.sub), treated = model$trt)
+  if(commonSup.rule != "none"){
+    rowinfo <- rowinfo %>% mutate(supported = refitmodel$commonSup.sub)
+  }
 
-
-  predict(refitmodel, type = "mu", newdata = data.frame(p.score = refitmodel$p.score))
-
-  # tidy_draws uses extract which gets the average treatment effect (not per individual)
-  # see below...
-  tedf <- tidy_draws(refitmodel, type = "icate", fitstage = "response") %>%
+  te_df <- tidy_draws(refitmodel, type = "icate", fitstage = "response", sample = "all") %>%
     left_join(tidy_draws(refitmodel, type = "ite", fitstage = "response"),
               by = join_by(.chain, .iteration, .draw, .row)) %>%
-    left_join(commonsupport, by = join_by(.row))
+    left_join(rowinfo, by = join_by(.row))
 
-  # summary.bartcFit calculates icate/ite with common support for the CIs it uses.
-  # could add argument to output the icate/ite from thus
+  if(subset == "treated"){
+    te_df <- te_df %>% filter(treated == 1)
+  } else if (subset == "nontreated") {
+    te_df <- te_df %>% filter(treated == 0)
+  }
 
-
-
-
-
-
-
-
-
-
-
-
-
+  return(te_df)
 
 }

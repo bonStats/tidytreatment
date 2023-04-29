@@ -177,13 +177,12 @@ $$
 Some histogram summaries are presented below.
 
 
-**NOTE: Vignette from here it is not working or not tested**
-
 ```{r post-treatment, eval = FALSE}
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
-posterior_treat_eff <- 
-  treatment_effects(te_bart, treatment = "z", newdata = dat) 
+posterior_treat_eff <- treatment_effects(te_bart)
+
+# check lines up with summary results...
 
 ```
 ```{r cates-hist, echo=TRUE, cache=FALSE, eval = F}
