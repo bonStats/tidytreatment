@@ -1,5 +1,10 @@
 # tidytreatment
 
+## tidytreatment 0.3.0.1
+
+* Now supports bartCause and stan4bart (github versions)
+* Will move to CRAN soon
+
 ## tidytreatment 0.2.2
 
 * Updates to handle changes in ggdist required arguments.

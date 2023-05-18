@@ -13,6 +13,8 @@ simulate_su_hill_data(
   tau = 4,
   omega = 0,
   add_categorical = FALSE,
+  n_subjects = 0,
+  sd_subjects = 1,
   coef_categorical_treatment = NULL,
   coef_categorical_nontreatment = NULL
 )
@@ -33,6 +35,10 @@ simulate_su_hill_data(
 \item{omega}{Offset to control treatment assignment ratios.}
 
 \item{add_categorical}{Should a categorical variable be added? (Not in Hill and Su)}
+
+\item{n_subjects}{How many subjects are there? For repeated observations. (Hill and Su = 0, default)}
+
+\item{sd_subjects}{Random effect intercept standard deviation for subjects. (Not in Hill and Su. Used if n_subjects > 0)}
 
 \item{coef_categorical_treatment}{What are the coefficients of the categorical variable under treatment? (Not in Hill and Su)}
 

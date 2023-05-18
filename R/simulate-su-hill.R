@@ -26,6 +26,8 @@
 #' @param response_aligned Response surface is aligned?
 #' @param y_sd Observation noise.
 #' @param add_categorical Should a categorical variable be added? (Not in Hill and Su)
+#' @param n_subjects How many subjects are there? For repeated observations. (Hill and Su = 0, default)
+#' @param sd_subjects Random effect intercept standard deviation for subjects. (Not in Hill and Su. Used if n_subjects > 0)
 #' @param coef_categorical_treatment What are the coefficients of the categorical variable under treatment? (Not in Hill and Su)
 #' @param coef_categorical_nontreatment What are the coefficients of the categorical variable under nontreatment? (Not in Hill and Su)
 #' @return An object of class \code{suhillsim} that is a list with elements
@@ -35,7 +37,7 @@
 #' \item{formulas}{Response formulas used to generate data}
 #' \item{coefs}{Coefficients for the formulas}
 #' @export
-simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel = TRUE, response_aligned = TRUE, y_sd = 1, tau = 4, omega = 0, add_categorical = FALSE, coef_categorical_treatment = NULL, coef_categorical_nontreatment = NULL) {
+simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel = TRUE, response_aligned = TRUE, y_sd = 1, tau = 4, omega = 0, add_categorical = FALSE, n_subjects = 0, sd_subjects = 1, coef_categorical_treatment = NULL, coef_categorical_nontreatment = NULL) {
   fargs <- as.list(match.call())
 
   coefs <- dplyr::tribble(
@@ -146,6 +148,13 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
     rdata <- cbind(data.frame(y = y, z = z, c1 = factor(c1)), X)
   } else {
     rdata <- cbind(data.frame(y = y, z = z), X)
+  }
+
+  if (n_subjects > 0) {
+    # add subject effects
+    rdata <- rdata %>% dplyr::mutate(subject_id = factor(sample(1:n_subjects, nrow(rdata), replace = T)))
+    subject_effect <- rnorm(n_subjects, sd = sd_subjects)
+    rdata$y <- rdata$y + subject_effect[rdata$subject_id]
   }
 
   # prepare formula's to describe simulation truth
