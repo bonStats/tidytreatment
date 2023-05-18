@@ -3,7 +3,7 @@ title: "Using the tidytreatment package with bartCause"
 author: "Joshua J Bon"
 date: "`r Sys.Date()`"
 bibliography: vignette.bib
-output: rmarkdown::pdf_document
+output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Using the tidytreatment package with bartCause}
   %\VignetteEngine{knitr::rmarkdown}
@@ -177,7 +177,7 @@ $$
 Some histogram summaries are presented below.
 
 
-```{r post-treatment, eval = FALSE}
+```{r post-treatment, eval = T}
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- treatment_effects(te_bart)
@@ -185,193 +185,21 @@ posterior_treat_eff <- treatment_effects(te_bart)
 # check lines up with summary results...
 
 ```
-```{r cates-hist, echo=TRUE, cache=FALSE, eval = F}
+```{r cates-hist, echo=TRUE, cache=FALSE, eval = T}
 
 # Histogram of treatment effect (all draws)
 posterior_treat_eff %>% 
   ggplot() +
-  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
+  geom_histogram(aes(x = icate), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (all draws)")
 
 # Histogram of treatment effect (median for each subject)
-posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
+posterior_treat_eff %>% summarise(cte_hat = median(icate)) %>%
   ggplot() +
   geom_histogram(aes(x = cte_hat), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (median for each subject)")
 
 ```
-```{r att-ate, eval=FALSE}
-# get the ATE and ATT directly:
 
-posterior_ate <- tidy_ate(te_bart, treatment = "z", newdata = dat)
-posterior_att <- tidy_att(te_bart, treatment = "z", newdata = dat)
-
-```
-
-```{r ate-trace-setup, eval = TRUE, echo = FALSE, eval = F}
-
-posterior_ate <- posterior_treat_eff %>% group_by(.chain, .iteration, .draw) %>%
-  summarise(ate = mean(cte), .groups = "drop")
-
-```
-
-We can create a trace plot for the treatment effect summaries easily too:
-
-```{r ate-trace, eval=TRUE, echo=TRUE, eval = F}
-
-posterior_ate %>% ggplot(aes(x = .draw, y = ate)) +
-  geom_line() +
-  theme_bw() + 
-  ggtitle("Trace plot of ATE")
-
-```
-
-We can also focus on the treatment effects for just those that are treated. 
-
-```{r post-te-treated, echo=TRUE, eval=FALSE}
-
-# sample based (using data from fit) conditional treatment effects, posterior draws
-posterior_treat_eff_on_treated <- 
-  treatment_effects(te_bart, treatment = "z", newdata = dat, subset = "treated") 
-
-```
-
-```{r cates-hist-treated, echo=TRUE, cache=FALSE, eval = F}
-
-posterior_treat_eff_on_treated %>% 
-  ggplot() +
-  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
-  theme_bw() + ggtitle("Histogram of treatment effect (all draws from treated subjects)")
-
-```
-
-Plots can be made that stack each subjects posterior CIs of the CATEs. 
-
-```{r cates-stack-plot, echo=TRUE, cache=FALSE, eval = F}
-
-posterior_treat_eff %>% select(-z) %>% point_interval() %>%
-  arrange(cte) %>% mutate(.orow = 1:n()) %>% 
-  ggplot() + 
-  geom_interval(aes(x = .orow, y= cte, ymin = .lower, ymax = .upper)) +
-  geom_point(aes(x = .orow, y = cte), shape = "circle open", alpha = 0.5) + 
-  ylab("Median posterior CATE for each subject (95% CI)") +
-  theme_bw() + coord_flip() + scale_colour_brewer() +
-  theme(axis.title.y = element_blank(), 
-        axis.text.y = element_blank(), 
-        axis.ticks.y = element_blank(),
-        legend.position = "none")
-
-```
-
-We can also plot the CATEs varying over particular covariates. In this example, instead of grouping by subject, we group by the variable of interest, and calculate the posterior summaries over this variable.
-
-```{r cates-line-plot, echo=TRUE, cache=FALSE, eval = F}
-
-posterior_treat_eff %>%
-  left_join(tibble(c1 = dat$c1, .row = 1:length(dat$c1) ), by = ".row") %>%
-  group_by(c1) %>%
-  ggplot() + 
-  stat_halfeye(aes(x = c1, y = cte), alpha = 0.7) +
-  scale_fill_brewer() +
-  theme_bw() + ggtitle("Treatment effect by `c1`")
-
-
-```
-
-## Common support calculations
-
-Common support testing [@Hill2013] can be tested directly, or a Boolean can be included when calculating the treatment effects.
-
-```{r common-support, echo=TRUE, results='hide', cache=FALSE, eval = F}
-
-# calculate common support directly
-# argument 'modeldata' must be specified for BART models 
-csupp_chisq <- has_common_support(te_bart, treatment = "z", modeldata = dat,
-                             method = "chisq", cutoff = 0.05)
-
-csupp_chisq %>% filter(!common_support)
-
-csupp_sd <- has_common_support(te_bart, treatment = "z", modeldata = dat,
-                             method = "sd", cutoff = 1)
-csupp_sd %>% filter(!common_support)
-
-# calculate treatment effects (on those who were treated) 
-# and include only those estimates with common support
-posterior_treat_eff_on_treated <- 
-  treatment_effects(te_bart, treatment = "z", subset = "treated", newdata = dat,
-                    common_support_method = "sd", cutoff = 1) 
-
-```
-
-## Investigating variable importance
-
-We can count how many times a variable was included in the BART (on average) in conjunction with the treatment effect, or overall. This method uses a simple average of occurrences, see @bleich2014variable for more sophisticated methods.
-
-```{r interaction-investigator, echo=TRUE, cache=FALSE, eval = F}
-
-  treatment_interactions <-
-    covariate_with_treatment_importance(te_bart, treatment = "z")
-
-  treatment_interactions %>% 
-    ggplot() + 
-    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
-    theme_bw() + ggtitle("Important variables interacting with treatment ('z')") + ylab("Inclusion counts") +
-  theme(axis.text.x = element_text(angle = 45, hjust=1))
-  
-  variable_importance <-
-    covariate_importance(te_bart)
-
-  variable_importance %>% 
-    ggplot() + 
-    geom_bar(aes(x = variable, y = avg_inclusion), stat = "identity") +
-    theme_bw() + ggtitle("Important variables overall") +
-    ylab("Inclusion counts") +
-    theme(axis.text.x = element_text(angle = 45, hjust=1))
-  
-```
-
-## Model checking and convergence
-
-Here are some examples of model checking we can do.
-
-Code for trace plot of model variance ($\sigma^2$).
-
-```{r sigma-trace, echo=TRUE, cache=FALSE, eval = F}
-
-# includes skipped MCMC samples
-variance_draws(te_bart, value = "siqsq") %>% 
-  filter(.draw > 10000) %>%
-  ggplot(aes(x = .draw, y = siqsq)) +
-  geom_line() +
-  theme_bw() + 
-  ggtitle("Trace plot of model variance post warm-up")
-
-```
-Code for examining model residuals.
-
-```{r convergence-bart, echo=TRUE, cache=FALSE, eval = F}
-
-res <- residual_draws(te_bart, response = pull(dat, y), include_newdata = FALSE)
-res %>%   
-  point_interval(.residual, y, .width = c(0.95) ) %>%
-  select(-y.lower, -y.upper) %>%
-  ggplot() + 
-  geom_pointinterval(aes(x = y, y = .residual, ymin = .residual.lower,  ymax = .residual.upper), alpha = 0.2) +
-  scale_fill_brewer() +
-  theme_bw() + ggtitle("Residuals vs observations")
-
-res %>% summarise(.fitted = mean(.fitted), y = first(y)) %>% 
-  ggplot(aes(x = y, y = .fitted)) +
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  theme_bw() + ggtitle("Observations vs fitted")
-
-res %>% summarise(.residual = mean(.residual)) %>%
-  ggplot(aes(sample = .residual)) + 
-  geom_qq() + 
-  geom_qq_line() + 
-  theme_bw() + ggtitle("Q-Q plot of residuals")
-
-```
 
 ## References

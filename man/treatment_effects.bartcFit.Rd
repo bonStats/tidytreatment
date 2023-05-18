@@ -4,10 +4,22 @@
 \alias{treatment_effects.bartcFit}
 \title{Get (individual) treatment effect draws from bartcFit posterior}
 \usage{
-\method{treatment_effects}{bartcFit}(model, subset = "all", common_support_method, cutoff, ...)
+\method{treatment_effects}{bartcFit}(
+  model,
+  treatment = NULL,
+  newdata = NULL,
+  subset = "all",
+  common_support_method,
+  cutoff,
+  ...
+)
 }
 \arguments{
 \item{model}{A supported Bayesian model fit that can provide fits and predictions.}
+
+\item{treatment}{Not used. Treatment variable specified by \code{bartcFit} object.}
+
+\item{newdata}{Not used. extracts treatment effects already calculated by \code{bartcFit} object.}
 
 \item{subset}{Either "treated", "nontreated", or "all". Default is "all".}
 
