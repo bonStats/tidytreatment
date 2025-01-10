@@ -56,7 +56,7 @@ epred_draws.stan4bartFit = function(
     value = ".epred", re_formula = NULL
 ) {
 
-  if( !is.atomic(re_formula) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
+  if( (length(re_formula) > 1) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
   # re_formula = NULL --> random effects == sample_new_levels = T
   # re_formula = NA --> no random effects == sample_new_levels = F
 
@@ -95,7 +95,7 @@ predicted_draws.stan4bartFit = function( # code from epred_draws.stan4bartFit, c
     value = ".prediction", re_formula = NULL
 ) {
 
-  if( !is.atomic(re_formula) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
+  if( (length(re_formula) > 1) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
   # re_formula = NULL --> random effects == sample_new_levels = T
   # re_formula = NA --> no random effects == sample_new_levels = F
 
@@ -136,7 +136,7 @@ linpred_draws.stan4bartFit = function(
     value = ".linpred", re_formula = NULL
 ) {
 
-  if( !is.atomic(re_formula) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
+  if( (length(re_formula) > 1) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
   # re_formula = NULL --> random effects == sample_new_levels = T
   # re_formula = NA --> no random effects == sample_new_levels = F
 
@@ -181,8 +181,8 @@ linpred_draws.stan4bartFit = function(
 }
 
 #' @export
-tidy_draws.stan4bartFit = function(object, ...) {
-  mcmc_list = array_to_mcmclist(as.array(object), 1, 3, 2)
+tidy_draws.stan4bartFit = function(model, ...) {
+  mcmc_list = array_to_mcmclist(as.array(model), 1, 3, 2)
   draws = tidybayes::tidy_draws(mcmc_list, ...)
   return(draws)
 }

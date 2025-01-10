@@ -2,8 +2,21 @@
 % Please edit documentation in R/tidytreatment-package.R
 \docType{package}
 \name{tidytreatment}
+\alias{tidytreatment-package}
 \alias{tidytreatment}
 \title{tidytreatment: Tidy methods for Bayesian treatment effect models}
 \description{
 tidytreatment provides functions for extracting tidy data from Bayesian treatment effect models, estimating treatment effects, and plotting useful summaries of these.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/bonStats/tidytreatment}
+  \item Report bugs at \url{https://github.com/bonStats/tidytreatment/issues}
+}
+
+}
+\author{
+\strong{Maintainer}: Joshua J Bon \email{joshuajbon@gmail.com} (\href{https://orcid.org/0000-0003-2313-2949}{ORCID})
+
 }

@@ -4,10 +4,10 @@
 \alias{tidy_draws.bartcFit}
 \title{Tidy access to posterior of \code{bartCause}-package objects}
 \usage{
-\method{tidy_draws}{bartcFit}(object, type = NULL, fitstage = c("response", "assignment"), ...)
+\method{tidy_draws}{bartcFit}(model, type = NULL, fitstage = c("response", "assignment"), ...)
 }
 \arguments{
-\item{object}{A \code{bartCauseFit} object.}
+\item{model}{A \code{bartCauseFit} object.}
 
 \item{type}{Posterior quantity to return. See \code{\link[bartCause]{bartc-generics}}.}
 

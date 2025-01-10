@@ -81,21 +81,21 @@ utils::globalVariables(c("var1"))
 
 #' Tidy access to posterior of \code{bartCause}-package objects
 #'
-#' @param object A \code{bartCauseFit} object.
+#' @param model A \code{bartCauseFit} object.
 #' @param type Posterior quantity to return. See \code{\link[bartCause]{bartc-generics}}.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
 #' @param ... Additional parameters passed up the generic method chain.
 #'
 #' @export
-tidy_draws.bartcFit = function(object, type = NULL, fitstage = c("response","assignment"), ...) {
+tidy_draws.bartcFit = function(model, type = NULL, fitstage = c("response","assignment"), ...) {
 
   if(is.null(type)){
     fitstage <- match.arg(fitstage)
 
     if(fitstage == "response"){
-      draws <- tidybayes::tidy_draws(object$fit.rsp, ...)
+      draws <- tidybayes::tidy_draws(model$fit.rsp, ...)
     } else {
-      draws <- tidybayes::tidy_draws(object$fit.trt, ...)
+      draws <- tidybayes::tidy_draws(model$fit.trt, ...)
     }
     return(draws)
   }
@@ -106,9 +106,9 @@ tidy_draws.bartcFit = function(object, type = NULL, fitstage = c("response","ass
   ldots <- list(...)
 
   if(is.null(ldots$newdata)){
-    sample_array <- dbarts::extract(object, type = type, ..., combineChains = FALSE)
+    sample_array <- dbarts::extract(model, type = type, ..., combineChains = FALSE)
   } else {
-    sample_array <- predict(object, newdata = ldots$newdata, type = type, ..., combineChains = FALSE)
+    sample_array <- predict(model, newdata = ldots$newdata, type = type, ..., combineChains = FALSE)
   }
 
   ndim <- length(dim(sample_array))
