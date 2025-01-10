@@ -1,5 +1,11 @@
 # tidytreatment
 
+## tidytreatment 0.3.0.2
+
+* Now supports bartCause and stan4bart
+* Patch issues with dependencies
+* Update on CRAN
+
 ## tidytreatment 0.3.0.1
 
 * Now supports bartCause and stan4bart (github versions)
