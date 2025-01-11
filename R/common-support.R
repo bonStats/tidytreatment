@@ -3,7 +3,7 @@
 #' The common support identification methods are based on Hill and Su (2013).
 #' Loosely speaker, an individuals treatment effect estimate has common support if the counter factual
 #' estimate is not too uncertain. The estimates are uncertain when the prediction is 'far away' from
-#' other observations. Removing estimates without common support can be beneficial for treat effect
+#' other observations. Removing estimates without common support can be beneficial for treatment effect
 #' estimates.
 #'
 #' Hill, Jennifer; Su, Yu-Sung. Ann. Appl. Stat. 7 (2013), no. 3, 1386--1420. doi:10.1214/13-AOAS630. \url{https://projecteuclid.org/euclid.aoas/1380804800}
@@ -24,9 +24,10 @@ has_common_support <- function(model, treatment, method, cutoff, modeldata = NUL
 
   stopifnot(
     treatment %in% colnames(modeldata),
-    is.data.frame(modeldata),
-    !missing(cutoff)
+    is.data.frame(modeldata)
   )
+
+  if(method == "chisq") stopifnot(!missing(cutoff))
 
   stopifnot(
     is_01_integer_vector(modeldata[, treatment]) | is.logical(modeldata[, treatment])
@@ -59,7 +60,10 @@ has_common_support <- function(model, treatment, method, cutoff, modeldata = NUL
 }
 
 calc_common_support_from_fitted_and_cf <- function(fitted_and_cf, modeldata, treatment, method, cutoff) {
-  posterior_obs_cf_sd <- dplyr::summarise(
+
+  if(method == "sd" & !missing(cutoff)) warning("method = 'sd' does not use cutoff value, 'cutoff' ignored.")
+
+   posterior_obs_cf_sd <- dplyr::summarise(
     fitted_and_cf,
     sd_observed = stats::sd(.data$observed),
     sd_cfactual = stats::sd(.data$cfactual)

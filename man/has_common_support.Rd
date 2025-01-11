@@ -24,7 +24,7 @@ Tibble with a row for each observation and a column indicating whether common su
 The common support identification methods are based on Hill and Su (2013).
 Loosely speaker, an individuals treatment effect estimate has common support if the counter factual
 estimate is not too uncertain. The estimates are uncertain when the prediction is 'far away' from
-other observations. Removing estimates without common support can be beneficial for treat effect
+other observations. Removing estimates without common support can be beneficial for treatment effect
 estimates.
 }
 \details{

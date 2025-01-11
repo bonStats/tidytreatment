@@ -1,11 +1,11 @@
 ---
-title: "Using the tidytreatment package with BART"
+title: "Using the tidytreatment package with BART (binary outcome)"
 author: "Joshua J Bon"
 date: "`r Sys.Date()`"
 bibliography: vignette.bib
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Using the tidytreatment package with BART}
+  %\VignetteIndexEntry{Using the tidytreatment package with BART (binary outcome)}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -58,6 +58,10 @@ sim <- simulate_su_hill_data(n = 100, treatment_linear = FALSE,  omega = 0, add_
                              coef_categorical_treatment = c(0,0,1),
                              coef_categorical_nontreatment = c(-1,0,-1)
 )
+
+# binary in this example
+
+sim$data$y <- as.integer(sim$data$y > 2.7)
   
 ```
 
@@ -88,7 +92,7 @@ We are following the procedure in @Hahn2020 (albeit without their more sophistic
 ```{r run-bart, echo = TRUE, eval = FALSE}
   
 # STEP 1 VS Model: Regress y ~ covariates
-var_select_bart <- wbart(x.train = select(dat,-y,-z), 
+var_select_bart <- pbart(x.train = select(dat,-y,-z), 
                          y.train = pull(dat, y),
                          sparse = TRUE,
                          nskip = 2000, 
@@ -120,7 +124,7 @@ prop_bart <- pbart(
 dat$prop_score <-  prop_bart$prob.train.mean
 
 # Step 4 TE Model: Regress y ~ z + covariates + propensity score
-te_model <- wbart(
+te_model <- pbart(
   x.train = select(dat,-y),
   y.train = pull(dat, y),
   nskip = 10000L,
@@ -138,7 +142,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-posterior_fitted <- fitted_draws(te_model, value = "fit", include_newdata = FALSE)
+posterior_fitted <- fitted_draws(te_model, value = "fit", scale = "prob", include_newdata = FALSE)
 # include_newdata = FALSE, avoids returning the newdata with the fitted values
 # as it is so large. newdata argument must be specified for this option in BART models. 
 # The `.row` variable makes sure we know which row in the newdata the fitted
@@ -190,7 +194,7 @@ Some histogram summaries are presented below.
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
 posterior_treat_eff <- 
-  treatment_effects(te_model, treatment = "z", newdata = dat) 
+  treatment_effects(te_model, treatment = "z", scale = "prob", newdata = dat) 
 
 ```
 ```{r cates-hist, echo=TRUE, cache=FALSE}
@@ -211,8 +215,8 @@ posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
 ```{r att-ate, eval=FALSE}
 # get the ATE and ATT directly:
 
-posterior_ate <- tidy_ate(te_model, treatment = "z", newdata = dat)
-posterior_att <- tidy_att(te_model, treatment = "z", newdata = dat)
+posterior_ate <- tidy_ate(te_model, treatment = "z", scale = "prob", newdata = dat)
+posterior_att <- tidy_att(te_model, treatment = "z", scale = "prob", newdata = dat)
 
 ```
 
@@ -291,6 +295,8 @@ posterior_treat_eff %>%
 Common support testing [@Hill2013] can be tested directly, or a Boolean can be included when calculating the treatment effects.
 
 ```{r common-support, echo=TRUE, results='hide', cache=FALSE}
+
+# NOTE: common support calculated on linear scale (not probability scale for probit/logit)
 
 # calculate common support directly
 # argument 'modeldata' must be specified for BART models 

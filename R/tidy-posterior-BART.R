@@ -85,9 +85,9 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   return(out)
 }
 
-#' Get predict draws from posterior of \code{BART}-package models
+#' Get predict draws from posterior of \code{BART::wbart} models
 #'
-#' @param object A \code{BART}-package model.
+#' @param object A \code{wbart} model.
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param rng Random number generator function. Default is \code{rnorm} for models with Gaussian errors.
@@ -104,6 +104,8 @@ predicted_draws_BART <- function(object, newdata = NULL, value = ".prediction", 
     is.logical(include_fitted),
     is.logical(include_sigsqs)
   )
+
+  stopifnot(class(object) %in% "wbart")
 
   # get fitted values (need sigsq to start with)
   out <- fitted_draws(object, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
@@ -286,6 +288,66 @@ predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., n
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs, ...
   )
+}
+
+#' Get predict draws from posterior of \code{pbart} model
+#'
+#' @param object A \code{pbart} model.
+#' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
+#' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
+#' @param ndraws Not currently implemented.
+#' @param include_newdata Should the newdata be included in the tibble?
+#' @param ... Use to specify random number generator, default is \code{rng=stats::rnorm}.
+#'
+#' @return A tidy data frame (tibble) with predicted values.
+#' @export
+#'
+predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE) {
+  if (missing(newdata)) {
+    newdata <- NULL
+  }
+
+ fitted <- fitted_draws_BART(
+    model = object, newdata = newdata,
+    value = ".fitted",
+    include_newdata = FALSE,
+    include_sigsqs = FALSE,
+    scale = "prob", ...
+  )
+
+ # predicted values
+ mutate(fitted, !!sym(value) := rbinom(n(), 1, .fitted) )
+
+}
+
+#' Get predict draws from posterior of \code{lbart} model
+#'
+#' @param object A \code{lbart} model.
+#' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
+#' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
+#' @param ndraws Not currently implemented.
+#' @param include_newdata Should the newdata be included in the tibble?
+#' @param ... Use to specify random number generator, default is \code{rng=stats::rnorm}.
+#'
+#' @return A tidy data frame (tibble) with predicted values.
+#' @export
+#'
+predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE) {
+  if (missing(newdata)) {
+    newdata <- NULL
+  }
+
+  fitted <- fitted_draws_BART(
+    model = object, newdata = newdata,
+    value = ".fitted",
+    include_newdata = FALSE,
+    include_sigsqs = FALSE,
+    scale = "prob", ...
+  )
+
+  # predicted values
+  mutate(fitted, !!sym(value) := rbinom(n(), 1, .fitted) )
+
 }
 
 #' Get residual draw for \code{wbart} model

@@ -59,7 +59,6 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
   # add boolean for common support
   if (!missing(common_support_method)) {
     stopifnot(
-      !missing(cutoff),
       # should use model data only, unless needs to be specified (e.g. for BART models).
       missing(newdata) | !has_tidytreatment_methods(model)
     )

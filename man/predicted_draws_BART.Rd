@@ -2,7 +2,7 @@
 % Please edit documentation in R/tidy-posterior-BART.R
 \name{predicted_draws_BART}
 \alias{predicted_draws_BART}
-\title{Get predict draws from posterior of \code{BART}-package models}
+\title{Get predict draws from posterior of \code{BART::wbart} models}
 \usage{
 predicted_draws_BART(
   object,
@@ -16,7 +16,7 @@ predicted_draws_BART(
 )
 }
 \arguments{
-\item{object}{A \code{BART}-package model.}
+\item{object}{A \code{wbart} model.}
 
 \item{newdata}{Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.}
 
@@ -36,5 +36,5 @@ predicted_draws_BART(
 A tidy data frame (tibble) with predicted values.
 }
 \description{
-Get predict draws from posterior of \code{BART}-package models
+Get predict draws from posterior of \code{BART::wbart} models
 }
