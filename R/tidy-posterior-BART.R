@@ -316,7 +316,7 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
   )
 
  # predicted values
- mutate(fitted, !!sym(value) := rbinom(n(), 1, .fitted) )
+ dplyr::mutate(fitted, !!rlang::sym(value) := stats::rbinom(dplyr::n(), 1, .data$.fitted) )
 
 }
 
@@ -346,7 +346,7 @@ predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., n
   )
 
   # predicted values
-  mutate(fitted, !!sym(value) := rbinom(n(), 1, .fitted) )
+  dplyr::mutate(fitted, !!rlang::sym(value) := stats::rbinom(dplyr::n(), 1, .data$.fitted) )
 
 }
 

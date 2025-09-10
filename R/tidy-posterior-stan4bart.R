@@ -48,25 +48,20 @@ matrix_to_mcmclist <- function(arr, sample, chain){
 #' @param newdata Data frame to generate predictions from [optional].
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
-#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
 #'
 #' @export
 epred_draws.stan4bartFit = function(
     object, newdata, ...,
-    value = ".epred", re_formula = NULL
+    value = ".epred"
 ) {
-
-  if( (length(re_formula) > 1) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
-  # re_formula = NULL --> random effects == sample_new_levels = T
-  # re_formula = NA --> no random effects == sample_new_levels = F
 
   if(missing(newdata)){
     sample_array <- dbarts::extract(object = object,
-      type = "ev", sample_new_levels = is.null(re_formula),
+      type = "ev",
       combine_chains = FALSE, ...)
   } else {
     sample_array <- predict(object = object,
-      newdata = newdata, type = "ev", sample_new_levels = is.null(re_formula),
+      newdata = newdata, type = "ev",
       combine_chains = FALSE, ...)
   }
 
@@ -87,25 +82,21 @@ epred_draws.stan4bartFit = function(
 #' @param newdata Data frame to generate predictions from [optional].
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
-#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
+#' @param sample_new_levels logical; if TRUE, levels out of the training sample will have random effects drawn from their posterior predictive distribution. If FALSE, their random effects will be fixed to 0.
 #'
 #' @export
 predicted_draws.stan4bartFit = function( # code from epred_draws.stan4bartFit, consider combining.
     object, newdata, ...,
-    value = ".prediction", re_formula = NULL
+    value = ".prediction", sample_new_levels = TRUE
 ) {
-
-  if( (length(re_formula) > 1) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
-  # re_formula = NULL --> random effects == sample_new_levels = T
-  # re_formula = NA --> no random effects == sample_new_levels = F
 
   if(missing(newdata)){
     sample_array <- dbarts::extract(object = object,
-                                    type = "ppd", sample_new_levels = is.null(re_formula),
+                                    type = "ppd", sample_new_levels = sample_new_levels,
                                     combine_chains = FALSE, ...)
   } else {
     sample_array <- predict(object = object,
-                            newdata = newdata, type = "ppd", sample_new_levels = is.null(re_formula),
+                            newdata = newdata, type = "ppd", sample_new_levels = sample_new_levels,
                             combine_chains = FALSE, ...)
   }
 
@@ -119,7 +110,7 @@ predicted_draws.stan4bartFit = function( # code from epred_draws.stan4bartFit, c
 
 }
 
-#' Get expected prediction draws (on linear scale) from posterior of \code{stan4bart}-package models
+#' Get linear predictor draws from posterior of \code{stan4bart}-package models
 #'
 #' Typically referred to as fitted value draws on linear scale, where appropriate.
 #'
@@ -128,25 +119,20 @@ predicted_draws.stan4bartFit = function( # code from epred_draws.stan4bartFit, c
 #' @param newdata Data frame to generate predictions from [optional].
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
-#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
 #'
 #' @export
 linpred_draws.stan4bartFit = function(
     object, newdata, ...,
-    value = ".linpred", re_formula = NULL
+    value = ".linpred"
 ) {
-
-  if( (length(re_formula) > 1) || ( !is.null(re_formula) && !is.na(re_formula) ) ) warning("re_formula should be NULL or NA for stan4bartFit object. No random effects included.")
-  # re_formula = NULL --> random effects == sample_new_levels = T
-  # re_formula = NA --> no random effects == sample_new_levels = F
 
   is_bernoulli <- object$family$family == "binomial"
 
   if(!is_bernoulli){
     if(missing(newdata)){
-      draws <- tidybayes::epred_draws(object, ..., value = value, re_formula = re_formula)
+      draws <- tidybayes::epred_draws(object, ..., value = value)
     } else {
-      draws <- tidybayes::epred_draws(object, newdata = newdata, ..., value = value, re_formula = re_formula)
+      draws <- tidybayes::epred_draws(object, newdata = newdata, ..., value = value)
     }
     return(draws)
   }
@@ -156,7 +142,7 @@ linpred_draws.stan4bartFit = function(
     sample_array <- Reduce("+", lapply(
       c("indiv.fixef", "indiv.ranef", "indiv.bart"),
       function(type) dbarts::extract(
-        object = object, type = type, sample_new_levels = is.null(re_formula),
+        object = object, type = type,
         combine_chains = FALSE, ...)
     )
     )
@@ -166,7 +152,7 @@ linpred_draws.stan4bartFit = function(
     sample_array <- Reduce("+", lapply(
       c("indiv.fixef", "indiv.ranef", "indiv.bart"),
       function(type) predict(
-        object = object, newdata = newdata, type = type, sample_new_levels = is.null(re_formula),
+        object = object, newdata = newdata, type = type,
         combine_chains = FALSE, ...)
     )
     )

@@ -4,7 +4,7 @@
 \alias{epred_draws.stan4bartFit}
 \title{Get expected prediction draws from posterior of \code{stan4bart}-package models}
 \usage{
-\method{epred_draws}{stan4bartFit}(object, newdata, ..., value = ".epred", re_formula = NULL)
+\method{epred_draws}{stan4bartFit}(object, newdata, ..., value = ".epred")
 }
 \arguments{
 \item{object}{A \code{stan4bartFit} object.}
@@ -14,8 +14,6 @@
 \item{...}{Additional arguments passed to the underlying prediction method for the type of model given.}
 
 \item{value}{The name of the output column.}
-
-\item{re_formula}{If NULL (default), include all group-level effects; if NA, include no group-level effects.}
 }
 \description{
 Typically referred to as fitted value draws on response scale, where appropriate.

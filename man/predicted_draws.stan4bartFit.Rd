@@ -4,7 +4,13 @@
 \alias{predicted_draws.stan4bartFit}
 \title{Get prediction draws from posterior of \code{stan4bart}-package models}
 \usage{
-\method{predicted_draws}{stan4bartFit}(object, newdata, ..., value = ".prediction", re_formula = NULL)
+\method{predicted_draws}{stan4bartFit}(
+  object,
+  newdata,
+  ...,
+  value = ".prediction",
+  sample_new_levels = TRUE
+)
 }
 \arguments{
 \item{object}{A \code{stan4bartFit} object.}
@@ -15,7 +21,7 @@
 
 \item{value}{The name of the output column.}
 
-\item{re_formula}{If NULL (default), include all group-level effects; if NA, include no group-level effects.}
+\item{sample_new_levels}{logical; if TRUE, levels out of the training sample will have random effects drawn from their posterior predictive distribution. If FALSE, their random effects will be fixed to 0.}
 }
 \description{
 Get prediction draws from posterior of \code{stan4bart}-package models

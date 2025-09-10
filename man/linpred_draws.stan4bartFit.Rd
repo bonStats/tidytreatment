@@ -2,9 +2,9 @@
 % Please edit documentation in R/tidy-posterior-stan4bart.R
 \name{linpred_draws.stan4bartFit}
 \alias{linpred_draws.stan4bartFit}
-\title{Get expected prediction draws (on linear scale) from posterior of \code{stan4bart}-package models}
+\title{Get linear predictor draws from posterior of \code{stan4bart}-package models}
 \usage{
-\method{linpred_draws}{stan4bartFit}(object, newdata, ..., value = ".linpred", re_formula = NULL)
+\method{linpred_draws}{stan4bartFit}(object, newdata, ..., value = ".linpred")
 }
 \arguments{
 \item{object}{A \code{stan4bartFit} object.}
@@ -14,8 +14,6 @@
 \item{...}{Additional arguments passed to the underlying prediction method for the type of model given.}
 
 \item{value}{The name of the output column.}
-
-\item{re_formula}{If NULL (default), include all group-level effects; if NA, include no group-level effects.}
 }
 \description{
 Typically referred to as fitted value draws on linear scale, where appropriate.
