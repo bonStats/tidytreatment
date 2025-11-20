@@ -45,7 +45,7 @@ posterior_trees_BART <- function(model, label_digits = 2) {
   out$n_var <- as.integer(fline[3])
 
   out$trees <- suppressWarnings(
-    readr::read_table2(
+    readr::read_table(
       file = model$treedraws$trees,
       col_names = c("node", "var", "cut", "leaf"),
       col_types =
