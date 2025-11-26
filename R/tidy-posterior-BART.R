@@ -2,7 +2,7 @@
 #'
 #' @param model A model from \code{BART} package.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
-#' @param value The name of the output column for \code{fitted_draws}; default \code{".value"}.
+#' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param scale Should the fitted values be on the real, probit or logit scale?
@@ -10,7 +10,7 @@
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
-fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+epred_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   stopifnot(has_installed_package("BART"))
 
   if (is.null(newdata) & include_newdata) {
@@ -108,7 +108,7 @@ predicted_draws_BART <- function(object, newdata = NULL, value = ".prediction", 
   stopifnot(class(object) %in% "wbart")
 
   # get fitted values (need sigsq to start with)
-  out <- fitted_draws(object, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
+  out <- epred_draws(object, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
 
   # draw prediction from estimated variance
   out <- dplyr::mutate(out, !!value := rng(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
@@ -143,8 +143,8 @@ residual_draws_BART <- function(object, response, newdata = NULL, value = ".resi
 
   obs <- dplyr::tibble(y = response, .row = 1:length(response))
 
-  fitted <- fitted_draws(object, newdata,
-    value = ".fitted", n = NULL,
+  fitted <- epred_draws(object, newdata,
+    value = ".fitted", ndraws = NULL,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
   )
@@ -159,10 +159,10 @@ residual_draws_BART <- function(object, response, newdata = NULL, value = ".resi
 
 #' Get fitted draws from posterior of \code{wbart} model
 #'
-#' @param model A model from \code{BART} package.
+#' @param object A model from \code{BART} package.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
-#' @param value The name of the output column for \code{fitted_draws}; default \code{".value"}.
-#' @param n Not currently implemented.
+#' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
+#' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ... Not currently in use.
@@ -170,13 +170,15 @@ residual_draws_BART <- function(object, response, newdata = NULL, value = ".resi
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.wbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(
-    model = model, newdata = newdata, value = value,
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
+  epred_draws_BART(
+    model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
@@ -185,18 +187,19 @@ fitted_draws.wbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 
 #' Get fitted draws from posterior of \code{pbart} model
 #'
-#' @inheritParams fitted_draws.wbart
+#' @inheritParams epred_draws.wbart
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
-#'
-fitted_draws.pbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(
-    model = model, newdata = newdata, value = value,
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
+  epred_draws_BART(
+    model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
@@ -205,18 +208,20 @@ fitted_draws.pbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 
 #' Get fitted draws from posterior of \code{lbart} model
 #'
-#' @inheritParams fitted_draws.wbart
+#' @inheritParams epred_draws.wbart
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.lbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(
-    model = model, newdata = newdata, value = value,
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
+  epred_draws_BART(
+    model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
@@ -225,18 +230,20 @@ fitted_draws.lbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 
 #' Get fitted draws from posterior of \code{mbart} model
 #'
-#' @inheritParams fitted_draws.wbart
+#' @inheritParams epred_draws.wbart
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.mbart <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.mbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(
-    model = model, newdata = newdata, value = value,
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
+  epred_draws_BART(
+    model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
@@ -245,18 +252,20 @@ fitted_draws.mbart <- function(model, newdata, value = ".value", ..., n = NULL, 
 
 #' Get fitted draws from posterior of \code{mbart2} model
 #'
-#' @inheritParams fitted_draws.wbart
+#' @inheritParams epred_draws.wbart
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.mbart2 <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.mbart2 <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
-  fitted_draws_BART(
-    model = model, newdata = newdata, value = value,
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
+  epred_draws_BART(
+    model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
@@ -281,6 +290,8 @@ predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., n
   if (missing(newdata)) {
     newdata <- NULL
   }
+
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
   predicted_draws_BART(
     object = object, newdata = newdata,
@@ -307,7 +318,9 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
     newdata <- NULL
   }
 
- fitted <- fitted_draws_BART(
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
+ fitted <- epred_draws_BART(
     model = object, newdata = newdata,
     value = ".fitted",
     include_newdata = FALSE,
@@ -337,7 +350,9 @@ predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., n
     newdata <- NULL
   }
 
-  fitted <- fitted_draws_BART(
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
+  fitted <- epred_draws_BART(
     model = object, newdata = newdata,
     value = ".fitted",
     include_newdata = FALSE,
@@ -371,6 +386,8 @@ residual_draws.wbart <- function(object, newdata, value = ".residual", ..., ndra
     newdata <- NULL
   }
 
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
   residual_draws_BART(
     object = object, newdata = newdata, value = value,
     include_newdata = include_newdata,
@@ -392,6 +409,8 @@ residual_draws.pbart <- function(object, newdata, value = ".residual", ..., ndra
   if (missing(newdata)) {
     newdata <- NULL
   }
+
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
   residual_draws_BART(
     object = object, newdata = newdata, value = value,

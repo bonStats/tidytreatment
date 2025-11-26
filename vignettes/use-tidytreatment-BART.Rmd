@@ -138,7 +138,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-posterior_fitted <- fitted_draws(te_model, value = "fit", include_newdata = FALSE)
+posterior_fitted <- epred_draws(te_model, value = "fit", include_newdata = FALSE)
 # include_newdata = FALSE, avoids returning the newdata with the fitted values
 # as it is so large. newdata argument must be specified for this option in BART models. 
 # The `.row` variable makes sure we know which row in the newdata the fitted

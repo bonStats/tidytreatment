@@ -1,9 +1,9 @@
 #' Get fitted draws from posterior of \code{bartMachine} model
 #'
-#' @param model A \code{bartMachine} model.
+#' @param object A \code{bartMachine} model.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
-#' @param value The name of the output column for \code{fitted_draws}; default \code{".value"}.
-#' @param n Not currently implemented.
+#' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
+#' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ... Not currently in use.
@@ -11,21 +11,23 @@
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
-  if (missing(newdata)) newdata <- stats::model.matrix(model)
+epred_draws.bartMachine <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+  if (missing(newdata)) newdata <- stats::model.matrix(object)
 
   stopifnot(
     is.data.frame(newdata),
     is.character(value),
-    is.null(n) | (is.integer(n) & n > 0),
+    is.null(ndraws) | (is.integer(ndraws) & ndraws > 0),
     is.logical(include_newdata),
     is.logical(include_sigsqs)
   )
 
+  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+
   # order for columns in output
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
 
-  posterior <- bartMachine::bart_machine_get_posterior(bart_machine = model, new_data = newdata)
+  posterior <- bartMachine::bart_machine_get_posterior(bart_machine = object, new_data = newdata)
 
   # bind newdata with fitted, wide format
   out <- dplyr::bind_cols(
@@ -45,8 +47,8 @@ fitted_draws.bartMachine <- function(model, newdata, value = ".value", ..., n = 
   # include sigma^2 if needed
   if (include_sigsqs) {
     sigsq <- dplyr::bind_cols(
-      .draw = 1:model$num_iterations_after_burn_in,
-      sigsq = bartMachine::get_sigsqs(model)
+      .draw = 1:object$num_iterations_after_burn_in,
+      sigsq = bartMachine::get_sigsqs(object)
     )
 
     out <- dplyr::left_join(out, sigsq, by = ".draw")
@@ -88,7 +90,7 @@ predicted_draws.bartMachine <- function(object, newdata, value = ".prediction", 
   )
 
   # get fitted values (need sigsq to start with)
-  out <- fitted_draws.bartMachine(object = object, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
+  out <- epred_draws.bartMachine(object = object, newdata = newdata, value = ".fit", include_newdata = include_newdata, include_sigsqs = TRUE)
 
   # draw prediction from estimated variance
   out <- dplyr::mutate(out, !!value := stats::rnorm(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
@@ -118,8 +120,8 @@ predicted_draws.bartMachine <- function(object, newdata, value = ".prediction", 
 residual_draws.bartMachine <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   obs <- dplyr::tibble(y = object$y, .row = 1:object$n)
 
-  fitted <- fitted_draws(object, newdata,
-    value = ".fitted", n = NULL,
+  fitted <- epred_draws(object, newdata,
+    value = ".fitted", ndraws = ndraws,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs
   )

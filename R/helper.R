@@ -7,7 +7,7 @@
 #'
 has_tidytreatment_methods <- function(model) {
   all(
-    c("fitted_draws", "model.matrix") %in% attr(utils::methods(class = class(model)), "info")$generic
+    c("epred_draws", "model.matrix") %in% attr(utils::methods(class = class(model)), "info")$generic
   )
 }
 

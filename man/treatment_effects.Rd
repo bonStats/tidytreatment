@@ -27,7 +27,7 @@ treatment_effects(
 
 \item{cutoff}{Cutoff for common support (if in use).}
 
-\item{...}{Arguments to be passed to \code{tidybayes::fitted_draws} typically scale for \code{BART} models.}
+\item{...}{Arguments to be passed to \code{tidybayes::epred_draws} typically scale for \code{BART} models.}
 }
 \value{
 A tidy data frame (tibble) with treatment effect values.
