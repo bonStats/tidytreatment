@@ -99,8 +99,10 @@ var_select_bart <- pbart(x.train = select(dat,-y,-z),
                          ndpost = 5000)
 
 # STEP 2: Variable selection
-  # select most important vars from y ~ covariates model
-  # very simple selection mechanism. Should use cross-validation in practice
+  # Select most important vars from y ~ covariates model
+  # Note: This is an overly simple selection mechanism.
+  # See package {bartMan} vignettes and https://doi.org/10.52933/jdssv.v4i1.79
+  # for discussion of variable importance methods.
 covar_ranking <- covariate_importance(var_select_bart)
 var_select <- covar_ranking %>% 
   filter(avg_inclusion >= quantile(avg_inclusion, 0.5)) %>%
