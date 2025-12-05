@@ -99,8 +99,10 @@ var_select_bart <- pbart(x.train = select(dat,-y,-z),
                          ndpost = 5000)
 
 # STEP 2: Variable selection
-  # select most important vars from y ~ covariates model
-  # very simple selection mechanism. Should use cross-validation in practice
+  # Select most important vars from y ~ covariates model
+  # Note: This is an overly simple selection mechanism.
+  # See package {bartMan} vignettes and https://doi.org/10.52933/jdssv.v4i1.79
+  # for discussion of variable importance methods.
 covar_ranking <- covariate_importance(var_select_bart)
 var_select <- covar_ranking %>% 
   filter(avg_inclusion >= quantile(avg_inclusion, 0.5)) %>%
@@ -142,7 +144,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-posterior_fitted <- fitted_draws(te_model, value = "fit", scale = "prob", include_newdata = FALSE)
+posterior_fitted <- epred_draws(te_model, value = "fit", scale = "prob", include_newdata = FALSE)
 # include_newdata = FALSE, avoids returning the newdata with the fitted values
 # as it is so large. newdata argument must be specified for this option in BART models. 
 # The `.row` variable makes sure we know which row in the newdata the fitted

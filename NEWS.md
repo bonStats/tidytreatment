@@ -2,6 +2,11 @@
 
 # tidytreatment
 
+## tidytreatment 0.3.2
+
+* Change `fitted_draws` to `epred_draws` as per https://mjskay.github.io/tidybayes/news/index.html#tidybayes-300
+* Remove dependence on `readr::read_table2` which has been deprecated.
+
 ## tidytreatment 0.3.1
 
 * Now supports bartCause and stan4bart

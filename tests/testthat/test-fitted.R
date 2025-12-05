@@ -18,7 +18,7 @@ check_df <- check_matrix %>%
   mutate(.row = as.integer(.row))
 
 test_that("Fitted values calculated correctly", {
-  td_fd <- fitted_draws(bartmodel1, newdata = suhillsim1$data, include_newdata = FALSE, value = "fitted")
+  td_fd <- epred_draws(bartmodel1, newdata = suhillsim1$data, include_newdata = FALSE, value = "fitted")
   comp_df <- td_fd %>% full_join(check_df, by = c(".row", ".draw"))
   expect_equal(comp_df$fitted, comp_df$fitted_check)
 })

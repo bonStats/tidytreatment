@@ -97,7 +97,9 @@ vs_bart <- stan4bart(y ~ bart(. - subject_id - z) + (1|subject_id),
 
 # STEP 2: Variable selection
   # select most important vars from y ~ covariates model
-  # very simple selection mechanism. Should use cross-validation in practice
+  # Note: This is an overly simple selection mechanism.
+  # See package {bartMan} vignettes and https://doi.org/10.52933/jdssv.v4i1.79
+  # for discussion of variable importance methods.
 covar_ranking <- covariate_importance(vs_bart)
 var_select <- covar_ranking %>% 
   filter(avg_inclusion > mean(avg_inclusion) - sd(avg_inclusion)) %>% # at minimum: within 1 sd of mean inclusion

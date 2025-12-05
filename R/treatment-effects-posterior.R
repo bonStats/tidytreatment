@@ -10,7 +10,7 @@
 #' @param subset Either "treated", "nontreated", or "all". Default is "all".
 #' @param common_support_method Either "sd", or "chisq". Default is unspecified, and no common support calculation is done.
 #' @param cutoff Cutoff for common support (if in use).
-#' @param ... Arguments to be passed to \code{tidybayes::fitted_draws} typically scale for \code{BART} models.
+#' @param ... Arguments to be passed to \code{tidybayes::epred_draws} typically scale for \code{BART} models.
 #'
 #' @return A tidy data frame (tibble) with treatment effect values.
 #' @export
@@ -101,15 +101,15 @@ fitted_with_counter_factual_draws <- function(model, newdata, treatment, subset,
     is_01_integer_vector(newdata[, treatment]) | is.logical(newdata[, treatment])
   )
 
-  obs_fitted <- tidybayes::fitted_draws(
-    model = model, value = "observed",
+  obs_fitted <- tidybayes::epred_draws(
+    object = model, value = "observed",
     newdata = newdata,
     include_newdata = FALSE,
     ...
   )
 
-  cfactual_fitted <- tidybayes::fitted_draws(
-    model = model, value = "cfactual",
+  cfactual_fitted <- tidybayes::epred_draws(
+    object = model, value = "cfactual",
     newdata = dplyr::mutate(newdata, !!treatment := counter_factual(!!rlang::sym(treatment))),
     include_newdata = FALSE,
     ...

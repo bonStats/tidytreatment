@@ -153,7 +153,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-  posterior_fitted <- fitted_draws(bartM, value = "fit", include_newdata = FALSE)
+  posterior_fitted <- epred_draws(bartM, value = "fit", include_newdata = FALSE)
   # The newdata argument (omitted) defaults to the data from the model.
   # include_newdata = FALSE, avoids returning the newdata with the fitted values
   # as it is so large. 
