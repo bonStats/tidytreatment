@@ -11,8 +11,8 @@ tidytreatment provides functions for extracting tidy data from Bayesian treatmen
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/bonStats/tidytreatment}
-  \item Report bugs at \url{https://github.com/bonStats/tidytreatment/issues}
+  \item \url{https://github.com/bonstats/tidytreatment}
+  \item Report bugs at \url{https://github.com/bonstats/tidytreatment/issues}
 }
 
 }
