@@ -8,7 +8,6 @@
   object,
   ...,
   value = ".prediction",
-  re_formula = NULL,
   fitstage = c("response", "assignment")
 )
 }
@@ -18,8 +17,6 @@
 \item{...}{Additional arguments (e.g. \code{newdata}) passed to the underlying prediction method for the type of model given.}
 
 \item{value}{The name of the output column.}
-
-\item{re_formula}{If NULL (default), include all group-level effects; if NA, include no group-level effects.}
 
 \item{fitstage}{If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.}
 }

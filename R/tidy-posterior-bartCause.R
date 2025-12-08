@@ -5,21 +5,20 @@
 #' @param object A \code{bartCauseFit} object.
 #' @param ... Additional arguments (e.g. \code{newdata}) passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
-#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
 #'
 #' @export
 epred_draws.bartcFit = function(
     object, ...,
-    value = ".epred", re_formula = NULL, fitstage = c("response","assignment")
+    value = ".epred", fitstage = c("response","assignment")
 ) {
 
   fitstage <- match.arg(fitstage)
 
   if(fitstage == "response"){
-    draws = tidybayes::epred_draws(object$fit.rsp, ..., value = value, re_formula = re_formula)
+    draws = tidybayes::epred_draws(object$fit.rsp, ..., value = value)
   } else {
-    draws = tidybayes::epred_draws(object$fit.trt, ..., value = value, re_formula = re_formula)
+    draws = tidybayes::epred_draws(object$fit.trt, ..., value = value)
   }
 
   return(draws)
@@ -30,21 +29,20 @@ epred_draws.bartcFit = function(
 #' @param object A \code{bartCauseFit} object.
 #' @param ... Additional arguments (e.g. \code{newdata}) passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
-#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
 #'
 #' @export
 predicted_draws.bartcFit = function(
     object, ...,
-    value = ".prediction", re_formula = NULL, fitstage = c("response","assignment")
+    value = ".prediction", fitstage = c("response","assignment")
 ) {
 
   fitstage <- match.arg(fitstage)
 
   if(fitstage == "response"){
-    draws = tidybayes::predicted_draws(object$fit.rsp, ..., value = value, re_formula = re_formula)
+    draws = tidybayes::predicted_draws(object$fit.rsp, ..., value = value)
   } else {
-    draws = tidybayes::predicted_draws(object$fit.trt, ..., value = value, re_formula = re_formula)
+    draws = tidybayes::predicted_draws(object$fit.trt, ..., value = value)
   }
 
   return(draws)
@@ -57,21 +55,20 @@ predicted_draws.bartcFit = function(
 #' @param object A \code{bartCauseFit} object.
 #' @param ... Additional arguments (e.g. \code{newdata}) passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
-#' @param re_formula If NULL (default), include all group-level effects; if NA, include no group-level effects.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
 #'
 #' @export
 linpred_draws.bartcFit = function(
     object, ...,
-    value = ".linpred", re_formula = NULL, fitstage = c("response","assignment")
+    value = ".linpred", fitstage = c("response","assignment")
 ) {
 
   fitstage <- match.arg(fitstage)
 
   if(fitstage == "response"){
-    draws <- tidybayes::linpred_draws(object$fit.rsp, ..., value = value, re_formula = re_formula)
+    draws <- tidybayes::linpred_draws(object$fit.rsp, ..., value = value)
   } else {
-    draws <- tidybayes::linpred_draws(object$fit.trt, ..., value = value, re_formula = re_formula)
+    draws <- tidybayes::linpred_draws(object$fit.trt, ..., value = value)
   }
 
   return(draws)
