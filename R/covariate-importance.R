@@ -216,9 +216,9 @@ covariate_importance.bartmodel <- function(model, X_train, ...) {
   )
 
   res |>
-    group_by(variable) |>
-    summarise(inclusion = sum(inclusion)) |>
-    mutate(avg_inclusion = inclusion / sum(inclusion)) |>
-    select(-inclusion)
+    dplyr::group_by(.data$variable) |>
+    dplyr::summarise(inclusion = sum(.data$inclusion)) |>
+    dplyr::mutate(avg_inclusion = .data$inclusion / sum(.data$inclusion)) |>
+    dplyr::select(-"inclusion")
 
 }

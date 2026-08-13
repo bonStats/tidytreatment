@@ -18,7 +18,7 @@ epred_draws_stochtree <- function(model, newdata = NULL, value = ".value", ..., 
     is.logical(include_newdata),
     is.logical(include_sigsqs),
     class(model) %in% c("bartmodel"),
-    ps_bart$model_params$outcome_model$link %in% c('identity','probit','cloglog') # no other links implemented
+    model$model_params$outcome_model$link %in% c('identity','probit','cloglog') # no other links implemented
   )
 
   use_scale <- match.arg(scale,
@@ -32,12 +32,12 @@ epred_draws_stochtree <- function(model, newdata = NULL, value = ".value", ..., 
   if (!(missing(newdata) | is.null(newdata))) {
     posterior <- predict(model, X = newdata, terms = "y_hat", ...)
   } else {
-    posterior <- extractParameter(model, term = "y_hat_train")
+    posterior <- stochtree::extractParameter(model, term = "y_hat_train")
   }
 
-  if (use_scale == "prob" & ps_bart$model_params$outcome_model$link == "probit") posterior <- stats::pnorm(posterior)
-  if (use_scale == "prob" & ps_bart$model_params$outcome_model$link == "cloglog"){
-    cloglog <- stats:::make.link("cloglog")
+  if (use_scale == "prob" & model$model_params$outcome_model$link == "probit") posterior <- stats::pnorm(posterior)
+  if (use_scale == "prob" & model$model_params$outcome_model$link == "cloglog"){
+    cloglog <- stats::make.link("cloglog")
     posterior <- cloglog$linkinv(posterior)
   }
 

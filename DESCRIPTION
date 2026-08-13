@@ -33,7 +33,6 @@ Imports:
     rlang,
     dbarts,
     BART,
-    stochtree,
     coda,
     magrittr
 Enhances:
