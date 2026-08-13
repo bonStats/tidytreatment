@@ -62,7 +62,7 @@ epred_draws.bartMachine <- function(object, newdata, value = ".value", ..., ndra
   # group
   row_groups <- names(out)[!names(out) %in% col_order[col_order != ".row"]]
 
-  out <- dplyr::group_by(out, dplyr::across(row_groups))
+  out <- dplyr::group_by(out, dplyr::across(dplyr::all_of(row_groups)))
 
   return(out)
 }
@@ -96,10 +96,10 @@ predicted_draws.bartMachine <- function(object, newdata, value = ".prediction", 
   out <- dplyr::mutate(out, !!value := stats::rnorm(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
 
   # remove sigma^2 value if necessary
-  if (!include_sigsqs) out <- dplyr::select(out, -.data$sigsq)
+  if (!include_sigsqs) out <- dplyr::select(out, -"sigsq")
 
   # remove fitted value if necessary
-  if (!include_fitted) out <- dplyr::select(out, -.data$.fit)
+  if (!include_fitted) out <- dplyr::select(out, -".fit")
 
   return(out)
 }

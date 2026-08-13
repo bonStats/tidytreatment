@@ -102,7 +102,7 @@ common_support_sd_method <- function(sd_obs, sd_cf, treatment, ...) {
   sd_cf < m_a + stats::sd(sd_obs_treated)
 }
 
-common_support_default <- function(sd_obs, sd_cf, cutoff) {
+common_support_default <- function(sd_obs, sd_cf, cutoff, ...) {
   warning("Please specify common support 'method'.")
   rep(NA, times = length(sd_obs))
 }
