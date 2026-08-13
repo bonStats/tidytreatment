@@ -182,3 +182,25 @@ covariate_importance.bartcFit <- function(model, fitstage = c("response","assign
   }
 
 }
+
+#' @export
+covariate_importance.bartmodel <- function(model, X_train, ...) {
+
+  stopifnot("X_train used to fit the model must be provided for stochtree package" = !missing(X_train))
+
+  p <- length(model$train_set_metadata$feature_types)
+
+  # granular: model$mean_forests$get_granular_split_counts(num_features = p)
+
+  res <- dplyr::tibble(
+    variable = colnames(X_train)[model$train_set_metadata$original_var_indices],
+    inclusion = model$mean_forests$get_aggregate_split_counts(p)
+  )
+
+  res |>
+    group_by(variable) |>
+    summarise(inclusion = sum(inclusion)) |>
+    mutate(avg_inclusion = inclusion / sum(inclusion)) |>
+    select(-inclusion)
+
+}
