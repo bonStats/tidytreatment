@@ -2,6 +2,7 @@
 
 S3method(covariate_importance,bartMachine)
 S3method(covariate_importance,bartcFit)
+S3method(covariate_importance,bartmodel)
 S3method(covariate_importance,lbart)
 S3method(covariate_importance,mbart)
 S3method(covariate_importance,mbart2)
