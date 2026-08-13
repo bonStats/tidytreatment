@@ -23,7 +23,6 @@ Suggests:
     withr,
     lme4
 VignetteBuilder: knitr
-RoxygenNote: 7.3.3
 Imports: 
     tidybayes,
     purrr,
@@ -38,3 +37,4 @@ Imports:
 Enhances:
     bartMachine
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

@@ -2,12 +2,17 @@
 #'
 #' @param model Model
 #' @param treatment A character string specifying the name of the treatment variable.
+#' @param count_once_per_tree For \code{BART}-package models: if \code{FALSE} (default), a tree
+#'   in which treatment splits on multiple nodes contributes to every other variable's count once
+#'   per treatment occurrence in that tree (i.e. counts scale with how often treatment itself is
+#'   used to split). If \code{TRUE}, each qualifying tree contributes its variable counts exactly
+#'   once, regardless of how many times treatment splits within it. Not used by all methods.
 #' @param ... Arguments to pass to particular methods.
 #'
 #' @return Tidy data with counts of variable inclusion, when interacting with treatment variable.
 #'
 #' @export
-covariate_with_treatment_importance <- function(model, treatment, ...) {
+covariate_with_treatment_importance <- function(model, treatment, count_once_per_tree = FALSE, ...) {
   UseMethod("covariate_with_treatment_importance")
 }
 
@@ -57,20 +62,33 @@ covariate_importance.bartMachine <- function(model, ...) {
   res
 }
 
-covariate_with_treatment_importance_BART <- function(model, treatment, ...) {
+covariate_with_treatment_importance_BART <- function(model, treatment, count_once_per_tree = FALSE, ...) {
   # currently only use the (single) fitted BART model.
   # Whereas bartMachine uses average over replicates (default 5)
   ttree <- posterior_trees_BART(model)
 
   ttree_treat <- dplyr::select(
     dplyr::filter(ttree$trees, .data$var == treatment),
-    .data$iter,
-    .data$tree_id
+    "iter",
+    "tree_id"
   )
+
+  # count_once_per_tree = FALSE (default): treatment splitting on multiple
+  # nodes within the same tree multiplies that tree's contribution to every
+  # other variable's count (one match per treatment occurrence).
+  # count_once_per_tree = TRUE: each qualifying tree contributes its node
+  # counts exactly once, regardless of how many times treatment appears in it.
+
+  if (count_once_per_tree) {
+    ttree_treat <- dplyr::distinct(ttree_treat)
+    join_relationship <- "one-to-many"
+  } else {
+    join_relationship <- "many-to-many"
+  }
 
   # filtered to trees with treatment
   var_counts <- table(
-    dplyr::left_join(ttree_treat, ttree$trees, by = c("iter", "tree_id"))$var,
+    dplyr::left_join(ttree_treat, ttree$trees, by = c("iter", "tree_id"), relationship = join_relationship)$var,
     useNA = "no"
   )
 
@@ -132,28 +150,28 @@ covariate_importance.mbart2 <- function(model, ...) {
 }
 
 #' @export
-covariate_with_treatment_importance.wbart <- function(model, treatment, ...) {
-  covariate_with_treatment_importance_BART(model, treatment, ...)
+covariate_with_treatment_importance.wbart <- function(model, treatment, count_once_per_tree = FALSE, ...) {
+  covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
 }
 
 #' @export
-covariate_with_treatment_importance.pbart <- function(model, treatment, ...) {
-  covariate_with_treatment_importance_BART(model, treatment, ...)
+covariate_with_treatment_importance.pbart <- function(model, treatment, count_once_per_tree = FALSE, ...) {
+  covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
 }
 
 #' @export
-covariate_with_treatment_importance.lbart <- function(model, treatment, ...) {
-  covariate_with_treatment_importance_BART(model, treatment, ...)
+covariate_with_treatment_importance.lbart <- function(model, treatment, count_once_per_tree = FALSE, ...) {
+  covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
 }
 
 #' @export
-covariate_with_treatment_importance.mbart2 <- function(model, treatment, ...) {
-  covariate_with_treatment_importance_BART(model, treatment, ...)
+covariate_with_treatment_importance.mbart2 <- function(model, treatment, count_once_per_tree = FALSE, ...) {
+  covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
 }
 
 #' @export
-covariate_with_treatment_importance.mbart <- function(model, treatment, ...) {
-  covariate_with_treatment_importance_BART(model, treatment, ...)
+covariate_with_treatment_importance.mbart <- function(model, treatment, count_once_per_tree = FALSE, ...) {
+  covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
 }
 
 #' @export

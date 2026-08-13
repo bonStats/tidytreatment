@@ -35,7 +35,7 @@ posterior_trees_BART <- function(model, label_digits = 2) {
   # first line contains mcmc draws
   fline <- strsplit(
     readr::read_lines(
-      file = model$treedraws$trees,
+      file = I(model$treedraws$trees),
       n_max = 1
     ),
     " "
@@ -114,18 +114,18 @@ posterior_trees_BART <- function(model, label_digits = 2) {
   # regroup
   out$trees <- dplyr::select(
     dplyr::group_by(out$trees, .data$iter, .data$tree_id),
-    .data$iter,
-    .data$tree_id,
-    .data$node,
-    .data$parent,
-    .data$label,
-    .data$tier,
-    .data$var,
-    .data$cut,
-    .data$is_leaf,
-    .data$leaf_value,
-    .data$child_left,
-    .data$child_right
+    "iter",
+    "tree_id",
+    "node",
+    "parent",
+    "label",
+    "tier",
+    "var",
+    "cut",
+    "is_leaf",
+    "leaf_value",
+    "child_left",
+    "child_right"
   )
 
   return(out)

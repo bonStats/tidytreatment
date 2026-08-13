@@ -6,9 +6,8 @@
 #' @export
 #'
 has_tidytreatment_methods <- function(model) {
-  all(
-    c("epred_draws", "model.matrix") %in% attr(utils::methods(class = class(model)), "info")$generic
-  )
+  cl <- class(model)[1]
+  has_method_str(cl, "epred_draws") && has_method_str(cl, "model.matrix")
 }
 
 
@@ -21,8 +20,25 @@ has_installed_package <- function(package) {
 }
 
 has_method_str <- function(cl, method) {
-  mth <- methods(class = cl)
-  method %in% attr(mth, "info")[, "generic"]
+  # utils::methods(class=)/utils::getS3method() can only resolve a generic
+  # that is reachable (as a plain object) from the calling environment's
+  # search path. Generics imported (but not re-exported/attached) by
+  # tidytreatment - e.g. tidybayes::epred_draws - are invisible to that
+  # lookup once tidytreatment is loaded normally (library()/R CMD check),
+  # even though the S3 method itself is correctly registered. Searching the
+  # S3 method table of every loaded namespace avoids that dependency on
+  # search-path visibility.
+  method_name <- paste0(method, ".", cl)
+  for (pkg in loadedNamespaces()) {
+    s3_table <- tryCatch(
+      get(".__S3MethodsTable__.", envir = asNamespace(pkg), inherits = FALSE),
+      error = function(e) NULL
+    )
+    if (!is.null(s3_table) && exists(method_name, envir = s3_table, inherits = FALSE)) {
+      return(TRUE)
+    }
+  }
+  FALSE
 }
 
 check_method <- function(x, method, helper = "") {
