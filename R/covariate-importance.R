@@ -140,13 +140,27 @@ covariate_importance.lbart <- function(model, ...) {
   covariate_importance_BART(model, ...)
 }
 
+#' Multinomial BART models ('mbart'/'mbart2') are not supported
+#'
+#' Multinomial BART models use a per-category tree representation that is incompatible with
+#' this package's machinery for BART-package models, and even a working fix would not extend
+#' to \code{treatment_effects()}/\code{avg_treatment_effects()}, which assume a scalar
+#' continuous/binary response.
+#'
+#' @param model A \code{mbart} or \code{mbart2} model.
+#' @param ... Not used.
+#'
+#' @return Does not return; always errors.
 #' @export
+#' @name covariate_importance-mbart-unsupported
+#'
 covariate_importance.mbart <- function(model, ...) {
-  covariate_importance_BART(model, ...)
+  stop_mbart_unsupported("covariate_importance", model)
 }
+#' @rdname covariate_importance-mbart-unsupported
 #' @export
 covariate_importance.mbart2 <- function(model, ...) {
-  covariate_importance_BART(model, ...)
+  stop_mbart_unsupported("covariate_importance", model)
 }
 
 #' @export
@@ -164,14 +178,29 @@ covariate_with_treatment_importance.lbart <- function(model, treatment, count_on
   covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
 }
 
+#' Multinomial BART models ('mbart'/'mbart2') are not supported
+#'
+#' Multinomial BART models use a per-category tree representation that is incompatible with
+#' this package's machinery for BART-package models, and even a working fix would not extend
+#' to \code{treatment_effects()}/\code{avg_treatment_effects()}, which assume a scalar
+#' continuous/binary response.
+#'
+#' @param model A \code{mbart} or \code{mbart2} model.
+#' @param treatment Not used.
+#' @param ... Not used.
+#'
+#' @return Does not return; always errors.
 #' @export
-covariate_with_treatment_importance.mbart2 <- function(model, treatment, count_once_per_tree = FALSE, ...) {
-  covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
+#' @name covariate_with_treatment_importance-mbart-unsupported
+#'
+covariate_with_treatment_importance.mbart2 <- function(model, treatment, ...) {
+  stop_mbart_unsupported("covariate_with_treatment_importance", model)
 }
 
+#' @rdname covariate_with_treatment_importance-mbart-unsupported
 #' @export
-covariate_with_treatment_importance.mbart <- function(model, treatment, count_once_per_tree = FALSE, ...) {
-  covariate_with_treatment_importance_BART(model, treatment, count_once_per_tree = count_once_per_tree, ...)
+covariate_with_treatment_importance.mbart <- function(model, treatment, ...) {
+  stop_mbart_unsupported("covariate_with_treatment_importance", model)
 }
 
 #' @export

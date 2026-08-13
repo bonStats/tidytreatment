@@ -79,3 +79,22 @@ test_that("epred_draws grouping/columns follow tidybayes conventions", {
   expect_equal(sort(unique(td_fd$.row)), 1:nrow(fixture_bin_x))
   expect_equal(sort(unique(td_fd$.draw)), 1:nrow(fixture_pbart$yhat.train))
 })
+
+test_that("multinomial BART models (mbart/mbart2) are unsupported and error informatively", {
+  fake_mbart <- structure(list(), class = "mbart")
+  fake_mbart2 <- structure(list(), class = "mbart2")
+
+  expect_error(epred_draws(fake_mbart), "not supported")
+  expect_error(epred_draws(fake_mbart2), "not supported")
+  expect_error(predicted_draws(fake_mbart), "not supported")
+  expect_error(predicted_draws(fake_mbart2), "not supported")
+  expect_error(residual_draws(fake_mbart), "not supported")
+  expect_error(residual_draws(fake_mbart2), "not supported")
+  expect_error(covariate_importance(fake_mbart), "not supported")
+  expect_error(covariate_importance(fake_mbart2), "not supported")
+  expect_error(covariate_with_treatment_importance(fake_mbart, treatment = "z"), "not supported")
+  expect_error(covariate_with_treatment_importance(fake_mbart2, treatment = "z"), "not supported")
+
+  # errors regardless of whether newdata is supplied
+  expect_error(epred_draws(fake_mbart, newdata = data.frame(x1 = 1)), "not supported")
+})

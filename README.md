@@ -10,8 +10,11 @@
 
 The package currently supports the following models:
 
-- `BART`: see [CRAN](https://cran.r-project.org/package=BART)
+- `BART`: see [CRAN](https://cran.r-project.org/package=BART). Continuous (`wbart`) and binary (`pbart`, `lbart`) outcome models are supported; multinomial models (`mbart`, `mbart2`) are not currently supported.
 - `bartMachine`: see [CRAN](https://cran.r-project.org/package=bartMachine).
+- `stan4bart`: see [CRAN](https://cran.r-project.org/package=stan4bart).
+- `bartCause`: see [CRAN](https://cran.r-project.org/package=bartCause).
+- `stochtree`: see [CRAN](https://cran.r-project.org/package=stochtree). Continuous and binary outcome BART models (`bart()`) and Bayesian Causal Forest models (`bcf()`) are supported; random effects (`rfx_*`) are not currently supported for either.
 - `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (in development, see branch `bcf-hold` on github)
 
 in addition to models supported by [tidybayes](https://github.com/mjskay/tidybayes).

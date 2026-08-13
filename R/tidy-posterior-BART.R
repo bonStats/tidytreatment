@@ -10,7 +10,7 @@
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
-epred_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   stopifnot(has_installed_package("BART"))
 
   if (is.null(newdata) & include_newdata) {
@@ -22,7 +22,7 @@ epred_draws_BART <- function(model, newdata = NULL, value = ".value", ..., inclu
     is.character(value),
     is.logical(include_newdata),
     is.logical(include_sigsqs),
-    class(model) %in% c("wbart", "pbart", "lbart", "mbart", "mbart2")
+    class(model) %in% c("wbart", "pbart", "lbart")
   )
 
   use_scale <- match.arg(scale,
@@ -177,7 +177,7 @@ epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = N
 
   if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
-  epred_draws_BART(
+  fitted_draws_BART(
     model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
@@ -198,7 +198,7 @@ epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = N
 
   if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
-  epred_draws_BART(
+  fitted_draws_BART(
     model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
@@ -220,7 +220,7 @@ epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = N
 
   if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
-  epred_draws_BART(
+  fitted_draws_BART(
     model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
@@ -228,48 +228,52 @@ epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = N
   )
 }
 
-#' Get fitted draws from posterior of \code{mbart} model
+#' Multinomial BART models ('mbart'/'mbart2') are not supported
 #'
-#' @inheritParams epred_draws.wbart
+#' Multinomial BART models use a per-category tree representation that is incompatible with
+#' this package's machinery for BART-package models. A working fix would not extend
+#' to \code{treatment_effects()}/\code{avg_treatment_effects()}, which assume a scalar
+#' continuous/binary response.
 #'
-#' @return A tidy data frame (tibble) with fitted values.
+#' @param object A \code{mbart} or \code{mbart2} model.
+#' @param ... Not used.
+#'
+#' @return Always returns error.
 #' @export
+#' @name mbart-unsupported
 #'
-epred_draws.mbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
-  if (missing(newdata)) {
-    newdata <- NULL
-  }
-
-  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
-
-  epred_draws_BART(
-    model = object, newdata = newdata, value = value,
-    ...,
-    include_newdata = include_newdata,
-    include_sigsqs = include_sigsqs
-  )
+epred_draws.mbart <- function(object, ...) {
+  stop_mbart_unsupported("epred_draws", object)
 }
 
-#' Get fitted draws from posterior of \code{mbart2} model
-#'
-#' @inheritParams epred_draws.wbart
-#'
-#' @return A tidy data frame (tibble) with fitted values.
+#' @rdname mbart-unsupported
 #' @export
-#'
-epred_draws.mbart2 <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
-  if (missing(newdata)) {
-    newdata <- NULL
-  }
+epred_draws.mbart2 <- function(object, ...) {
+  stop_mbart_unsupported("epred_draws", object)
+}
 
-  if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
+#' @rdname mbart-unsupported
+#' @export
+predicted_draws.mbart <- function(object, ...) {
+  stop_mbart_unsupported("predicted_draws", object)
+}
 
-  epred_draws_BART(
-    model = object, newdata = newdata, value = value,
-    ...,
-    include_newdata = include_newdata,
-    include_sigsqs = include_sigsqs
-  )
+#' @rdname mbart-unsupported
+#' @export
+predicted_draws.mbart2 <- function(object, ...) {
+  stop_mbart_unsupported("predicted_draws", object)
+}
+
+#' @rdname mbart-unsupported
+#' @export
+residual_draws.mbart <- function(object, ...) {
+  stop_mbart_unsupported("residual_draws", object)
+}
+
+#' @rdname mbart-unsupported
+#' @export
+residual_draws.mbart2 <- function(object, ...) {
+  stop_mbart_unsupported("residual_draws", object)
 }
 
 #' Get predict draws from posterior of \code{wbart} model
@@ -320,7 +324,7 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
 
   if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
- fitted <- epred_draws_BART(
+ fitted <- fitted_draws_BART(
     model = object, newdata = newdata,
     value = ".fitted",
     include_newdata = FALSE,
@@ -352,7 +356,7 @@ predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., n
 
   if(!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
-  fitted <- epred_draws_BART(
+  fitted <- fitted_draws_BART(
     model = object, newdata = newdata,
     value = ".fitted",
     include_newdata = FALSE,

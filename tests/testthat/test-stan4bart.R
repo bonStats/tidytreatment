@@ -22,6 +22,27 @@ test_that("epred_draws.stan4bartFit works with newdata when keepTrees = TRUE", {
   expect_equal(sort(unique(ed$.row)), 1:5)
 })
 
+test_that("predicted_draws.stan4bartFit (gaussian) works with newdata when keepTrees = TRUE", {
+  newdat <- fixture_stan4bart_data[1:5, ]
+  pd <- suppressWarnings(predicted_draws(fixture_stan4bart, newdata = newdat, value = "pred"))
+
+  expect_equal(sort(unique(pd$.row)), 1:5)
+  expect_true(is.numeric(pd$pred))
+})
+
+test_that("linpred_draws.stan4bartFit (gaussian) works with newdata and matches epred_draws", {
+  newdat <- fixture_stan4bart_data[1:5, ]
+  ep <- suppressWarnings(epred_draws(fixture_stan4bart, newdata = newdat, value = "ep"))
+  lp <- suppressWarnings(linpred_draws(fixture_stan4bart, newdata = newdat, value = "lp"))
+
+  comp <- dplyr::left_join(
+    as.data.frame(ep), as.data.frame(lp),
+    by = c(".row", ".chain", ".iteration", ".draw")
+  )
+  expect_equal(comp$lp, comp$ep)
+  expect_equal(sort(unique(lp$.row)), 1:5)
+})
+
 test_that("linpred_draws.stan4bartFit (gaussian) delegates to epred_draws", {
   ep <- epred_draws(fixture_stan4bart, value = "ep")
   lp <- linpred_draws(fixture_stan4bart, value = "lp")
@@ -49,6 +70,14 @@ test_that("predicted_draws.stan4bartFit (bernoulli) draws 0/1 outcomes", {
   expect_true(all(pd$pred %in% c(0, 1)))
 })
 
+test_that("predicted_draws.stan4bartFit (bernoulli) works with newdata when keepTrees = TRUE", {
+  newdat <- fixture_stan4bart_data[1:5, ]
+  pd <- suppressWarnings(predicted_draws(fixture_stan4bart_bin, newdata = newdat, value = "pred"))
+
+  expect_equal(sort(unique(pd$.row)), 1:5)
+  expect_true(all(pd$pred %in% c(0, 1)))
+})
+
 test_that("linpred_draws.stan4bartFit (bernoulli) sums fixed + random + bart linear predictor components", {
   sample_array <- Reduce("+", lapply(
     c("indiv.fixef", "indiv.ranef", "indiv.bart"),
@@ -67,4 +96,27 @@ test_that("linpred_draws.stan4bartFit (bernoulli) sums fixed + random + bart lin
     by = c(".chain", ".iteration", ".draw", ".row")
   )
   expect_equal(comp$lp, comp$lp_check)
+})
+
+test_that("linpred_draws.stan4bartFit (bernoulli) sums fixed + random + bart components with newdata", {
+  newdat <- fixture_stan4bart_data[1:5, ]
+
+  sample_array <- suppressWarnings(Reduce("+", lapply(
+    c("indiv.fixef", "indiv.ranef", "indiv.bart"),
+    function(type) predict(object = fixture_stan4bart_bin, newdata = newdat, type = type, combine_chains = FALSE)
+  )))
+
+  check <- tidytreatment:::array_to_mcmclist(sample_array, 2, 1, 3) %>%
+    tidybayes::tidy_draws() %>%
+    tidyr::pivot_longer(cols = tidyr::starts_with("var"), names_to = ".row", values_to = "lp_check") %>%
+    dplyr::mutate(.row = as.integer(gsub("var", "", .row)))
+
+  lp <- suppressWarnings(linpred_draws(fixture_stan4bart_bin, newdata = newdat, value = "lp"))
+
+  comp <- dplyr::left_join(
+    as.data.frame(lp), as.data.frame(check),
+    by = c(".chain", ".iteration", ".draw", ".row")
+  )
+  expect_equal(comp$lp, comp$lp_check)
+  expect_equal(sort(unique(lp$.row)), 1:5)
 })

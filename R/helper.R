@@ -47,3 +47,17 @@ check_method <- function(x, method, helper = "") {
     stop("Object of class '", x_cl, "' does not have method '", method, "'.\n", helper, call. = FALSE)
   }
 }
+
+# Multinomial BART models ('mbart'/'mbart2') are not supported: their
+# underlying representation (per-category tree draws in a nested,
+# non-flat treedraws structure; no unified in-sample fitted values for
+# 'mbart') is incompatible with the machinery this package uses for every
+# other BART-package class, and even a working fix wouldn't extend to
+# treatment_effects()/avg_treatment_effects(), which assume a scalar
+# continuous/binary response.
+stop_mbart_unsupported <- function(generic, model) {
+  stop(
+    "`", generic, "()` is not supported for multinomial BART models (class '", class(model)[1], "'). ",
+    call. = FALSE
+  )
+}

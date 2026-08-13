@@ -4,6 +4,15 @@ skip_if_not_installed("bartCause")
 skip_if_not_installed("lme4")
 skip_if(is.null(fixture_bartc))
 
+# fit.rsp's formula includes the propensity score ("ps") as a covariate
+# (bartc() adds it internally as p.scoreAsCovariate defaults to TRUE), so
+# "new" response-stage data needs a ps column too - reuse the model's own
+# fitted p.score for the rows we're predicting on. The assignment-stage
+# model (z ~ confounders) has no such requirement.
+newdat_trt <- fixture_bartc_data[1:5, ]
+newdat_rsp <- fixture_bartc_data[1:5, ]
+newdat_rsp$ps <- fixture_bartc$p.score[1:5]
+
 test_that("epred_draws.bartcFit delegates to the response/assignment sub-model", {
   ed_rsp <- epred_draws(fixture_bartc, value = "fitted")
   ed_rsp_expected <- tidybayes::epred_draws(fixture_bartc$fit.rsp, value = "fitted")
@@ -14,15 +23,40 @@ test_that("epred_draws.bartcFit delegates to the response/assignment sub-model",
   expect_equal(ed_trt, ed_trt_expected)
 })
 
+test_that("epred_draws.bartcFit delegates to the response/assignment sub-model with newdata", {
+  ed_rsp <- suppressWarnings(epred_draws(fixture_bartc, newdata = newdat_rsp, value = "fitted", include_newdata = FALSE))
+  ed_rsp_expected <- suppressWarnings(tidybayes::epred_draws(fixture_bartc$fit.rsp, newdata = newdat_rsp, value = "fitted", include_newdata = FALSE))
+  expect_equal(ed_rsp, ed_rsp_expected)
+  expect_equal(sort(unique(ed_rsp$.row)), 1:5)
+
+  ed_trt <- suppressWarnings(epred_draws(fixture_bartc, newdata = newdat_trt, value = "fitted", fitstage = "assignment", include_newdata = FALSE))
+  ed_trt_expected <- suppressWarnings(tidybayes::epred_draws(fixture_bartc$fit.trt, newdata = newdat_trt, value = "fitted", include_newdata = FALSE))
+  expect_equal(ed_trt, ed_trt_expected)
+  expect_equal(sort(unique(ed_trt$.row)), 1:5)
+})
+
 test_that("predicted_draws.bartcFit delegates to the response/assignment sub-model", {
   pd_rsp <- predicted_draws(fixture_bartc, value = "pred")
   expect_equal(nrow(pd_rsp), nrow(fixture_bartc_data) * length(unique(pd_rsp$.draw)))
+})
+
+test_that("predicted_draws.bartcFit works with newdata", {
+  pd_rsp <- suppressWarnings(predicted_draws(fixture_bartc, newdata = newdat_rsp, value = "pred", include_newdata = FALSE))
+  expect_equal(sort(unique(pd_rsp$.row)), 1:5)
+  expect_true(is.numeric(pd_rsp$pred))
 })
 
 test_that("linpred_draws.bartcFit delegates to the response/assignment sub-model", {
   lp_rsp <- linpred_draws(fixture_bartc, value = "lp")
   lp_rsp_expected <- tidybayes::linpred_draws(fixture_bartc$fit.rsp, value = "lp")
   expect_equal(lp_rsp, lp_rsp_expected)
+})
+
+test_that("linpred_draws.bartcFit delegates to the response sub-model with newdata", {
+  lp_rsp <- suppressWarnings(linpred_draws(fixture_bartc, newdata = newdat_rsp, value = "lp", include_newdata = FALSE))
+  lp_rsp_expected <- suppressWarnings(tidybayes::linpred_draws(fixture_bartc$fit.rsp, newdata = newdat_rsp, value = "lp", include_newdata = FALSE))
+  expect_equal(lp_rsp, lp_rsp_expected)
+  expect_equal(sort(unique(lp_rsp$.row)), 1:5)
 })
 
 test_that("tidy_draws.bartcFit (type = NULL) delegates to the response sub-model by default", {

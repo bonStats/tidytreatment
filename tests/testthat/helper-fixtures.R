@@ -7,8 +7,6 @@
 
 fixture_pbart <- NULL
 fixture_lbart <- NULL
-fixture_mbart <- NULL
-fixture_mbart2 <- NULL
 
 if (requireNamespace("BART", quietly = TRUE)) {
   withr::with_seed(321, {
@@ -29,34 +27,15 @@ if (requireNamespace("BART", quietly = TRUE)) {
       x.train = x_bin, y.train = y_bin,
       ndpost = 20, nskip = 20, ntree = 10, printevery = 1000L
     )
-
-    n_multi <- 40
-    x_multi <- data.frame(
-      x1 = stats::rnorm(n_multi),
-      x2 = stats::rnorm(n_multi)
-    )
-    y_multi <- sample(1:3, n_multi, replace = TRUE)
-
-    fixture_mbart <- tryCatch(
-      BART::mbart(
-        x.train = x_multi, y.train = y_multi,
-        ndpost = 20, nskip = 20, ntree = 10, printevery = 1000L
-      ),
-      error = function(e) NULL
-    )
-
-    fixture_mbart2 <- tryCatch(
-      BART::mbart2(
-        x.train = x_multi, y.train = y_multi,
-        ndpost = 20, nskip = 20, ntree = 10, printevery = 1000L
-      ),
-      error = function(e) NULL
-    )
   })
 
   fixture_bin_x <- x_bin
   fixture_bin_y <- y_bin
 }
+
+# mbart/mbart2 (multinomial BART) are unsupported (see stop_mbart_unsupported()
+# in R/helper.R) - no fixture model needed, a bare object with the right class
+# is enough to exercise the error path.
 
 # --- stan4bart: gaussian and bernoulli, with random intercept -----------
 
@@ -82,9 +61,12 @@ if (requireNamespace("stan4bart", quietly = TRUE)) {
       error = function(e) NULL
     )
 
+    # includes a fixed-effect term (x2) so that predict(..., type = "indiv.fixef")
+    # is well-defined when tested with newdata; a bart()/ranef-only formula
+    # has no fixed effect terms and predict() errors on that combination
     fixture_stan4bart_bin <- tryCatch(
       stan4bart::stan4bart(
-        zl ~ bart(x1 + x2 + x3) + (1 | subject_id),
+        zl ~ x2 + bart(x1 + x3) + (1 | subject_id),
         data = fixture_stan4bart_data,
         iter = 60, chains = 2, cores = 1, verbose = -1,
         bart_args = list(keepTrees = TRUE)
@@ -112,14 +94,102 @@ if (requireNamespace("bartCause", quietly = TRUE) && requireNamespace("lme4", qu
       n_subjects = 5, sd_subjects = 0.3
     )$data
 
+    # args.rsp/args.trt$bart_args$keepTrees = TRUE is needed so the underlying
+    # stan4bart sub-models can predict on newdata (see fixture_stan4bart above)
     fixture_bartc <- tryCatch(
       bartCause::bartc(
         response = y, treatment = z, confounders = x1 + x2 + x3,
         parametric = (1 | subject_id),
         data = fixture_bartc_data,
         method.rsp = "bart", method.trt = "bart",
+        args.rsp = list(bart_args = list(keepTrees = TRUE)),
+        args.trt = list(bart_args = list(keepTrees = TRUE)),
         iter = 60, chains = 2, cores = 1, n.trees = 15,
         verbose = FALSE, seed = 1
+      ),
+      error = function(e) NULL
+    )
+  })
+}
+
+# --- stochtree: continuous and binary (probit) outcome models -----------
+
+fixture_stochtree <- NULL
+fixture_stochtree_bin <- NULL
+fixture_stochtree_x <- NULL
+fixture_stochtree_y <- NULL
+fixture_stochtree_yb <- NULL
+
+if (requireNamespace("stochtree", quietly = TRUE)) {
+  withr::with_seed(159, {
+    n_st <- 60
+    fixture_stochtree_x <- data.frame(
+      x1 = stats::rnorm(n_st),
+      x2 = stats::rnorm(n_st),
+      x3 = stats::rnorm(n_st)
+    )
+    fixture_stochtree_y <- fixture_stochtree_x$x1 + 0.5 * fixture_stochtree_x$x2 + stats::rnorm(n_st, sd = 0.5)
+    fixture_stochtree_yb <- stats::rbinom(n_st, 1, stats::plogis(fixture_stochtree_x$x1))
+
+    fixture_stochtree <- tryCatch(
+      stochtree::bart(
+        X_train = fixture_stochtree_x, y_train = fixture_stochtree_y,
+        num_gfr = 0, num_burnin = 10, num_mcmc = 20
+      ),
+      error = function(e) NULL
+    )
+
+    fixture_stochtree_bin <- tryCatch(
+      stochtree::bart(
+        X_train = fixture_stochtree_x, y_train = as.integer(fixture_stochtree_yb),
+        general_params = list(outcome_model = stochtree::OutcomeModel(outcome = "binary")),
+        num_gfr = 0, num_burnin = 10, num_mcmc = 20
+      ),
+      error = function(e) NULL
+    )
+  })
+}
+
+# --- stochtree: bcf (causal forest), continuous and binary (probit) outcome ---
+
+fixture_bcf <- NULL
+fixture_bcf_bin <- NULL
+fixture_bcf_x <- NULL
+fixture_bcf_z <- NULL
+fixture_bcf_pi <- NULL
+fixture_bcf_y <- NULL
+fixture_bcf_yb <- NULL
+
+if (requireNamespace("stochtree", quietly = TRUE)) {
+  withr::with_seed(753, {
+    n_bcf <- 60
+    fixture_bcf_x <- data.frame(
+      x1 = stats::rnorm(n_bcf),
+      x2 = stats::rnorm(n_bcf),
+      x3 = stats::rnorm(n_bcf)
+    )
+    fixture_bcf_pi <- stats::plogis(fixture_bcf_x$x1)
+    fixture_bcf_z <- stats::rbinom(n_bcf, 1, fixture_bcf_pi)
+    tau_x <- 1 + 0.5 * fixture_bcf_x$x2
+    mu_x <- fixture_bcf_x$x1 + 0.3 * fixture_bcf_x$x3
+    fixture_bcf_y <- mu_x + tau_x * fixture_bcf_z + stats::rnorm(n_bcf, sd = 0.3)
+    fixture_bcf_yb <- stats::rbinom(n_bcf, 1, stats::plogis(mu_x + tau_x * fixture_bcf_z))
+
+    fixture_bcf <- tryCatch(
+      stochtree::bcf(
+        X_train = fixture_bcf_x, Z_train = fixture_bcf_z, y_train = fixture_bcf_y,
+        propensity_train = fixture_bcf_pi,
+        num_gfr = 5, num_burnin = 5, num_mcmc = 20
+      ),
+      error = function(e) NULL
+    )
+
+    fixture_bcf_bin <- tryCatch(
+      stochtree::bcf(
+        X_train = fixture_bcf_x, Z_train = fixture_bcf_z, y_train = as.integer(fixture_bcf_yb),
+        propensity_train = fixture_bcf_pi,
+        general_params = list(outcome_model = stochtree::OutcomeModel(outcome = "binary")),
+        num_gfr = 5, num_burnin = 5, num_mcmc = 20
       ),
       error = function(e) NULL
     )
