@@ -192,11 +192,11 @@ posterior_treat_eff <- treatment_effects(te_bart)
 # Histogram of treatment effect (all draws)
 posterior_treat_eff %>% 
   ggplot() +
-  geom_histogram(aes(x = icate), binwidth = 0.1, colour = "white") + 
+  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (all draws)")
 
 # Histogram of treatment effect (median for each subject)
-posterior_treat_eff %>% summarise(cte_hat = median(icate)) %>%
+posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
   ggplot() +
   geom_histogram(aes(x = cte_hat), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (median for each subject)")

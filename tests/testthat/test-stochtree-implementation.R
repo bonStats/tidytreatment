@@ -71,19 +71,29 @@ test_that("epred_draws.bartmodel warns when newdata is supplied with include_new
 
 test_that("epred_draws.bartmodel defaults to the response (probability) scale for a binary outcome model", {
   ed_default <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE)
-  ed_prob <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "prob")
+  ed_prob <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "probability")
 
   expect_equal(ed_default, ed_prob)
   expect_true(all(ed_default$fitted >= 0 & ed_default$fitted <= 1))
 })
 
-test_that("epred_draws.bartmodel scale = 'prob' matches pnorm() of the real (probit) scale for a binary outcome model", {
-  ed_real <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "real")
-  ed_prob <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "prob")
+test_that("epred_draws.bartmodel scale = 'probability' matches pnorm() of the linear (probit) scale for a binary outcome model", {
+  ed_linear <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "linear")
+  ed_prob <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "probability")
 
-  comp <- dplyr::left_join(as.data.frame(ed_real), as.data.frame(ed_prob), by = c(".row", ".draw"), suffix = c("_real", "_prob"))
-  expect_equal(comp$fitted_prob, pnorm(comp$fitted_real))
+  comp <- dplyr::left_join(as.data.frame(ed_linear), as.data.frame(ed_prob), by = c(".row", ".draw"), suffix = c("_linear", "_prob"))
+  expect_equal(comp$fitted_prob, pnorm(comp$fitted_linear))
   expect_true(all(comp$fitted_prob >= 0 & comp$fitted_prob <= 1))
+})
+
+test_that("epred_draws.bartmodel scale accepts unambiguous abbreviations ('lin', 'prob')", {
+  ed_lin_abbrev <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "lin")
+  ed_linear <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "linear")
+  expect_equal(ed_lin_abbrev, ed_linear)
+
+  ed_prob_abbrev <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "prob")
+  ed_probability <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "probability")
+  expect_equal(ed_prob_abbrev, ed_probability)
 })
 
 test_that("epred_draws.bartmodel include_sigsqs = TRUE adds sigsq = model$sigma2_global_samples", {
@@ -114,21 +124,21 @@ test_that("epred_draws.bartmodel rejects non-bartmodel objects", {
 
 # --- linpred_draws.bartmodel ----------------------------------------------
 
-test_that("linpred_draws.bartmodel equals epred_draws(..., scale = 'real') (continuous outcome)", {
-  ed <- epred_draws(fixture_stochtree, newdata = newX, value = "ep", include_newdata = FALSE, scale = "real")
+test_that("linpred_draws.bartmodel equals epred_draws(..., scale = 'linear') (continuous outcome)", {
+  ed <- epred_draws(fixture_stochtree, newdata = newX, value = "ep", include_newdata = FALSE, scale = "linear")
   lp <- linpred_draws(fixture_stochtree, newdata = newX, value = "lp", include_newdata = FALSE)
 
   comp <- dplyr::left_join(as.data.frame(ed), as.data.frame(lp), by = c(".row", ".draw"))
   expect_equal(comp$lp, comp$ep)
 })
 
-test_that("linpred_draws.bartmodel equals epred_draws(..., scale = 'real') (binary/probit outcome)", {
-  ed <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "ep", include_newdata = FALSE, scale = "real")
+test_that("linpred_draws.bartmodel equals epred_draws(..., scale = 'linear') (binary/probit outcome)", {
+  ed <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "ep", include_newdata = FALSE, scale = "linear")
   lp <- linpred_draws(fixture_stochtree_bin, newdata = newX, value = "lp", include_newdata = FALSE)
 
   comp <- dplyr::left_join(as.data.frame(ed), as.data.frame(lp), by = c(".row", ".draw"))
   expect_equal(comp$lp, comp$ep)
-  # linpred should NOT be probability-bounded (unlike epred on the prob scale)
+  # linpred should NOT be probability-bounded (unlike epred on the probability scale)
   expect_true(any(lp$lp < 0 | lp$lp > 1))
 })
 

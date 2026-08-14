@@ -80,10 +80,16 @@ test_that("tidy_draws.bartcFit (type = 'icate') does not warn when fitstage is g
   )
 })
 
-test_that("treatment_effects.bartcFit returns per-row/draw icate, ite and treatment status", {
+test_that("treatment_effects.bartcFit returns per-row/draw cte (bartCause's icate), ite and treatment status", {
   te <- treatment_effects(fixture_bartc)
 
-  expect_true(all(c("icate", "ite", "treated") %in% names(te)))
+  expect_true(all(c("cte", "ite", "treated") %in% names(te)))
+  expect_false("icate" %in% names(te))
+
+  # cte is bartCause's icate (mu_hat(1) - mu_hat(0)) under the package-wide
+  # "cte" column name used by treatment_effects.default/.bcfmodel and relied
+  # on by avg_treatment_effects()/tidy_ate()/tidy_att().
+  expect_equal(mean(te$cte), mean(bartCause::extract(fixture_bartc, type = "icate")))
 
   te_t <- treatment_effects(fixture_bartc, subset = "treated")
   te_nt <- treatment_effects(fixture_bartc, subset = "nontreated")
@@ -91,6 +97,24 @@ test_that("treatment_effects.bartcFit returns per-row/draw icate, ite and treatm
   expect_equal(nrow(te_t) + nrow(te_nt), nrow(te))
   expect_true(all(te_t$treated == 1))
   expect_true(all(te_nt$treated == 0))
+})
+
+test_that("avg_treatment_effects works end-to-end with a bartcFit model", {
+  ate <- avg_treatment_effects(fixture_bartc)
+
+  expect_true(all(c(".chain", ".iteration", ".draw", "ate") %in% names(ate)))
+  expect_equal(nrow(ate), length(unique(tidy_draws(fixture_bartc)$.draw)))
+
+  te <- treatment_effects(fixture_bartc)
+  te_means <- te %>%
+    dplyr::group_by(.data$.chain, .data$.iteration, .data$.draw) %>%
+    dplyr::summarise(ate_check = mean(.data$cte), .groups = "drop")
+
+  comp <- dplyr::left_join(ate, te_means, by = c(".chain", ".iteration", ".draw"))
+  expect_equal(comp$ate, comp$ate_check)
+
+  att <- avg_treatment_effects(fixture_bartc, subset = "treated")
+  expect_true("ate" %in% names(att))
 })
 
 test_that("treatment_effects.bartcFit rejects explicit treatment/newdata arguments", {

@@ -144,7 +144,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 
 ```{r tidy-bart-fit, echo=TRUE, cache=FALSE}
 
-posterior_fitted <- epred_draws(te_model, value = "fit", scale = "prob", include_newdata = FALSE)
+posterior_fitted <- epred_draws(te_model, value = "fit", scale = "probability", include_newdata = FALSE)
 # include_newdata = FALSE, avoids returning the newdata with the fitted values
 # as it is so large. newdata argument must be specified for this option in BART models. 
 # The `.row` variable makes sure we know which row in the newdata the fitted
@@ -195,8 +195,8 @@ Some histogram summaries are presented below.
 ```{r post-treatment, eval = FALSE}
 
 # sample based (using data from fit) conditional treatment effects, posterior draws
-posterior_treat_eff <- 
-  treatment_effects(te_model, treatment = "z", scale = "prob", newdata = dat) 
+posterior_treat_eff <-
+  treatment_effects(te_model, treatment = "z", scale = "probability", newdata = dat)
 
 ```
 ```{r cates-hist, echo=TRUE, cache=FALSE}
@@ -217,8 +217,8 @@ posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
 ```{r att-ate, eval=FALSE}
 # get the ATE and ATT directly:
 
-posterior_ate <- tidy_ate(te_model, treatment = "z", scale = "prob", newdata = dat)
-posterior_att <- tidy_att(te_model, treatment = "z", scale = "prob", newdata = dat)
+posterior_ate <- tidy_ate(te_model, treatment = "z", scale = "probability", newdata = dat)
+posterior_att <- tidy_att(te_model, treatment = "z", scale = "probability", newdata = dat)
 
 ```
 
@@ -298,24 +298,25 @@ Common support testing [@Hill2013] can be tested directly, or a Boolean can be i
 
 ```{r common-support, echo=TRUE, results='hide', cache=FALSE}
 
-# NOTE: common support calculated on linear scale (not probability scale for probit/logit)
+# NOTE: common support explicitly calculated on linear scale (not probability scale for probit/logit)
+# by specifying scale = "linear"
 
 # calculate common support directly
-# argument 'modeldata' must be specified for BART models 
+# argument 'modeldata' must be specified for BART models
 csupp_chisq <- has_common_support(te_model, treatment = "z", modeldata = dat,
-                             method = "chisq", cutoff = 0.05)
+                             method = "chisq", cutoff = 0.05, scale = "linear")
 
 csupp_chisq %>% filter(!common_support)
 
 csupp_sd <- has_common_support(te_model, treatment = "z", modeldata = dat,
-                             method = "sd")
+                             method = "sd", scale = "linear")
 csupp_sd %>% filter(!common_support)
 
-# calculate treatment effects (on those who were treated) 
+# calculate treatment effects (on those who were treated)
 # and include only those estimates with common support
-posterior_treat_eff_on_treated <- 
+posterior_treat_eff_on_treated <-
   treatment_effects(te_model, treatment = "z", subset = "treated", newdata = dat,
-                    common_support_method = "sd") 
+                    common_support_method = "sd", scale = "linear")
 
 ```
 

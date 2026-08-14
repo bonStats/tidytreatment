@@ -4,7 +4,7 @@
 \alias{has_common_support}
 \title{Evaluate if observations have common support.}
 \usage{
-has_common_support(model, treatment, method, cutoff, modeldata = NULL)
+has_common_support(model, treatment, method, cutoff, modeldata = NULL, ...)
 }
 \arguments{
 \item{model}{A supported Bayesian model fit that can provide fits and predictions.}
@@ -16,6 +16,8 @@ has_common_support(model, treatment, method, cutoff, modeldata = NULL)
 \item{cutoff}{Cutoff point to use for method.}
 
 \item{modeldata}{Manually provide model data for some models (e.g. from BART package)}
+
+\item{...}{Arguments to be passed to \code{tidybayes::epred_draws} (e.g. \code{scale} for \code{BART} models).}
 }
 \value{
 Tibble with a row for each observation and a column indicating whether common support exists.

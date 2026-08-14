@@ -5,7 +5,7 @@
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("prob"; probability for \code{pbart}/\code{lbart}) or linear predictor ("real") scale?
+#' @param scale Should the fitted values be on the response ("probability"; for \code{pbart}/\code{lbart}) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}).
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).
 #'
 #' @return A tidy data frame (tibble) with fitted values.
@@ -28,7 +28,7 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   )
 
   use_scale <- match.arg(scale,
-    c("real", "prob"),
+    c("linear", "probability"),
     several.ok = F
   )
 
@@ -46,8 +46,8 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
     posterior <- model$yhat.train
   }
 
-  if (use_scale == "prob" & "lbart" %in% class(model)) posterior <- stats::plogis(posterior)
-  if (use_scale == "prob" & "pbart" %in% class(model)) posterior <- stats::pnorm(posterior)
+  if (use_scale == "probability" & "lbart" %in% class(model)) posterior <- stats::plogis(posterior)
+  if (use_scale == "probability" & "pbart" %in% class(model)) posterior <- stats::pnorm(posterior)
 
   # bind newdata with fitted, wide format
   out <- dplyr::bind_cols(
@@ -167,13 +167,13 @@ residual_draws_BART <- function(object, response, newdata = NULL, value = ".resi
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("prob"; probability for \code{pbart}/\code{lbart}) or linear predictor ("real") scale? Has no effect for \code{wbart}, which has no link function.
+#' @param scale Should the fitted values be on the response ("probability"; for \code{pbart}/\code{lbart}) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Has no effect for \code{wbart}, which has no link function.
 #' @param ... Not currently in use.
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "real") {
+epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "linear") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -195,7 +195,7 @@ epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = N
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
-epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "prob") {
+epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "probability") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -218,7 +218,7 @@ epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = N
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "prob") {
+epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "probability") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -335,7 +335,7 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
     value = ".fitted",
     include_newdata = include_newdata,
     include_sigsqs = FALSE,
-    scale = "prob", ...
+    scale = "probability", ...
   )
 
  # predicted values
@@ -367,7 +367,7 @@ predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., n
     value = ".fitted",
     include_newdata = include_newdata,
     include_sigsqs = FALSE,
-    scale = "prob", ...
+    scale = "probability", ...
   )
 
   # predicted values

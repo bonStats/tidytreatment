@@ -134,14 +134,24 @@ test_that("fitted_draws_stochtree_bcf requires scale to be supplied explicitly",
 
 test_that("epred_draws.bcfmodel defaults to the response (probability) scale for a binary outcome model", {
   ed_default <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE)
-  ed_prob <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "prob")
+  ed_prob <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "probability")
 
   expect_equal(ed_default, ed_prob)
   expect_true(all(ed_default$fitted >= 0 & ed_default$fitted <= 1))
 })
 
-test_that("epred_draws.bcfmodel scale = 'prob' matches predict(..., scale = 'probability') for a binary outcome model", {
-  ed_prob <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "prob")
+test_that("epred_draws.bcfmodel scale accepts unambiguous abbreviations ('lin', 'prob')", {
+  ed_lin_abbrev <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "lin")
+  ed_linear <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "linear")
+  expect_equal(ed_lin_abbrev, ed_linear)
+
+  ed_prob_abbrev <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "prob")
+  ed_probability <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "probability")
+  expect_equal(ed_prob_abbrev, ed_probability)
+})
+
+test_that("epred_draws.bcfmodel scale = 'probability' matches predict(..., scale = 'probability') for a binary outcome model", {
+  ed_prob <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "probability")
   check <- predict(fixture_bcf_bin, X = newX, Z = newZ, propensity = newPi, terms = "y_hat", scale = "probability")
 
   check_df <- dplyr::as_tibble(check, .name_repair = function(nm) paste0(".d", seq_along(nm))) %>%
@@ -156,8 +166,8 @@ test_that("epred_draws.bcfmodel scale = 'prob' matches predict(..., scale = 'pro
 
 # --- linpred_draws.bcfmodel --------------------------------------------------
 
-test_that("linpred_draws.bcfmodel equals epred_draws(..., scale = 'real')", {
-  ed <- epred_draws(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, value = "ep", include_newdata = FALSE, scale = "real")
+test_that("linpred_draws.bcfmodel equals epred_draws(..., scale = 'linear')", {
+  ed <- epred_draws(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, value = "ep", include_newdata = FALSE, scale = "linear")
   lp <- linpred_draws(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, value = "lp", include_newdata = FALSE)
 
   comp <- dplyr::left_join(as.data.frame(ed), as.data.frame(lp), by = c(".row", ".draw"))

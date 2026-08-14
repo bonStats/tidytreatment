@@ -33,7 +33,7 @@ test_that("has_tidytreatment_methods requires both epred_draws and model.matrix 
   expect_false(has_tidytreatment_methods(bartmodel1)) # no model.matrix.wbart registered
 })
 
-test_that("stochtree_default_scale resolves 'prob' for binary and 'real' for continuous outcome models", {
+test_that("stochtree_default_scale resolves 'probability' for binary and 'linear' for continuous outcome models", {
   skip_if_not_installed("stochtree")
   skip_if(is.null(fixture_stochtree))
   skip_if(is.null(fixture_stochtree_bin))
@@ -41,6 +41,6 @@ test_that("stochtree_default_scale resolves 'prob' for binary and 'real' for con
   expect_equal(fixture_stochtree$model_params$outcome_model$outcome, "continuous")
   expect_equal(fixture_stochtree_bin$model_params$outcome_model$outcome, "binary")
 
-  expect_equal(tidytreatment:::stochtree_default_scale(fixture_stochtree), "real")
-  expect_equal(tidytreatment:::stochtree_default_scale(fixture_stochtree_bin), "prob")
+  expect_equal(tidytreatment:::stochtree_default_scale(fixture_stochtree), "linear")
+  expect_equal(tidytreatment:::stochtree_default_scale(fixture_stochtree_bin), "probability")
 })

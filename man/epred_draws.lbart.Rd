@@ -12,7 +12,7 @@
   ndraws = NULL,
   include_newdata = FALSE,
   include_sigsqs = FALSE,
-  scale = "prob"
+  scale = "probability"
 )
 }
 \arguments{
@@ -30,7 +30,7 @@
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
 
-\item{scale}{Should the fitted values be on the response ("prob"; probability for \code{pbart}/\code{lbart}) or linear predictor ("real") scale? Has no effect for \code{wbart}, which has no link function.}
+\item{scale}{Should the fitted values be on the response ("probability"; for \code{pbart}/\code{lbart}) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Has no effect for \code{wbart}, which has no link function.}
 }
 \value{
 A tidy data frame (tibble) with fitted values.

@@ -7,7 +7,7 @@
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("prob"; probability for a binary outcome model) or linear predictor ("real") scale? Default (\code{NULL}) uses the response scale for the model's outcome type (\code{model$model_params$outcome_model}).
+#' @param scale Should the fitted values be on the response ("probability"; for a binary outcome model) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Default (\code{NULL}) uses the response scale for the model's outcome type (\code{model$model_params$outcome_model}).
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{stochtree:::predict.bartmodel}).
 #'
 #' @return A tidy data frame (tibble) with fitted values.
@@ -37,7 +37,7 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
   if (is.null(scale)) scale <- stochtree_default_scale(model)
 
   use_scale <- match.arg(scale,
-    c("real", "prob"),
+    c("linear", "probability"),
     several.ok = F
   )
 
@@ -45,8 +45,8 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
   # scale = "probability" is only a real transform for probit/cloglog outcome
   # models; predict.bartmodel() actively errors if requested for an identity
   # link, and it's a no-op for identity anyway (matches the wbart precedent,
-  # where scale = "prob" is a harmless no-op for continuous-outcome models).
-  needs_transform <- use_scale == "prob" && link != "identity"
+  # where scale = "probability" is a harmless no-op for continuous-outcome models).
+  needs_transform <- use_scale == "probability" && link != "identity"
 
   # order for columns in output
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
@@ -117,7 +117,7 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("prob"; probability for a binary outcome model) or linear predictor ("real") scale? Default (\code{NULL}) uses the response scale for the model's outcome type (\code{object$model_params$outcome_model}).
+#' @param scale Should the fitted values be on the response ("probability"; for a binary outcome model) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Default (\code{NULL}) uses the response scale for the model's outcome type (\code{object$model_params$outcome_model}).
 #' @param ... Additional arguments passed to \code{predict.bartmodel}.
 #'
 #' @return A tidy data frame (tibble) with fitted values.
@@ -161,7 +161,7 @@ linpred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_b
     ...,
     ndraws = ndraws,
     include_newdata = include_newdata,
-    scale = "real"
+    scale = "linear"
   )
 }
 
@@ -199,7 +199,7 @@ predicted_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx
       ...,
       include_newdata = include_newdata,
       include_sigsqs = TRUE,
-      scale = "real"
+      scale = "linear"
     )
 
     out <- dplyr::mutate(out, !!value := stats::rnorm(n = dplyr::n(), mean = .data$.fit, sd = sqrt(.data$sigsq)))
@@ -212,7 +212,7 @@ predicted_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx
       ...,
       include_newdata = include_newdata,
       include_sigsqs = FALSE,
-      scale = "prob"
+      scale = "probability"
     )
 
     out <- dplyr::mutate(out, !!value := stats::rbinom(dplyr::n(), 1, .data$.fitted))

@@ -14,12 +14,20 @@
 #' @param ... Arguments to be passed to \code{tidybayes::epred_draws} typically scale for \code{BART} models.
 
 #'
-#' @return A tidy data frame (tibble) with treatment effect values.
+#' @return A tidy data frame (tibble) with treatment effect values in the \code{cte} column
+#'   (bartCause's \code{icate}: \eqn{\hat{mu}_i(1) - \hat{mu}_i(0)}), plus bartCause's own
+#'   noisier \code{ite} (individual treatment effect, using posterior predicted counterfactuals)
+#'   for reference.
 #' @export
 #'
-treatment_effects.bartcFit <- function(model, treatment = NULL, newdata = NULL, subset = "all", common_support_method, cutoff, ...) {
+treatment_effects.bartcFit <- function(model, treatment, newdata, subset = "all", common_support_method, cutoff, ...) {
 
-  stopifnot(is.null(treatment), is.null(newdata))
+  if (!missing(treatment) && !is.null(treatment)) {
+    stop("`treatment` is not used for bartcFit objects: the treatment variable is already stored in the model.")
+  }
+  if (!missing(newdata) && !is.null(newdata)) {
+    stop("`newdata` is not used for bartcFit objects: treatment effects are extracted directly from the stored model fit.")
+  }
 
   # update specified common support arguments
   if(missing(common_support_method)){
@@ -49,6 +57,7 @@ treatment_effects.bartcFit <- function(model, treatment = NULL, newdata = NULL, 
   }
 
   te_df <- tidy_draws(refitmodel, type = "icate", fitstage = "response", sample = "all") %>%
+    dplyr::rename(cte = "icate") %>%
     dplyr::left_join(tidy_draws(refitmodel, type = "ite", fitstage = "response"),
               by = dplyr::join_by(".chain", ".iteration", ".draw", ".row")) %>%
     dplyr::left_join(rowinfo, by = dplyr::join_by(.row))

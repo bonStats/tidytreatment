@@ -109,9 +109,9 @@ warn_include_newdata_repeats <- function(include_newdata) {
 
 # bartmodel/bcfmodel objects can represent either a continuous or a binary
 # outcome model (model$model_params$outcome_model, e.g. OutcomeModel(outcome
-# = "binary", link = "probit")), so a single hardcoded "prob" default (as used
-# for pbart/lbart) would be misleading for a continuous outcome model. Resolve
-# the response-scale default from the model itself instead.
+# = "binary", link = "probit")), so a single hardcoded "probability" default
+# (as used for pbart/lbart) would be misleading for a continuous outcome
+# model. Resolve the response-scale default from the model itself instead.
 stochtree_default_scale <- function(model) {
-  if (identical(model$model_params$outcome_model$outcome, "binary")) "prob" else "real"
+  if (identical(model$model_params$outcome_model$outcome, "binary")) "probability" else "linear"
 }

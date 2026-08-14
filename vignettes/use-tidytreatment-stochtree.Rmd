@@ -1,11 +1,11 @@
 ---
-title: "Using the tidytreatment package with bartCause"
+title: "Using the tidytreatment package with stochtree"
 author: "Joshua J Bon"
 date: "`r Sys.Date()`"
 bibliography: vignette.bib
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Using the tidytreatment package with bartCause}
+  %\VignetteIndexEntry{Using the tidytreatment package with stochtree}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -92,7 +92,7 @@ Note: Using the automatic treatment assignment model in `bartCause` ignores step
 # STEP 1 VS Model: Regress y ~ covariates
 dat_covariates <- dat |> select(-y,-z, -subject_id)
 
-vs_bart <- bart(X_train = dat_covariates, y_train = dat$y, num_burnin = 5000, num_mcmc = 1000, 
+vs_bart <- stochtree::bart(X_train = dat_covariates, y_train = dat$y, num_burnin = 5000, num_mcmc = 1000, 
                 rfx_group_ids_train = dat$subject_id, 
                 random_effects_params = list(model_spec = 'intercept_only')
                 )
@@ -121,7 +121,7 @@ ps_bart <- bart(general_params = list(outcome_model = OutcomeModel(outcome = "bi
                 )
 
 # store propensity score in data
-prop_score <- epred_draws(ps_bart, rfx_group_ids = dat$subject_id) |> 
+prop_score <- epred_draws(ps_bart) |> 
   summarise(prop = mean(.value))
 
 # Step 4 TE Model: Regress y ~ z + covariates + propensity score
@@ -145,7 +145,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 # get model parameters (excluding BART paramaters)
 posterior_params <- tidy_draws(te_bart)
 
-posterior_fitted <- epred_draws(te_bart, value = "fitted",  include_newdata = FALSE)
+posterior_fitted <- epred_draws(te_bart, value = "fitted")
 
 ```
 
@@ -201,11 +201,11 @@ posterior_treat_eff <- treatment_effects(te_bart)
 # Histogram of treatment effect (all draws)
 posterior_treat_eff %>% 
   ggplot() +
-  geom_histogram(aes(x = icate), binwidth = 0.1, colour = "white") + 
+  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (all draws)")
 
 # Histogram of treatment effect (median for each subject)
-posterior_treat_eff %>% summarise(cte_hat = median(icate)) %>%
+posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
   ggplot() +
   geom_histogram(aes(x = cte_hat), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (median for each subject)")

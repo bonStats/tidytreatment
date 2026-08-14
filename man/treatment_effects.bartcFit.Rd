@@ -6,8 +6,8 @@
 \usage{
 \method{treatment_effects}{bartcFit}(
   model,
-  treatment = NULL,
-  newdata = NULL,
+  treatment,
+  newdata,
   subset = "all",
   common_support_method,
   cutoff,
@@ -30,7 +30,10 @@
 \item{...}{Arguments to be passed to \code{tidybayes::epred_draws} typically scale for \code{BART} models.}
 }
 \value{
-A tidy data frame (tibble) with treatment effect values.
+A tidy data frame (tibble) with treatment effect values in the \code{cte} column
+  (bartCause's \code{icate}: \eqn{\hat{mu}_i(1) - \hat{mu}_i(0)}), plus bartCause's own
+  noisier \code{ite} (individual treatment effect, using posterior predicted counterfactuals)
+  for reference.
 }
 \description{
 CTE = Conditional Treatment Effects (usually used to generate (C)ATE or ATT)

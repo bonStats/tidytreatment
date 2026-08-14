@@ -85,3 +85,29 @@ test_that("treatment_effects messages when newdata is supplied alongside common_
 test_that("has_tidytreatment_methods is FALSE for wbart (no model.matrix method registered)", {
   expect_false(has_tidytreatment_methods(bartmodel1))
 })
+
+test_that("has_common_support(scale = 'linear') differs from the (response-scale) default for a binary outcome model, and accepts abbreviations", {
+  skip_if_not_installed("BART")
+
+  withr::with_seed(42, {
+    n <- 40
+    x <- data.frame(x1 = rnorm(n), x2 = rnorm(n))
+    z <- rbinom(n, 1, plogis(x$x1))
+    y <- rbinom(n, 1, plogis(0.5 * x$x1 - 0.5 * x$x2 + z))
+    dat_bin <- cbind(y = y, z = z, x)
+
+    fit_bin <- BART::pbart(
+      x.train = dplyr::select(dat_bin, -y), y.train = y,
+      ndpost = 10, nskip = 5, ntree = 5, printevery = 1000L
+    )
+  })
+
+  cs_default <- has_common_support(fit_bin, treatment = "z", method = "sd", modeldata = dat_bin)
+  cs_linear <- has_common_support(fit_bin, treatment = "z", method = "sd", modeldata = dat_bin, scale = "linear")
+  cs_prob <- has_common_support(fit_bin, treatment = "z", method = "sd", modeldata = dat_bin, scale = "probability")
+  cs_lin_abbrev <- has_common_support(fit_bin, treatment = "z", method = "sd", modeldata = dat_bin, scale = "lin")
+
+  expect_equal(cs_default, cs_prob)
+  expect_equal(cs_linear, cs_lin_abbrev)
+  expect_false(isTRUE(all.equal(cs_linear$sd_observed, cs_default$sd_observed)))
+})
