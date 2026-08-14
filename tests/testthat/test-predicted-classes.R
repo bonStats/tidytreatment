@@ -44,3 +44,14 @@ test_that("predicted_draws.pbart output has one row per row/draw combination", {
   expect_equal(nrow(pred_out), nrow(fixture_bin_x) * nrow(fixture_pbart$yhat.train))
   expect_equal(sort(unique(pred_out$.row)), 1:nrow(fixture_bin_x))
 })
+
+test_that("predicted_draws.pbart/.lbart do not attach newdata by default, but do when include_newdata = TRUE", {
+  pred_default <- predicted_draws(fixture_pbart, newdata = fixture_bin_x, value = "pred")
+  expect_false(any(colnames(fixture_bin_x) %in% names(pred_default)))
+
+  pred_attached <- predicted_draws(fixture_pbart, newdata = fixture_bin_x, value = "pred", include_newdata = TRUE)
+  expect_true(all(colnames(fixture_bin_x) %in% names(pred_attached)))
+
+  pred_attached_l <- predicted_draws(fixture_lbart, newdata = fixture_bin_x, value = "pred", include_newdata = TRUE)
+  expect_true(all(colnames(fixture_bin_x) %in% names(pred_attached_l)))
+})

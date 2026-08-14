@@ -10,7 +10,7 @@ predicted_draws_BART(
   value = ".prediction",
   ...,
   rng = stats::rnorm,
-  include_newdata = TRUE,
+  include_newdata = FALSE,
   include_fitted = FALSE,
   include_sigsqs = FALSE
 )
@@ -26,7 +26,7 @@ predicted_draws_BART(
 
 \item{rng}{Random number generator function. Default is \code{rnorm} for models with Gaussian errors.}
 
-\item{include_newdata}{Should the newdata be included in the tibble?}
+\item{include_newdata}{Should the newdata be included in the tibble? Default \code{FALSE}.}
 
 \item{include_fitted}{Should the posterior fitted values be included in the tibble?}
 

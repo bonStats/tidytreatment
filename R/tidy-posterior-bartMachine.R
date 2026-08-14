@@ -4,14 +4,14 @@
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ... Not currently in use.
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.bartMachine <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.bartMachine <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) newdata <- stats::model.matrix(object)
 
   stopifnot(
@@ -74,7 +74,7 @@ epred_draws.bartMachine <- function(object, newdata, value = ".value", ..., ndra
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ... Not currently in use.
@@ -82,7 +82,7 @@ epred_draws.bartMachine <- function(object, newdata, value = ".value", ..., ndra
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.bartMachine <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws.bartMachine <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE, include_fitted = FALSE, include_sigsqs = FALSE) {
   stopifnot(
     is.character(value),
     is.logical(include_fitted),
@@ -110,14 +110,14 @@ predicted_draws.bartMachine <- function(object, newdata, value = ".prediction", 
 #' @param newdata Data frame to generate predictions from. If omitted, original data used to fit the model.
 #' @param value Name of the output column for residual_draws; default is \code{.residual}.
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ndraws Not currently implemented.
 #'
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.bartMachine <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.bartMachine <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE) {
   obs <- dplyr::tibble(y = object$y, .row = 1:object$n)
 
   fitted <- epred_draws(object, newdata,

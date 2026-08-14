@@ -3,19 +3,21 @@
 #' @param model A model from \code{BART} package.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the real, probit or logit scale?
+#' @param scale Should the fitted values be on the response ("prob"; probability for \code{pbart}/\code{lbart}) or linear predictor ("real") scale?
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
-fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., include_newdata = FALSE, include_sigsqs = FALSE, scale) {
   stopifnot(has_installed_package("BART"))
 
   if (is.null(newdata) & include_newdata) {
-    stop("For models from BART package 'newdata'
-          must be specified if 'include_newdata = TRUE'.")
+    stop("`newdata` was not supplied, but `include_newdata = TRUE`: `wbart`/`pbart`/`lbart` models ",
+         "from the BART package don't store the data they were fitted on, so there's nothing to ",
+         "attach to the output. Either supply `newdata` explicitly, or set `include_newdata = FALSE` ",
+         "if you don't need the fitted data attached.")
   }
 
   stopifnot(
@@ -91,14 +93,14 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param rng Random number generator function. Default is \code{rnorm} for models with Gaussian errors.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #'
-predicted_draws_BART <- function(object, newdata = NULL, value = ".prediction", ..., rng = stats::rnorm, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws_BART <- function(object, newdata = NULL, value = ".prediction", ..., rng = stats::rnorm, include_newdata = FALSE, include_fitted = FALSE, include_sigsqs = FALSE) {
   stopifnot(
     is.character(value),
     is.logical(include_fitted),
@@ -131,12 +133,12 @@ predicted_draws_BART <- function(object, newdata = NULL, value = ".prediction", 
 #' @param response Original response vector.
 #' @param newdata Data frame to generate predictions from. If omitted, original data used to fit the model.
 #' @param value Name of the output column for residual_draws; default is \code{.residual}.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #'
 #' @return Tibble with residuals.
 #'
-residual_draws_BART <- function(object, response, newdata = NULL, value = ".residual", include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws_BART <- function(object, response, newdata = NULL, value = ".residual", include_newdata = FALSE, include_sigsqs = FALSE) {
   if (missing(response)) stop("Models from BART pacakge require response (y) as argument. Specify 'response = <y variable>' as argument.")
 
   stopifnot(is.numeric(response))
@@ -163,14 +165,15 @@ residual_draws_BART <- function(object, response, newdata = NULL, value = ".resi
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
+#' @param scale Should the fitted values be on the response ("prob"; probability for \code{pbart}/\code{lbart}) or linear predictor ("real") scale? Has no effect for \code{wbart}, which has no link function.
 #' @param ... Not currently in use.
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "real") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -181,7 +184,8 @@ epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = N
     model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
-    include_sigsqs = include_sigsqs
+    include_sigsqs = include_sigsqs,
+    scale = scale
   )
 }
 
@@ -191,7 +195,7 @@ epred_draws.wbart <- function(object, newdata, value = ".value", ..., ndraws = N
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
-epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "prob") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -202,7 +206,8 @@ epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = N
     model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
-    include_sigsqs = include_sigsqs
+    include_sigsqs = include_sigsqs,
+    scale = scale
   )
 }
 
@@ -213,7 +218,7 @@ epred_draws.pbart <- function(object, newdata, value = ".value", ..., ndraws = N
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = "prob") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -224,7 +229,8 @@ epred_draws.lbart <- function(object, newdata, value = ".value", ..., ndraws = N
     model = object, newdata = newdata, value = value,
     ...,
     include_newdata = include_newdata,
-    include_sigsqs = include_sigsqs
+    include_sigsqs = include_sigsqs,
+    scale = scale
   )
 }
 
@@ -282,7 +288,7 @@ residual_draws.mbart2 <- function(object, ...) {
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ... Use to specify random number generator, default is \code{rng=stats::rnorm}.
@@ -290,7 +296,7 @@ residual_draws.mbart2 <- function(object, ...) {
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE, include_fitted = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -311,13 +317,13 @@ predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., n
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param ... Use to specify random number generator, default is \code{rng=stats::rnorm}.
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE) {
+predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -327,7 +333,7 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
  fitted <- fitted_draws_BART(
     model = object, newdata = newdata,
     value = ".fitted",
-    include_newdata = FALSE,
+    include_newdata = include_newdata,
     include_sigsqs = FALSE,
     scale = "prob", ...
   )
@@ -343,13 +349,13 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
 #' @param newdata Data frame to generate predictions from. If omitted, most model types will generate predictions from the data used to fit the model.
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param ... Use to specify random number generator, default is \code{rng=stats::rnorm}.
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE) {
+predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -359,7 +365,7 @@ predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., n
   fitted <- fitted_draws_BART(
     model = object, newdata = newdata,
     value = ".fitted",
-    include_newdata = FALSE,
+    include_newdata = include_newdata,
     include_sigsqs = FALSE,
     scale = "prob", ...
   )
@@ -378,14 +384,14 @@ predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., n
 #' @param newdata Data frame to generate predictions from. If omitted, original data used to fit the model.
 #' @param value Name of the output column for residual_draws; default is \code{.residual}.
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #' @param ndraws Not currently implemented.
 #'
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.wbart <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.wbart <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -409,7 +415,7 @@ residual_draws.wbart <- function(object, newdata, value = ".residual", ..., ndra
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.pbart <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.pbart <- function(object, newdata, value = ".residual", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }

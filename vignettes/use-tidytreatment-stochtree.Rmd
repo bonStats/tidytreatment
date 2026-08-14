@@ -105,6 +105,7 @@ vs_bart <- bart(X_train = dat_covariates, y_train = dat$y, num_burnin = 5000, nu
   # See package {bartMan} vignettes and https://doi.org/10.52933/jdssv.v4i1.79
   # for discussion of variable importance methods.
 covar_ranking <- covariate_importance(vs_bart, X_train = dat_covariates)
+
 var_select <- covar_ranking |> 
   filter(avg_inclusion > max(avg_inclusion) - 2*sd(avg_inclusion)) %>% # at minimum: within 2 sd of max inclusion
   pull(variable)
@@ -113,20 +114,25 @@ var_select
 
 # STEP 3 PS Model: Regress z ~ selected covariates
 ps_bart <- bart(general_params = list(outcome_model = OutcomeModel(outcome = "binary")),
-                X_train = dat_covariates, y_train = as.logical(dat$z), num_burnin = 5000, num_mcmc = 1000, 
+                X_train = dat_covariates, y_train = as.logical(dat$z), num_burnin = 5000, 
+                num_mcmc = 1000, 
                 rfx_group_ids_train = dat$subject_id, 
                 random_effects_params = list(model_spec = 'intercept_only')
                 )
 
 # store propensity score in data
-prop_score <- extractParameter(ps_bart,"y_hat_train") |?
+prop_score <- epred_draws(ps_bart, rfx_group_ids = dat$subject_id) |> 
+  summarise(prop = mean(.value))
 
 # Step 4 TE Model: Regress y ~ z + covariates + propensity score
-te_bart <- bartc(response = y, treatment = z, confounders = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10,  
-                 parametric = (1|subject_id), data = dat, method.trt = prop_score, 
-                 iter = 5000, bart_args = list(keepTrees = TRUE))
+te_bart <- bcf(X_train = dat_covariates, y_train = dat$y, 
+               Z_train = dat$z,
+               propensity_train = pull(prop_score, prop),
+               rfx_group_ids_train = dat$subject_id, 
+               num_burnin = 5000, num_mcmc = 1000, 
+               random_effects_params = list(model_spec = 'intercept_only'))
 
-#* The posterior samples are kept small to manage size on CRAN
+
 
 ```
 
@@ -139,7 +145,7 @@ Methods for extracting the posterior in a tidy format is included in the `tidytr
 # get model parameters (excluding BART paramaters)
 posterior_params <- tidy_draws(te_bart)
 
-posterior_fitted <- epred_draws(te_bart, value = "fitted")
+posterior_fitted <- epred_draws(te_bart, value = "fitted",  include_newdata = FALSE)
 
 ```
 

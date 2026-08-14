@@ -5,9 +5,9 @@
 #' @param rfx_group_ids Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).
 #' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the real (link) or probability scale?
+#' @param scale Should the fitted values be on the response ("prob"; probability for a binary outcome model) or linear predictor ("real") scale? Default (\code{NULL}) uses the response scale for the model's outcome type (\code{model$model_params$outcome_model}).
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{stochtree:::predict.bartmodel}).
 #'
 #' @return A tidy data frame (tibble) with fitted values.
@@ -16,7 +16,7 @@
 # the random effects contribution, so y_hat = mean_forest(X) + rfx never needs
 # manual recombination here. Decomposition checked in
 # tests/testthat/test-stochtree-random-effects.R.
-fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., include_newdata = FALSE, include_sigsqs = FALSE, scale) {
   stopifnot(has_installed_package("stochtree"))
 
   stopifnot(
@@ -28,9 +28,13 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
   )
 
   if (is.null(newdata) & include_newdata) {
-    stop("For models from stochtree package 'newdata'
-          must be specified if 'include_newdata = TRUE'.")
+    stop("`newdata` was not supplied, but `include_newdata = TRUE`: `bartmodel` objects from the ",
+         "stochtree package don't store the data they were fitted on, so there's nothing to attach ",
+         "to the output. Either supply `newdata` explicitly, or set `include_newdata = FALSE` if ",
+         "you don't need the fitted data attached.")
   }
+
+  if (is.null(scale)) scale <- stochtree_default_scale(model)
 
   use_scale <- match.arg(scale,
     c("real", "prob"),
@@ -48,6 +52,7 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
 
   if (!(missing(newdata) | is.null(newdata))) {
+    warn_include_newdata_repeats(include_newdata)
     stochtree_check_rfx_args(model, rfx_group_ids, rfx_basis)
 
     # predict.bartmodel() applies the outcome model's own probability-scale
@@ -110,15 +115,15 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
 #' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the real (link) or probability scale?
+#' @param scale Should the fitted values be on the response ("prob"; probability for a binary outcome model) or linear predictor ("real") scale? Default (\code{NULL}) uses the response scale for the model's outcome type (\code{object$model_params$outcome_model}).
 #' @param ... Additional arguments passed to \code{predict.bartmodel}.
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+epred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE, scale = NULL) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -146,7 +151,7 @@ epred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_bas
 #' @return A tidy data frame (tibble) with linear predictor values.
 #' @export
 #'
-linpred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".linpred", ..., ndraws = NULL, include_newdata = TRUE) {
+linpred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".linpred", ..., ndraws = NULL, include_newdata = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -171,7 +176,7 @@ linpred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_b
 #' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_fitted Should the posterior fitted values be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included? Only applicable to continuous outcome models.
 #' @param ... Additional arguments passed to \code{predict.bartmodel}.
@@ -179,7 +184,7 @@ linpred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_b
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE, include_fitted = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -233,13 +238,13 @@ predicted_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx
 #' @param value Name of the output column for residual_draws; default is \code{.residual}.
 #' @param ... Additional arguments passed to \code{predict.bartmodel}.
 #' @param ndraws Not currently implemented.
-#' @param include_newdata Should the newdata be included in the tibble?
+#' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
 #'
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, response, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, response, value = ".residual", ..., ndraws = NULL, include_newdata = FALSE, include_sigsqs = FALSE) {
   if (missing(response)) stop("Models from stochtree package require response (y) as argument. Specify 'response = <y variable>' as argument.")
 
   stopifnot(is.numeric(response))

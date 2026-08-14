@@ -10,8 +10,9 @@
   value = ".value",
   ...,
   ndraws = NULL,
-  include_newdata = TRUE,
-  include_sigsqs = FALSE
+  include_newdata = FALSE,
+  include_sigsqs = FALSE,
+  scale = "real"
 )
 }
 \arguments{
@@ -25,9 +26,11 @@
 
 \item{ndraws}{Not currently implemented.}
 
-\item{include_newdata}{Should the newdata be included in the tibble?}
+\item{include_newdata}{Should the newdata be included in the tibble? Default \code{FALSE}.}
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
+
+\item{scale}{Should the fitted values be on the response ("prob"; probability for \code{pbart}/\code{lbart}) or linear predictor ("real") scale? Has no effect for \code{wbart}, which has no link function.}
 }
 \value{
 A tidy data frame (tibble) with fitted values.

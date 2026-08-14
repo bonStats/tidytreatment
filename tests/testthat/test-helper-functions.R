@@ -32,3 +32,15 @@ test_that("check_method is silent when the method exists and errors otherwise", 
 test_that("has_tidytreatment_methods requires both epred_draws and model.matrix methods", {
   expect_false(has_tidytreatment_methods(bartmodel1)) # no model.matrix.wbart registered
 })
+
+test_that("stochtree_default_scale resolves 'prob' for binary and 'real' for continuous outcome models", {
+  skip_if_not_installed("stochtree")
+  skip_if(is.null(fixture_stochtree))
+  skip_if(is.null(fixture_stochtree_bin))
+
+  expect_equal(fixture_stochtree$model_params$outcome_model$outcome, "continuous")
+  expect_equal(fixture_stochtree_bin$model_params$outcome_model$outcome, "binary")
+
+  expect_equal(tidytreatment:::stochtree_default_scale(fixture_stochtree), "real")
+  expect_equal(tidytreatment:::stochtree_default_scale(fixture_stochtree_bin), "prob")
+})

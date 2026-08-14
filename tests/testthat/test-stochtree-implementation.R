@@ -50,6 +50,33 @@ test_that("epred_draws.bartmodel errors when include_newdata = TRUE and newdata 
   )
 })
 
+test_that("epred_draws.bartmodel does not attach newdata or warn by default", {
+  ed <- epred_draws(fixture_stochtree, newdata = newX, value = "fitted")
+  expect_false(any(colnames(newX) %in% names(ed)))
+
+  expect_no_warning(
+    epred_draws(fixture_stochtree, newdata = newX, value = "fitted")
+  )
+})
+
+test_that("epred_draws.bartmodel warns when newdata is supplied with include_newdata = TRUE", {
+  expect_warning(
+    epred_draws(fixture_stochtree, newdata = newX, value = "fitted", include_newdata = TRUE),
+    "include_newdata"
+  )
+  expect_no_warning(
+    epred_draws(fixture_stochtree, newdata = newX, value = "fitted", include_newdata = FALSE)
+  )
+})
+
+test_that("epred_draws.bartmodel defaults to the response (probability) scale for a binary outcome model", {
+  ed_default <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE)
+  ed_prob <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "prob")
+
+  expect_equal(ed_default, ed_prob)
+  expect_true(all(ed_default$fitted >= 0 & ed_default$fitted <= 1))
+})
+
 test_that("epred_draws.bartmodel scale = 'prob' matches pnorm() of the real (probit) scale for a binary outcome model", {
   ed_real <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "real")
   ed_prob <- epred_draws(fixture_stochtree_bin, newdata = newX, value = "fitted", include_newdata = FALSE, scale = "prob")
@@ -71,6 +98,13 @@ test_that("epred_draws.bartmodel warns and ignores non-NULL ndraws", {
   expect_warning(
     epred_draws(fixture_stochtree, newdata = newX, ndraws = 5L, include_newdata = FALSE),
     "ndraws"
+  )
+})
+
+test_that("fitted_draws_stochtree requires scale to be supplied explicitly", {
+  expect_error(
+    tidytreatment:::fitted_draws_stochtree(fixture_stochtree, newdata = newX, include_newdata = FALSE),
+    "scale"
   )
 })
 

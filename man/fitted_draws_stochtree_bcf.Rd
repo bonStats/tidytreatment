@@ -13,9 +13,9 @@ fitted_draws_stochtree_bcf(
   rfx_basis = NULL,
   value = ".value",
   ...,
-  include_newdata = TRUE,
+  include_newdata = FALSE,
   include_sigsqs = FALSE,
-  scale = "real"
+  scale
 )
 }
 \arguments{
@@ -35,11 +35,11 @@ fitted_draws_stochtree_bcf(
 
 \item{...}{Arguments to pass to \code{predict} (e.g. \code{stochtree:::predict.bcfmodel}).}
 
-\item{include_newdata}{Should the newdata be included in the tibble?}
+\item{include_newdata}{Should the newdata be included in the tibble? Default \code{FALSE}.}
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
 
-\item{scale}{Should the fitted values be on the real (link) or probability scale?}
+\item{scale}{Should the fitted values be on the response ("prob"; probability for a binary outcome model) or linear predictor ("real") scale? Default (\code{NULL}) uses the response scale for the model's outcome type (\code{model$model_params$outcome_model}).}
 }
 \value{
 A tidy data frame (tibble) with fitted values.

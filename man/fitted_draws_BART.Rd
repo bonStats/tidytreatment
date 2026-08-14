@@ -9,9 +9,9 @@ fitted_draws_BART(
   newdata = NULL,
   value = ".value",
   ...,
-  include_newdata = TRUE,
+  include_newdata = FALSE,
   include_sigsqs = FALSE,
-  scale = "real"
+  scale
 )
 }
 \arguments{
@@ -23,11 +23,11 @@ fitted_draws_BART(
 
 \item{...}{Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).}
 
-\item{include_newdata}{Should the newdata be included in the tibble?}
+\item{include_newdata}{Should the newdata be included in the tibble? Default \code{FALSE}.}
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
 
-\item{scale}{Should the fitted values be on the real, probit or logit scale?}
+\item{scale}{Should the fitted values be on the response ("prob"; probability for \code{pbart}/\code{lbart}) or linear predictor ("real") scale?}
 }
 \value{
 A tidy data frame (tibble) with fitted values.

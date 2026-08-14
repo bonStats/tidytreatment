@@ -5,8 +5,8 @@ library(tidyr)
 skip_if_not_installed("BART")
 skip_if(is.null(fixture_pbart))
 
-test_that("residual_draws.pbart = response - fitted (real/latent scale)", {
-  check_matrix <- fixture_pbart$yhat.train
+test_that("residual_draws.pbart = response - fitted (response/probability scale, epred_draws' default)", {
+  check_matrix <- pnorm(fixture_pbart$yhat.train)
   smpls <- nrow(check_matrix)
   y_matrix <- matrix(rep(fixture_bin_y, smpls), nrow = smpls, byrow = TRUE)
   check_matrix <- y_matrix - check_matrix

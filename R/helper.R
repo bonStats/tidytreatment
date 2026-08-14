@@ -90,3 +90,28 @@ stochtree_check_rfx_args <- function(model, rfx_group_ids, rfx_basis) {
 
   invisible(NULL)
 }
+
+# Warn when `newdata` is supplied with `include_newdata = TRUE`: newdata's
+# columns get repeated once per posterior draw in the long-format output,
+# which can be a lot of repeated data for many draws or wide newdata. Only
+# call this from a branch where newdata is already known to be present.
+warn_include_newdata_repeats <- function(include_newdata) {
+  if (isTRUE(include_newdata)) {
+    warning(
+      "`include_newdata = TRUE`: the columns of `newdata` will be repeated once per posterior ",
+      "draw in the returned tibble. Set `include_newdata = FALSE` if you don't need `newdata`'s ",
+      "columns attached to the output.",
+      call. = FALSE
+    )
+  }
+  invisible(NULL)
+}
+
+# bartmodel/bcfmodel objects can represent either a continuous or a binary
+# outcome model (model$model_params$outcome_model, e.g. OutcomeModel(outcome
+# = "binary", link = "probit")), so a single hardcoded "prob" default (as used
+# for pbart/lbart) would be misleading for a continuous outcome model. Resolve
+# the response-scale default from the model itself instead.
+stochtree_default_scale <- function(model) {
+  if (identical(model$model_params$outcome_model$outcome, "binary")) "prob" else "real"
+}

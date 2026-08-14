@@ -85,6 +85,25 @@ test_that("epred_draws.bcfmodel (with newdata) matches predict(..., terms = 'y_h
   expect_equal(comp$fitted, comp$fitted_check)
 })
 
+test_that("epred_draws.bcfmodel does not attach newdata or warn by default", {
+  ed <- epred_draws(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted")
+  expect_false(any(colnames(newX) %in% names(ed)))
+
+  expect_no_warning(
+    epred_draws(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted")
+  )
+})
+
+test_that("epred_draws.bcfmodel warns when newdata is supplied with include_newdata = TRUE", {
+  expect_warning(
+    epred_draws(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = TRUE),
+    "include_newdata"
+  )
+  expect_no_warning(
+    epred_draws(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE)
+  )
+})
+
 test_that("epred_draws.bcfmodel errors informatively when newdata is supplied without treatment", {
   expect_error(
     epred_draws(fixture_bcf, newdata = newX, include_newdata = FALSE),
@@ -104,6 +123,21 @@ test_that("epred_draws.bcfmodel errors when include_newdata = TRUE and newdata i
     epred_draws(fixture_bcf, include_newdata = TRUE),
     "newdata"
   )
+})
+
+test_that("fitted_draws_stochtree_bcf requires scale to be supplied explicitly", {
+  expect_error(
+    tidytreatment:::fitted_draws_stochtree_bcf(fixture_bcf, newdata = newX, treatment = newZ, propensity = newPi, include_newdata = FALSE),
+    "scale"
+  )
+})
+
+test_that("epred_draws.bcfmodel defaults to the response (probability) scale for a binary outcome model", {
+  ed_default <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE)
+  ed_prob <- epred_draws(fixture_bcf_bin, newdata = newX, treatment = newZ, propensity = newPi, value = "fitted", include_newdata = FALSE, scale = "prob")
+
+  expect_equal(ed_default, ed_prob)
+  expect_true(all(ed_default$fitted >= 0 & ed_default$fitted <= 1))
 })
 
 test_that("epred_draws.bcfmodel scale = 'prob' matches predict(..., scale = 'probability') for a binary outcome model", {

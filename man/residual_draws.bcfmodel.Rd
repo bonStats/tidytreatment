@@ -15,7 +15,7 @@
   value = ".residual",
   ...,
   ndraws = NULL,
-  include_newdata = TRUE,
+  include_newdata = FALSE,
   include_sigsqs = FALSE
 )
 }
@@ -40,7 +40,7 @@
 
 \item{ndraws}{Not currently implemented.}
 
-\item{include_newdata}{Should the newdata be included in the tibble?}
+\item{include_newdata}{Should the newdata be included in the tibble? Default \code{FALSE}.}
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
 }
