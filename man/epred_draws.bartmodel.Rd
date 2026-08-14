@@ -7,6 +7,8 @@
 \method{epred_draws}{bartmodel}(
   object,
   newdata,
+  rfx_group_ids = NULL,
+  rfx_basis = NULL,
   value = ".value",
   ...,
   ndraws = NULL,
@@ -19,6 +21,10 @@
 \item{object}{A \code{bartmodel} model from the \code{stochtree} package.}
 
 \item{newdata}{Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.}
+
+\item{rfx_group_ids}{Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).}
+
+\item{rfx_basis}{Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).}
 
 \item{value}{The name of the output column for \code{epred_draws}; default \code{".value"}.}
 

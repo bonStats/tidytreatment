@@ -12,7 +12,7 @@ License: MIT + file LICENSE
 URL: https://github.com/bonstats/tidytreatment
 BugReports: https://github.com/bonstats/tidytreatment/issues
 Language: en-US
-Depends: R (>= 3.1.0)
+Depends: R (>= 4.1.0)
 Suggests: 
     knitr,
     rmarkdown,

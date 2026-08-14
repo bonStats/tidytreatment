@@ -9,6 +9,8 @@
   newdata,
   treatment = NULL,
   propensity = NULL,
+  rfx_group_ids = NULL,
+  rfx_basis = NULL,
   response,
   value = ".residual",
   ...,
@@ -25,6 +27,10 @@
 \item{treatment}{Treatment assignment vector for \code{newdata} (required if \code{newdata} is supplied).}
 
 \item{propensity}{Propensity score vector for \code{newdata}, if the model requires one (required if \code{newdata} is supplied and the model used a propensity score covariate).}
+
+\item{rfx_group_ids}{Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).}
+
+\item{rfx_basis}{Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).}
 
 \item{response}{Original response vector.}
 

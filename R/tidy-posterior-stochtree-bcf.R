@@ -3,12 +3,18 @@
 #' Fitted values here are the combined outcome prediction \code{y_hat = mu(X) + tau(X)*Z}
 #' (plus any random effects). \code{stochtree::predict.bcfmodel()}/\code{extractParameter()}
 #' already fold in the treatment-effect intercept and adaptive-coding parameters (if used) into
-#' \code{tau_hat}/\code{y_hat}, so no extra recombination is needed here.
+#' \code{tau_hat}/\code{y_hat}, so no extra recombination is needed here. Random effects are
+#' similarly already folded into \code{y_hat_train}/\code{predict(..., terms = "y_hat")} - unlike
+#' the intercept/adaptive-coding case, this was verified empirically rather than assumed (see
+#' package NEWS/development notes): \code{y_hat_train == mu_hat_train + tau_hat_train * Z + rfx_preds_train}
+#' exactly, whether or not random effects are used.
 #'
 #' @param model A \code{bcfmodel} from the \code{stochtree} package.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
 #' @param treatment Treatment assignment vector for \code{newdata} (required if \code{newdata} is supplied).
 #' @param propensity Propensity score vector for \code{newdata}, if the model requires one (required if \code{newdata} is supplied and the model used a propensity score covariate).
+#' @param rfx_group_ids Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).
+#' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
@@ -17,7 +23,7 @@
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
-fitted_draws_stochtree_bcf <- function(model, newdata = NULL, treatment = NULL, propensity = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+fitted_draws_stochtree_bcf <- function(model, newdata = NULL, treatment = NULL, propensity = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   stopifnot(has_installed_package("stochtree"))
 
   stopifnot(
@@ -51,11 +57,14 @@ fitted_draws_stochtree_bcf <- function(model, newdata = NULL, treatment = NULL, 
     if (nrow(newdata) != length(treatment)) {
       stop("`treatment` must have one value per row of `newdata`.")
     }
+    stochtree_check_rfx_args(model, rfx_group_ids, rfx_basis)
 
     predict_scale <- if (needs_transform) "probability" else "linear"
-    posterior <- predict(model, X = newdata, Z = treatment, propensity = propensity, terms = "y_hat", scale = predict_scale, ...)
+    posterior <- predict(model, X = newdata, Z = treatment, propensity = propensity, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, terms = "y_hat", scale = predict_scale, ...)
   } else {
     # extractParameter() has no scale argument: only ever the linear scale.
+    # y_hat_train already includes any random effects contribution (verified
+    # empirically), same as it already includes tau_0/adaptive-coding.
     posterior <- stochtree::extractParameter(model, term = "y_hat_train")
 
     if (needs_transform) {
@@ -112,7 +121,7 @@ fitted_draws_stochtree_bcf <- function(model, newdata = NULL, treatment = NULL, 
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+epred_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -120,7 +129,8 @@ epred_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity =
   if (!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
   fitted_draws_stochtree_bcf(
-    model = object, newdata = newdata, treatment = treatment, propensity = propensity, value = value,
+    model = object, newdata = newdata, treatment = treatment, propensity = propensity,
+    rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = value,
     ...,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs,
@@ -139,13 +149,14 @@ epred_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity =
 #' @return A tidy data frame (tibble) with linear predictor values.
 #' @export
 #'
-linpred_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, value = ".linpred", ..., ndraws = NULL, include_newdata = TRUE) {
+linpred_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".linpred", ..., ndraws = NULL, include_newdata = TRUE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
   epred_draws.bcfmodel(
-    object = object, newdata = newdata, treatment = treatment, propensity = propensity, value = value,
+    object = object, newdata = newdata, treatment = treatment, propensity = propensity,
+    rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = value,
     ...,
     ndraws = ndraws,
     include_newdata = include_newdata,
@@ -165,7 +176,7 @@ linpred_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -176,7 +187,8 @@ predicted_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensi
 
   if (outcome == "continuous") {
     out <- fitted_draws_stochtree_bcf(
-      model = object, newdata = newdata, treatment = treatment, propensity = propensity, value = ".fit",
+      model = object, newdata = newdata, treatment = treatment, propensity = propensity,
+      rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = ".fit",
       ...,
       include_newdata = include_newdata,
       include_sigsqs = TRUE,
@@ -189,7 +201,8 @@ predicted_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensi
     if (!include_fitted) out <- dplyr::select(out, -".fit")
   } else if (outcome == "binary") {
     out <- fitted_draws_stochtree_bcf(
-      model = object, newdata = newdata, treatment = treatment, propensity = propensity, value = ".fitted",
+      model = object, newdata = newdata, treatment = treatment, propensity = propensity,
+      rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = ".fitted",
       ...,
       include_newdata = include_newdata,
       include_sigsqs = FALSE,
@@ -218,7 +231,7 @@ predicted_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensi
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, response, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensity = NULL, rfx_group_ids = NULL, rfx_basis = NULL, response, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(response)) stop("Models from stochtree package require response (y) as argument. Specify 'response = <y variable>' as argument.")
 
   stopifnot(is.numeric(response))
@@ -233,6 +246,7 @@ residual_draws.bcfmodel <- function(object, newdata, treatment = NULL, propensit
 
   fitted <- epred_draws.bcfmodel(
     object = object, newdata = newdata, treatment = treatment, propensity = propensity,
+    rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis,
     value = ".fitted",
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs,
@@ -332,6 +346,17 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
     dplyr::select(-"inclusion")
 }
 
+# TRUE if this model's random effects contribute to the treatment effect
+# itself (a random slope on treatment), not just to the outcome/baseline.
+# Verified empirically: with model_spec = "intercept_plus_treatment", the
+# stored tau_hat_train field stays flat across groups (does NOT include the
+# random slope), while predict(..., terms = "cate") does. For every other
+# spec ("intercept_only", "custom", or no random effects at all),
+# tau_hat/terms = "tau" is already the complete causal estimate.
+bcf_rfx_touches_treatment_effect <- function(model) {
+  isTRUE(model$model_params$has_rfx) && identical(model$model_params$rfx_model_spec, "intercept_plus_treatment")
+}
+
 #' Get (individual) treatment effect draws from posterior of a \code{bcfmodel} (\code{stochtree} package)
 #'
 #' Unlike \code{treatment_effects.default}, this does not compute counterfactuals by flipping
@@ -339,6 +364,24 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
 #' fits a dedicated treatment-effect forest, and \code{tau_hat}/\code{predict(..., terms = "tau")}
 #' already fold in the treatment-effect intercept and adaptive-coding parameters (if used), so the
 #' causal estimate is used directly.
+#'
+#' Random effects need special handling here (unlike \code{epred_draws.bcfmodel()}, where they're
+#' transparently included in \code{y_hat}): when the model was fit with
+#' \code{random_effects_params = list(model_spec = "intercept_plus_treatment")}, the random effect
+#' includes a group-specific random \emph{slope on treatment} - i.e. it is genuinely part of the
+#' causal effect, not just the outcome baseline. This was verified empirically: \code{tau_hat_train}
+#' (and \code{predict(..., terms = "tau")}) never includes this random slope, regardless of
+#' \code{rfx_model_spec}; only \code{predict(..., terms = "cate")} does. This function therefore
+#' uses \code{terms = "cate"} instead of \code{terms = "tau"} when
+#' \code{model_spec = "intercept_plus_treatment"} was used, and \code{terms = "tau"} otherwise (this
+#' covers \code{"intercept_only"}, under which random effects do not touch the treatment effect, and
+#' \code{"custom"}, for which \code{stochtree} itself does not distinguish \code{"tau"}/\code{"cate"}).
+#'
+#' There is no in-sample \code{cate_hat_train} equivalent exposed by \code{stochtree}, and the
+#' per-row training group assignment needed to reconstruct one is not recoverable from a fitted
+#' \code{bcfmodel} object. So for a model with \code{model_spec = "intercept_plus_treatment"},
+#' \code{newdata} (along with \code{treatment} and \code{rfx_group_ids} for the same rows - e.g. the
+#' original training data) must be supplied explicitly; there is no in-sample default.
 #'
 #' Note that, unlike \code{treatment_effects.bartcFit} (which forbids a \code{treatment} argument
 #' because a \code{bartcFit} object stores its own training data and treatment vector),
@@ -348,17 +391,19 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
 #'
 #' @param model A \code{bcfmodel} from the \code{stochtree} package.
 #' @param treatment A vector of treatment assignments. Required if \code{newdata} is supplied (to predict on it) or if \code{subset != "all"} (to filter by it). Not a column name string.
-#' @param newdata Data frame to generate treatment effect draws from. If omitted, uses the in-sample \code{tau_hat_train} already computed by \code{bcf()}.
+#' @param newdata Data frame to generate treatment effect draws from. If omitted, uses the in-sample \code{tau_hat_train} already computed by \code{bcf()} - not available if \code{model_spec = "intercept_plus_treatment"} was used (see Details).
 #' @param subset Either "treated", "nontreated", or "all". Default is "all".
 #' @param common_support_method Not currently supported for \code{bcfmodel} objects; a warning is issued if supplied.
 #' @param cutoff Not currently supported for \code{bcfmodel} objects.
 #' @param propensity Propensity score vector for \code{newdata}, if the model requires one.
+#' @param rfx_group_ids Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).
+#' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param ... Arguments to be passed to \code{predict.bcfmodel} (e.g. scale-related arguments are not exposed here).
 #'
 #' @return A tidy data frame (tibble) with treatment effect values in the \code{cte} column.
 #' @export
 #'
-treatment_effects.bcfmodel <- function(model, treatment = NULL, newdata = NULL, subset = "all", common_support_method, cutoff, propensity = NULL, ...) {
+treatment_effects.bcfmodel <- function(model, treatment = NULL, newdata = NULL, subset = "all", common_support_method, cutoff, propensity = NULL, rfx_group_ids = NULL, rfx_basis = NULL, ...) {
 
   if (!missing(common_support_method)) {
     warning("`common_support_method` is not currently supported for bcfmodel objects and will be ignored.")
@@ -366,7 +411,21 @@ treatment_effects.bcfmodel <- function(model, treatment = NULL, newdata = NULL, 
 
   use_subset <- match.arg(subset, c("all", "treated", "nontreated"))
 
+  rfx_in_tau <- bcf_rfx_touches_treatment_effect(model)
+  target_term <- if (rfx_in_tau) "cate" else "tau"
+
   if (is.null(newdata)) {
+    if (rfx_in_tau) {
+      stop(
+        "This model was fit with random_effects_params = list(model_spec = 'intercept_plus_treatment'), ",
+        "under which the random effect is part of the treatment effect itself (a random slope on ",
+        "treatment). stochtree does not expose an in-sample 'cate_hat_train' equivalent, and the ",
+        "per-row training group assignment needed to reconstruct one is not recoverable from a fitted ",
+        "bcfmodel object. Supply `newdata`, `treatment`, and `rfx_group_ids` explicitly (e.g. the ",
+        "original training data) to compute treatment effects for this model.",
+        call. = FALSE
+      )
+    }
     posterior <- stochtree::extractParameter(model, term = "tau_hat_train")
   } else {
     if (is.null(treatment)) {
@@ -375,8 +434,9 @@ treatment_effects.bcfmodel <- function(model, treatment = NULL, newdata = NULL, 
     if (nrow(newdata) != length(treatment)) {
       stop("`treatment` must have one value per row of `newdata`.")
     }
+    stochtree_check_rfx_args(model, rfx_group_ids, rfx_basis)
 
-    posterior <- predict(model, X = newdata, Z = treatment, propensity = propensity, terms = "tau", scale = "linear", ...)
+    posterior <- predict(model, X = newdata, Z = treatment, propensity = propensity, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, terms = target_term, scale = "linear", ...)
   }
 
   out <- dplyr::bind_cols(

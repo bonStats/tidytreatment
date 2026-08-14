@@ -2,6 +2,8 @@
 #'
 #' @param model A model from \code{stochtree} package.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
+#' @param rfx_group_ids Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).
+#' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble?
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
@@ -10,7 +12,7 @@
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
-fitted_draws_stochtree <- function(model, newdata = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   stopifnot(has_installed_package("stochtree"))
 
   stopifnot(
@@ -42,10 +44,15 @@ fitted_draws_stochtree <- function(model, newdata = NULL, value = ".value", ...,
   col_order <- c(".row", ".chain", ".iteration", ".draw", value)
 
   if (!(missing(newdata) | is.null(newdata))) {
+    stochtree_check_rfx_args(model, rfx_group_ids, rfx_basis)
+
     # predict.bartmodel() applies the outcome model's own probability-scale
     # transform internally, so prefer that over reimplementing it ourselves.
+    # It also folds in the random effects contribution (confirmed empirically:
+    # y_hat_train == mean_forest(X) + rfx_preds_train, exactly), so no manual
+    # recombination is needed here either.
     predict_scale <- if (needs_transform) "probability" else "linear"
-    posterior <- predict(model, X = newdata, terms = "y_hat", scale = predict_scale, ...)
+    posterior <- predict(model, X = newdata, terms = "y_hat", scale = predict_scale, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, ...)
   } else {
     # extractParameter() has no scale argument: only ever the linear scale.
     posterior <- stochtree::extractParameter(model, term = "y_hat_train")
@@ -98,6 +105,8 @@ fitted_draws_stochtree <- function(model, newdata = NULL, value = ".value", ...,
 #'
 #' @param object A \code{bartmodel} model from the \code{stochtree} package.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
+#' @param rfx_group_ids Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).
+#' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble?
@@ -108,7 +117,7 @@ fitted_draws_stochtree <- function(model, newdata = NULL, value = ".value", ...,
 #' @return A tidy data frame (tibble) with fitted values.
 #' @export
 #'
-epred_draws.bartmodel <- function(object, newdata, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
+epred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -116,7 +125,7 @@ epred_draws.bartmodel <- function(object, newdata, value = ".value", ..., ndraws
   if (!is.null(ndraws)) warning("Argument `ndraws` ignored: not implemented")
 
   fitted_draws_stochtree(
-    model = object, newdata = newdata, value = value,
+    model = object, newdata = newdata, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = value,
     ...,
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs,
@@ -136,13 +145,13 @@ epred_draws.bartmodel <- function(object, newdata, value = ".value", ..., ndraws
 #' @return A tidy data frame (tibble) with linear predictor values.
 #' @export
 #'
-linpred_draws.bartmodel <- function(object, newdata, value = ".linpred", ..., ndraws = NULL, include_newdata = TRUE) {
+linpred_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".linpred", ..., ndraws = NULL, include_newdata = TRUE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
 
   epred_draws.bartmodel(
-    object = object, newdata = newdata, value = value,
+    object = object, newdata = newdata, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = value,
     ...,
     ndraws = ndraws,
     include_newdata = include_newdata,
@@ -157,6 +166,8 @@ linpred_draws.bartmodel <- function(object, newdata, value = ".linpred", ..., nd
 #'
 #' @param object A \code{bartmodel} model from the \code{stochtree} package.
 #' @param newdata Data frame to generate predictions from. If omitted, predictions are generated from the data used to fit the model.
+#' @param rfx_group_ids Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).
+#' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble?
@@ -167,7 +178,7 @@ linpred_draws.bartmodel <- function(object, newdata, value = ".linpred", ..., nd
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.bartmodel <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
+predicted_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, value = ".prediction", ..., ndraws = NULL, include_newdata = TRUE, include_fitted = FALSE, include_sigsqs = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -178,7 +189,7 @@ predicted_draws.bartmodel <- function(object, newdata, value = ".prediction", ..
 
   if (outcome == "continuous") {
     out <- fitted_draws_stochtree(
-      model = object, newdata = newdata, value = ".fit",
+      model = object, newdata = newdata, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = ".fit",
       ...,
       include_newdata = include_newdata,
       include_sigsqs = TRUE,
@@ -191,7 +202,7 @@ predicted_draws.bartmodel <- function(object, newdata, value = ".prediction", ..
     if (!include_fitted) out <- dplyr::select(out, -".fit")
   } else if (outcome == "binary") {
     out <- fitted_draws_stochtree(
-      model = object, newdata = newdata, value = ".fitted",
+      model = object, newdata = newdata, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, value = ".fitted",
       ...,
       include_newdata = include_newdata,
       include_sigsqs = FALSE,
@@ -215,6 +226,8 @@ predicted_draws.bartmodel <- function(object, newdata, value = ".prediction", ..
 #'
 #' @param object A \code{bartmodel} model from the \code{stochtree} package.
 #' @param newdata Data frame to generate predictions from. If omitted, original data used to fit the model.
+#' @param rfx_group_ids Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).
+#' @param rfx_basis Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).
 #' @param response Original response vector.
 #' @param value Name of the output column for residual_draws; default is \code{.residual}.
 #' @param ... Additional arguments passed to \code{predict.bartmodel}.
@@ -225,7 +238,7 @@ predicted_draws.bartmodel <- function(object, newdata, value = ".prediction", ..
 #' @return Tibble with residuals.
 #' @export
 #'
-residual_draws.bartmodel <- function(object, newdata, response, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
+residual_draws.bartmodel <- function(object, newdata, rfx_group_ids = NULL, rfx_basis = NULL, response, value = ".residual", ..., ndraws = NULL, include_newdata = TRUE, include_sigsqs = FALSE) {
   if (missing(response)) stop("Models from stochtree package require response (y) as argument. Specify 'response = <y variable>' as argument.")
 
   stopifnot(is.numeric(response))
@@ -239,7 +252,7 @@ residual_draws.bartmodel <- function(object, newdata, response, value = ".residu
   obs <- dplyr::tibble(y = response, .row = 1:length(response))
 
   fitted <- epred_draws.bartmodel(
-    object = object, newdata = newdata,
+    object = object, newdata = newdata, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis,
     value = ".fitted",
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs,

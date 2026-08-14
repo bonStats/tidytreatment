@@ -12,6 +12,8 @@
   common_support_method,
   cutoff,
   propensity = NULL,
+  rfx_group_ids = NULL,
+  rfx_basis = NULL,
   ...
 )
 }
@@ -20,7 +22,7 @@
 
 \item{treatment}{A vector of treatment assignments. Required if \code{newdata} is supplied (to predict on it) or if \code{subset != "all"} (to filter by it). Not a column name string.}
 
-\item{newdata}{Data frame to generate treatment effect draws from. If omitted, uses the in-sample \code{tau_hat_train} already computed by \code{bcf()}.}
+\item{newdata}{Data frame to generate treatment effect draws from. If omitted, uses the in-sample \code{tau_hat_train} already computed by \code{bcf()} - not available if \code{model_spec = "intercept_plus_treatment"} was used (see Details).}
 
 \item{subset}{Either "treated", "nontreated", or "all". Default is "all".}
 
@@ -29,6 +31,10 @@
 \item{cutoff}{Not currently supported for \code{bcfmodel} objects.}
 
 \item{propensity}{Propensity score vector for \code{newdata}, if the model requires one.}
+
+\item{rfx_group_ids}{Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).}
+
+\item{rfx_basis}{Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).}
 
 \item{...}{Arguments to be passed to \code{predict.bcfmodel} (e.g. scale-related arguments are not exposed here).}
 }
@@ -43,6 +49,24 @@ already fold in the treatment-effect intercept and adaptive-coding parameters (i
 causal estimate is used directly.
 }
 \details{
+Random effects need special handling here (unlike \code{epred_draws.bcfmodel()}, where they're
+transparently included in \code{y_hat}): when the model was fit with
+\code{random_effects_params = list(model_spec = "intercept_plus_treatment")}, the random effect
+includes a group-specific random \emph{slope on treatment} - i.e. it is genuinely part of the
+causal effect, not just the outcome baseline. This was verified empirically: \code{tau_hat_train}
+(and \code{predict(..., terms = "tau")}) never includes this random slope, regardless of
+\code{rfx_model_spec}; only \code{predict(..., terms = "cate")} does. This function therefore
+uses \code{terms = "cate"} instead of \code{terms = "tau"} when
+\code{model_spec = "intercept_plus_treatment"} was used, and \code{terms = "tau"} otherwise (this
+covers \code{"intercept_only"}, under which random effects do not touch the treatment effect, and
+\code{"custom"}, for which \code{stochtree} itself does not distinguish \code{"tau"}/\code{"cate"}).
+
+There is no in-sample \code{cate_hat_train} equivalent exposed by \code{stochtree}, and the
+per-row training group assignment needed to reconstruct one is not recoverable from a fitted
+\code{bcfmodel} object. So for a model with \code{model_spec = "intercept_plus_treatment"},
+\code{newdata} (along with \code{treatment} and \code{rfx_group_ids} for the same rows - e.g. the
+original training data) must be supplied explicitly; there is no in-sample default.
+
 Note that, unlike \code{treatment_effects.bartcFit} (which forbids a \code{treatment} argument
 because a \code{bartcFit} object stores its own training data and treatment vector),
 \code{bcfmodel} objects do not store their training \code{X}/\code{Z}, so \code{treatment} here

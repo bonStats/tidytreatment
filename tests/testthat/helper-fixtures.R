@@ -195,3 +195,86 @@ if (requireNamespace("stochtree", quietly = TRUE)) {
     )
   })
 }
+
+# --- stochtree: random-effects fixtures (bart and bcf) -----------------------
+# Group effects are large relative to the forest/noise signal so decomposition
+# tests can't pass by numerical accident.
+
+fixture_stochtree_rfx <- NULL
+fixture_stochtree_rfx_x <- NULL
+fixture_stochtree_rfx_group <- NULL
+fixture_stochtree_rfx_y <- NULL
+
+fixture_bcf_rfx_intercept <- NULL
+fixture_bcf_rfx_ipt <- NULL # intercept_plus_treatment
+fixture_bcf_rfx_x <- NULL
+fixture_bcf_rfx_z <- NULL
+fixture_bcf_rfx_pi <- NULL
+fixture_bcf_rfx_group <- NULL
+fixture_bcf_rfx_y_intercept <- NULL
+fixture_bcf_rfx_y_ipt <- NULL
+
+if (requireNamespace("stochtree", quietly = TRUE)) {
+  withr::with_seed(864, {
+    n_rfx <- 60
+    fixture_stochtree_rfx_x <- data.frame(
+      x1 = stats::rnorm(n_rfx),
+      x2 = stats::rnorm(n_rfx)
+    )
+    fixture_stochtree_rfx_group <- rep(c(1L, 2L, 3L), length.out = n_rfx)
+    group_effect <- c(50, -50, 10)[fixture_stochtree_rfx_group]
+    fixture_stochtree_rfx_y <- fixture_stochtree_rfx_x$x1 + group_effect + stats::rnorm(n_rfx, sd = 0.3)
+
+    fixture_stochtree_rfx <- tryCatch(
+      stochtree::bart(
+        X_train = fixture_stochtree_rfx_x, y_train = fixture_stochtree_rfx_y,
+        rfx_group_ids_train = fixture_stochtree_rfx_group,
+        random_effects_params = list(model_spec = "intercept_only"),
+        num_gfr = 5, num_burnin = 5, num_mcmc = 20
+      ),
+      error = function(e) NULL
+    )
+
+    n_bcf_rfx <- 80
+    fixture_bcf_rfx_x <- data.frame(
+      x1 = stats::rnorm(n_bcf_rfx),
+      x2 = stats::rnorm(n_bcf_rfx)
+    )
+    fixture_bcf_rfx_pi <- rep(0.5, n_bcf_rfx)
+    fixture_bcf_rfx_z <- stats::rbinom(n_bcf_rfx, 1, fixture_bcf_rfx_pi)
+    fixture_bcf_rfx_group <- rep(c(1L, 2L), length.out = n_bcf_rfx)
+
+    # intercept_only: group affects the outcome only, not the treatment effect
+    intercept_effect <- c(50, -50)[fixture_bcf_rfx_group]
+    tau_const <- 1.5
+    fixture_bcf_rfx_y_intercept <- fixture_bcf_rfx_x$x1 + tau_const * fixture_bcf_rfx_z +
+      intercept_effect + stats::rnorm(n_bcf_rfx, sd = 0.3)
+
+    fixture_bcf_rfx_intercept <- tryCatch(
+      stochtree::bcf(
+        X_train = fixture_bcf_rfx_x, Z_train = fixture_bcf_rfx_z, y_train = fixture_bcf_rfx_y_intercept,
+        propensity_train = fixture_bcf_rfx_pi,
+        rfx_group_ids_train = fixture_bcf_rfx_group,
+        random_effects_params = list(model_spec = "intercept_only"),
+        num_gfr = 5, num_burnin = 5, num_mcmc = 20
+      ),
+      error = function(e) NULL
+    )
+
+    # intercept_plus_treatment: group also shifts the treatment effect itself
+    group_tau_shift <- c(50, -50)[fixture_bcf_rfx_group]
+    fixture_bcf_rfx_y_ipt <- fixture_bcf_rfx_x$x1 + (tau_const + group_tau_shift) * fixture_bcf_rfx_z +
+      stats::rnorm(n_bcf_rfx, sd = 0.3)
+
+    fixture_bcf_rfx_ipt <- tryCatch(
+      stochtree::bcf(
+        X_train = fixture_bcf_rfx_x, Z_train = fixture_bcf_rfx_z, y_train = fixture_bcf_rfx_y_ipt,
+        propensity_train = fixture_bcf_rfx_pi,
+        rfx_group_ids_train = fixture_bcf_rfx_group,
+        random_effects_params = list(model_spec = "intercept_plus_treatment"),
+        num_gfr = 5, num_burnin = 5, num_mcmc = 20
+      ),
+      error = function(e) NULL
+    )
+  })
+}

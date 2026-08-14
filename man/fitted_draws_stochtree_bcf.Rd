@@ -9,6 +9,8 @@ fitted_draws_stochtree_bcf(
   newdata = NULL,
   treatment = NULL,
   propensity = NULL,
+  rfx_group_ids = NULL,
+  rfx_basis = NULL,
   value = ".value",
   ...,
   include_newdata = TRUE,
@@ -24,6 +26,10 @@ fitted_draws_stochtree_bcf(
 \item{treatment}{Treatment assignment vector for \code{newdata} (required if \code{newdata} is supplied).}
 
 \item{propensity}{Propensity score vector for \code{newdata}, if the model requires one (required if \code{newdata} is supplied and the model used a propensity score covariate).}
+
+\item{rfx_group_ids}{Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).}
+
+\item{rfx_basis}{Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).}
 
 \item{value}{The name of the output column for \code{epred_draws}; default \code{".value"}.}
 
@@ -42,5 +48,9 @@ A tidy data frame (tibble) with fitted values.
 Fitted values here are the combined outcome prediction \code{y_hat = mu(X) + tau(X)*Z}
 (plus any random effects). \code{stochtree::predict.bcfmodel()}/\code{extractParameter()}
 already fold in the treatment-effect intercept and adaptive-coding parameters (if used) into
-\code{tau_hat}/\code{y_hat}, so no extra recombination is needed here.
+\code{tau_hat}/\code{y_hat}, so no extra recombination is needed here. Random effects are
+similarly already folded into \code{y_hat_train}/\code{predict(..., terms = "y_hat")} - unlike
+the intercept/adaptive-coding case, this was verified empirically rather than assumed (see
+package NEWS/development notes): \code{y_hat_train == mu_hat_train + tau_hat_train * Z + rfx_preds_train}
+exactly, whether or not random effects are used.
 }

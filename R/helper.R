@@ -61,3 +61,32 @@ stop_mbart_unsupported <- function(generic, model) {
     call. = FALSE
   )
 }
+
+# Shared validation for stochtree bartmodel/bcfmodel newdata prediction with
+# random effects. predict.bartmodel()/predict.bcfmodel() give low-level,
+# uninformative errors (or a C++-level fatal check failure) if rfx_group_ids/
+# rfx_basis are required but missing, so check proactively.
+stochtree_check_rfx_args <- function(model, rfx_group_ids, rfx_basis) {
+  if (!isTRUE(model$model_params$has_rfx)) {
+    return(invisible(NULL))
+  }
+
+  if (is.null(rfx_group_ids)) {
+    stop(
+      "This model was fit with random effects: `rfx_group_ids` (a vector of random effect ",
+      "group labels for `newdata`) must be supplied to predict on new data.",
+      call. = FALSE
+    )
+  }
+
+  if (identical(model$model_params$rfx_model_spec, "custom") && is.null(rfx_basis)) {
+    stop(
+      "This model was fit with a 'custom' random effects basis: `rfx_basis` must also be ",
+      "supplied to predict on new data. (It is optional/ignored for the 'intercept_only' and ",
+      "'intercept_plus_treatment' random_effects_params$model_spec options, but required for 'custom'.)",
+      call. = FALSE
+    )
+  }
+
+  invisible(NULL)
+}

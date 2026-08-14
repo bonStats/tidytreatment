@@ -7,6 +7,8 @@
 \method{residual_draws}{bartmodel}(
   object,
   newdata,
+  rfx_group_ids = NULL,
+  rfx_basis = NULL,
   response,
   value = ".residual",
   ...,
@@ -19,6 +21,10 @@
 \item{object}{A \code{bartmodel} model from the \code{stochtree} package.}
 
 \item{newdata}{Data frame to generate predictions from. If omitted, original data used to fit the model.}
+
+\item{rfx_group_ids}{Random effect group labels for \code{newdata} (required if the model was fit with random effects and \code{newdata} is supplied).}
+
+\item{rfx_basis}{Random effect basis for \code{newdata} (required if the model was fit with a \code{"custom"} random effects basis and \code{newdata} is supplied; optional/ignored otherwise).}
 
 \item{response}{Original response vector.}
 
