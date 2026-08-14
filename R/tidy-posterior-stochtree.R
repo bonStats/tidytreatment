@@ -12,6 +12,10 @@
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
+# predict.bartmodel()/extractParameter(model, "y_hat_train") already include
+# the random effects contribution, so y_hat = mean_forest(X) + rfx never needs
+# manual recombination here. Decomposition checked in
+# tests/testthat/test-stochtree-random-effects.R.
 fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   stopifnot(has_installed_package("stochtree"))
 
@@ -48,9 +52,6 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
 
     # predict.bartmodel() applies the outcome model's own probability-scale
     # transform internally, so prefer that over reimplementing it ourselves.
-    # It also folds in the random effects contribution (confirmed empirically:
-    # y_hat_train == mean_forest(X) + rfx_preds_train, exactly), so no manual
-    # recombination is needed here either.
     predict_scale <- if (needs_transform) "probability" else "linear"
     posterior <- predict(model, X = newdata, terms = "y_hat", scale = predict_scale, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, ...)
   } else {

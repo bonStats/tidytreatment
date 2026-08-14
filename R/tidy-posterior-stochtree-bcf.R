@@ -1,13 +1,8 @@
 #' Get fitted draws from posterior of \code{stochtree}-package BCF (causal forest) models
 #'
-#' Fitted values here are the combined outcome prediction \code{y_hat = mu(X) + tau(X)*Z}
-#' (plus any random effects). \code{stochtree::predict.bcfmodel()}/\code{extractParameter()}
-#' already fold in the treatment-effect intercept and adaptive-coding parameters (if used) into
-#' \code{tau_hat}/\code{y_hat}, so no extra recombination is needed here. Random effects are
-#' similarly already folded into \code{y_hat_train}/\code{predict(..., terms = "y_hat")} - unlike
-#' the intercept/adaptive-coding case, this was verified empirically rather than assumed (see
-#' package NEWS/development notes): \code{y_hat_train == mu_hat_train + tau_hat_train * Z + rfx_preds_train}
-#' exactly, whether or not random effects are used.
+#' Fitted values here are the combined outcome prediction \code{y_hat = mu(X) + tau(X)*Z}, including
+#' any treatment-effect intercept, adaptive-coding parameters, and random effects the model was fit
+#' with.
 #'
 #' @param model A \code{bcfmodel} from the \code{stochtree} package.
 #' @param newdata Data frame to generate fitted values from. If omitted, defaults to the data used to fit the model.
@@ -23,6 +18,12 @@
 #'
 #' @return A tidy data frame (tibble) with fitted values.
 #'
+# predict.bcfmodel()/extractParameter(model, "y_hat_train") already include any
+# treatment-effect intercept, adaptive-coding parameters, and random effects
+# contribution, so y_hat = mu(X) + tau(X)*Z + rfx never needs manual
+# recombination here. Decomposition checked in
+# tests/testthat/test-stochtree-bcf-implementation.R and
+# tests/testthat/test-stochtree-random-effects.R.
 fitted_draws_stochtree_bcf <- function(model, newdata = NULL, treatment = NULL, propensity = NULL, rfx_group_ids = NULL, rfx_basis = NULL, value = ".value", ..., include_newdata = TRUE, include_sigsqs = FALSE, scale = "real") {
   stopifnot(has_installed_package("stochtree"))
 
@@ -63,8 +64,6 @@ fitted_draws_stochtree_bcf <- function(model, newdata = NULL, treatment = NULL, 
     posterior <- predict(model, X = newdata, Z = treatment, propensity = propensity, rfx_group_ids = rfx_group_ids, rfx_basis = rfx_basis, terms = "y_hat", scale = predict_scale, ...)
   } else {
     # extractParameter() has no scale argument: only ever the linear scale.
-    # y_hat_train already includes any random effects contribution (verified
-    # empirically), same as it already includes tau_0/adaptive-coding.
     posterior <- stochtree::extractParameter(model, term = "y_hat_train")
 
     if (needs_transform) {
@@ -308,6 +307,11 @@ tidy_draws.bcfmodel <- function(model, ...) {
   return(out)
 }
 
+# The prognostic and treatment-effect forests can have different covariate
+# sets: e.g. by default the propensity score is added as an extra covariate
+# to the prognostic forest only (model_params$propensity_covariate), so
+# num_prognostic_covariates != num_treatment_covariates in that case. Checked
+# in tests/testthat/test-stochtree-bcf-implementation.R.
 #' @export
 covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_effect", "prognostic"), ...) {
 
@@ -317,10 +321,6 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
 
   base_vars <- colnames(X_train)[model$train_set_metadata$original_var_indices]
 
-  # the prognostic and treatment-effect forests can have different covariate
-  # sets: e.g. by default the propensity score is added as an extra covariate
-  # to the prognostic forest only (model_params$propensity_covariate), so
-  # num_prognostic_covariates != num_treatment_covariates in that case
   if (forest == "treatment_effect") {
     forest_obj <- model$forests_tau
     p <- model$model_params$num_treatment_covariates
@@ -346,47 +346,32 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
     dplyr::select(-"inclusion")
 }
 
-# TRUE if this model's random effects contribute to the treatment effect
-# itself (a random slope on treatment), not just to the outcome/baseline.
-# Verified empirically: with model_spec = "intercept_plus_treatment", the
-# stored tau_hat_train field stays flat across groups (does NOT include the
-# random slope), while predict(..., terms = "cate") does. For every other
-# spec ("intercept_only", "custom", or no random effects at all),
-# tau_hat/terms = "tau" is already the complete causal estimate.
+# TRUE if this model's random effects are part of the treatment effect itself
+# (a random slope on treatment, added when model_spec = "intercept_plus_treatment"),
+# rather than just the outcome baseline. tau_hat/predict(..., terms = "tau")
+# never includes this slope; predict(..., terms = "cate") does. Checked in
+# tests/testthat/test-stochtree-random-effects.R.
 bcf_rfx_touches_treatment_effect <- function(model) {
   isTRUE(model$model_params$has_rfx) && identical(model$model_params$rfx_model_spec, "intercept_plus_treatment")
 }
 
 #' Get (individual) treatment effect draws from posterior of a \code{bcfmodel} (\code{stochtree} package)
 #'
-#' Unlike \code{treatment_effects.default}, this does not compute counterfactuals by flipping
-#' \code{treatment} and taking two \code{epred_draws()} calls: \code{stochtree::bcf()} already
-#' fits a dedicated treatment-effect forest, and \code{tau_hat}/\code{predict(..., terms = "tau")}
-#' already fold in the treatment-effect intercept and adaptive-coding parameters (if used), so the
-#' causal estimate is used directly.
+#' Uses the treatment-effect forest fitted by \code{stochtree::bcf()} directly - \code{tau_hat}/
+#' \code{predict(..., terms = "tau")}, or \code{predict(..., terms = "cate")} when the model's
+#' random effects include a random slope on treatment (\code{model_spec = "intercept_plus_treatment"})
+#' - rather than computing counterfactuals by flipping \code{treatment} and calling
+#' \code{epred_draws()} twice, as \code{treatment_effects.default} does.
 #'
-#' Random effects need special handling here (unlike \code{epred_draws.bcfmodel()}, where they're
-#' transparently included in \code{y_hat}): when the model was fit with
-#' \code{random_effects_params = list(model_spec = "intercept_plus_treatment")}, the random effect
-#' includes a group-specific random \emph{slope on treatment} - i.e. it is genuinely part of the
-#' causal effect, not just the outcome baseline. This was verified empirically: \code{tau_hat_train}
-#' (and \code{predict(..., terms = "tau")}) never includes this random slope, regardless of
-#' \code{rfx_model_spec}; only \code{predict(..., terms = "cate")} does. This function therefore
-#' uses \code{terms = "cate"} instead of \code{terms = "tau"} when
-#' \code{model_spec = "intercept_plus_treatment"} was used, and \code{terms = "tau"} otherwise (this
-#' covers \code{"intercept_only"}, under which random effects do not touch the treatment effect, and
-#' \code{"custom"}, for which \code{stochtree} itself does not distinguish \code{"tau"}/\code{"cate"}).
+#' For a model fit with \code{random_effects_params = list(model_spec = "intercept_plus_treatment")},
+#' \code{newdata}, \code{treatment}, and \code{rfx_group_ids} must be supplied explicitly (e.g. the
+#' original training data): there is no in-sample default for this case, since \code{stochtree} does
+#' not expose an in-sample \code{cate_hat_train} equivalent.
 #'
-#' There is no in-sample \code{cate_hat_train} equivalent exposed by \code{stochtree}, and the
-#' per-row training group assignment needed to reconstruct one is not recoverable from a fitted
-#' \code{bcfmodel} object. So for a model with \code{model_spec = "intercept_plus_treatment"},
-#' \code{newdata} (along with \code{treatment} and \code{rfx_group_ids} for the same rows - e.g. the
-#' original training data) must be supplied explicitly; there is no in-sample default.
-#'
-#' Note that, unlike \code{treatment_effects.bartcFit} (which forbids a \code{treatment} argument
-#' because a \code{bartcFit} object stores its own training data and treatment vector),
-#' \code{bcfmodel} objects do not store their training \code{X}/\code{Z}, so \code{treatment} here
-#' must be supplied as the raw treatment vector itself (not a column name string, as in
+#' Unlike \code{treatment_effects.bartcFit} (which forbids a \code{treatment} argument because a
+#' \code{bartcFit} object stores its own training data and treatment vector), \code{bcfmodel}
+#' objects do not store their training \code{X}/\code{Z}, so \code{treatment} here must be supplied
+#' as the raw treatment vector itself (not a column name string, as in
 #' \code{treatment_effects.default}) whenever \code{newdata} is given or \code{subset != "all"}.
 #'
 #' @param model A \code{bcfmodel} from the \code{stochtree} package.

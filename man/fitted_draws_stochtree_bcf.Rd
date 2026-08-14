@@ -45,12 +45,7 @@ fitted_draws_stochtree_bcf(
 A tidy data frame (tibble) with fitted values.
 }
 \description{
-Fitted values here are the combined outcome prediction \code{y_hat = mu(X) + tau(X)*Z}
-(plus any random effects). \code{stochtree::predict.bcfmodel()}/\code{extractParameter()}
-already fold in the treatment-effect intercept and adaptive-coding parameters (if used) into
-\code{tau_hat}/\code{y_hat}, so no extra recombination is needed here. Random effects are
-similarly already folded into \code{y_hat_train}/\code{predict(..., terms = "y_hat")} - unlike
-the intercept/adaptive-coding case, this was verified empirically rather than assumed (see
-package NEWS/development notes): \code{y_hat_train == mu_hat_train + tau_hat_train * Z + rfx_preds_train}
-exactly, whether or not random effects are used.
+Fitted values here are the combined outcome prediction \code{y_hat = mu(X) + tau(X)*Z}, including
+any treatment-effect intercept, adaptive-coding parameters, and random effects the model was fit
+with.
 }

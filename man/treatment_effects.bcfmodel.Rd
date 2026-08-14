@@ -42,34 +42,21 @@
 A tidy data frame (tibble) with treatment effect values in the \code{cte} column.
 }
 \description{
-Unlike \code{treatment_effects.default}, this does not compute counterfactuals by flipping
-\code{treatment} and taking two \code{epred_draws()} calls: \code{stochtree::bcf()} already
-fits a dedicated treatment-effect forest, and \code{tau_hat}/\code{predict(..., terms = "tau")}
-already fold in the treatment-effect intercept and adaptive-coding parameters (if used), so the
-causal estimate is used directly.
+Uses the treatment-effect forest fitted by \code{stochtree::bcf()} directly - \code{tau_hat}/
+\code{predict(..., terms = "tau")}, or \code{predict(..., terms = "cate")} when the model's
+random effects include a random slope on treatment (\code{model_spec = "intercept_plus_treatment"})
+- rather than computing counterfactuals by flipping \code{treatment} and calling
+\code{epred_draws()} twice, as \code{treatment_effects.default} does.
 }
 \details{
-Random effects need special handling here (unlike \code{epred_draws.bcfmodel()}, where they're
-transparently included in \code{y_hat}): when the model was fit with
-\code{random_effects_params = list(model_spec = "intercept_plus_treatment")}, the random effect
-includes a group-specific random \emph{slope on treatment} - i.e. it is genuinely part of the
-causal effect, not just the outcome baseline. This was verified empirically: \code{tau_hat_train}
-(and \code{predict(..., terms = "tau")}) never includes this random slope, regardless of
-\code{rfx_model_spec}; only \code{predict(..., terms = "cate")} does. This function therefore
-uses \code{terms = "cate"} instead of \code{terms = "tau"} when
-\code{model_spec = "intercept_plus_treatment"} was used, and \code{terms = "tau"} otherwise (this
-covers \code{"intercept_only"}, under which random effects do not touch the treatment effect, and
-\code{"custom"}, for which \code{stochtree} itself does not distinguish \code{"tau"}/\code{"cate"}).
+For a model fit with \code{random_effects_params = list(model_spec = "intercept_plus_treatment")},
+\code{newdata}, \code{treatment}, and \code{rfx_group_ids} must be supplied explicitly (e.g. the
+original training data): there is no in-sample default for this case, since \code{stochtree} does
+not expose an in-sample \code{cate_hat_train} equivalent.
 
-There is no in-sample \code{cate_hat_train} equivalent exposed by \code{stochtree}, and the
-per-row training group assignment needed to reconstruct one is not recoverable from a fitted
-\code{bcfmodel} object. So for a model with \code{model_spec = "intercept_plus_treatment"},
-\code{newdata} (along with \code{treatment} and \code{rfx_group_ids} for the same rows - e.g. the
-original training data) must be supplied explicitly; there is no in-sample default.
-
-Note that, unlike \code{treatment_effects.bartcFit} (which forbids a \code{treatment} argument
-because a \code{bartcFit} object stores its own training data and treatment vector),
-\code{bcfmodel} objects do not store their training \code{X}/\code{Z}, so \code{treatment} here
-must be supplied as the raw treatment vector itself (not a column name string, as in
+Unlike \code{treatment_effects.bartcFit} (which forbids a \code{treatment} argument because a
+\code{bartcFit} object stores its own training data and treatment vector), \code{bcfmodel}
+objects do not store their training \code{X}/\code{Z}, so \code{treatment} here must be supplied
+as the raw treatment vector itself (not a column name string, as in
 \code{treatment_effects.default}) whenever \code{newdata} is given or \code{subset != "all"}.
 }
