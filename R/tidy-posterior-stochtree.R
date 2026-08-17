@@ -7,7 +7,7 @@
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("probability"; for a binary outcome model) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Default (\code{NULL}) uses the response scale for the model's outcome type (\code{model$model_params$outcome_model}).
+#' @param scale What scale should the returned values be on? Default uses the response scale for the model's outcome type. Other options: \code{scale="probability"} (applicable only for binary/probit outcome model), and \code{scale="linear"} for linear predictor.
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{stochtree:::predict.bartmodel}).
 #'
 #' @return A tidy data frame (tibble) with fitted values.
@@ -117,7 +117,7 @@ fitted_draws_stochtree <- function(model, newdata = NULL, rfx_group_ids = NULL, 
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("probability"; for a binary outcome model) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Default (\code{NULL}) uses the response scale for the model's outcome type (\code{object$model_params$outcome_model}).
+#' @param scale What scale should the returned values be on? Default uses the response scale for the model's outcome type. Other options: \code{scale="probability"} (applicable only for binary/probit outcome model), and \code{scale="linear"} for linear predictor.
 #' @param ... Additional arguments passed to \code{predict.bartmodel}.
 #'
 #' @return A tidy data frame (tibble) with fitted values.

@@ -37,8 +37,5 @@
 Tibble with residuals.
 }
 \description{
-Unlike \code{BART}-package models, a \code{dbarts} model fit with \code{keeptrees = TRUE}/
-\code{keepTrees = TRUE} retains its own training response - so, unlike
-\code{residual_draws.wbart}/\code{.pbart}, \code{response} does not need to be supplied here
-unless the model was fit without it.
+Supports continuous and binary outcome models. Use \code{dbarts::bart(..., keeptrees = TRUE)} or \code{bart2(..., keepTrees = TRUE)} to retain training response.
 }

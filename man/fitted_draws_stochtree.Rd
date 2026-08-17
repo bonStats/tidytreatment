@@ -33,7 +33,7 @@ fitted_draws_stochtree(
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
 
-\item{scale}{Should the fitted values be on the response ("probability"; for a binary outcome model) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Default (\code{NULL}) uses the response scale for the model's outcome type (\code{model$model_params$outcome_model}).}
+\item{scale}{What scale should the returned values be on? Default uses the response scale for the model's outcome type. Other options: \code{scale="probability"} (applicable only for binary/probit outcome model), and \code{scale="linear"} for linear predictor.}
 }
 \value{
 A tidy data frame (tibble) with fitted values.

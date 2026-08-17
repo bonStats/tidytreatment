@@ -135,6 +135,8 @@ test_that("multinomial BART models (mbart/mbart2) are unsupported and error info
   expect_error(covariate_importance(fake_mbart2), "not supported")
   expect_error(covariate_with_treatment_importance(fake_mbart, treatment = "z"), "not supported")
   expect_error(covariate_with_treatment_importance(fake_mbart2, treatment = "z"), "not supported")
+  expect_error(tidybayes::tidy_draws(fake_mbart), "not supported")
+  expect_error(tidybayes::tidy_draws(fake_mbart2), "not supported")
 
   # errors regardless of whether newdata is supplied
   expect_error(epred_draws(fake_mbart, newdata = data.frame(x1 = 1)), "not supported")

@@ -92,11 +92,8 @@ test_that("predicted_draws.bart draws Normal(fit, sigma) for continuous and Bern
 })
 
 test_that("epred_draws.bart correctly combines chains for a multi-chain model (regression test)", {
-  # dbarts's own default n.chains is 4 (not 1) - model$yhat.train and
-  # predict(..., combineChains = FALSE) are then 3D [chains x draws x obs]
-  # arrays rather than 2D [draws x obs] matrices, which combine_dbarts_chains()
-  # must flatten correctly (verified against predict()'s own training-data
-  # output in R/tidy-posterior-dbarts.R's development).
+  # dbarts's default n.chains is 4 (not 1) - yhat.train/predict(combineChains = FALSE)
+  # are then 3D [chains x draws x obs], not 2D [draws x obs]
   fit_multichain <- dbarts::bart2(
     y ~ x1 + x2, data = cbind(y = y_dbarts_cont, x_dbarts),
     n.trees = 15L, n.burn = 5L, n.samples = 8L, n.chains = 3L,
@@ -134,7 +131,58 @@ test_that("epred_draws.bart include_sigsqs stays aligned by .draw for a multi-ch
   expect_equal(sigsq_by_draw$sigsq, as.vector(t(fit_multichain$sigma))^2)
 })
 
-test_that("epred_draws()/predicted_draws()/has_common_support() work on a bartc() fit's fit.rsp made without a parametric argument", {
+test_that("epred_draws.bart() recovers real .chain/.iteration for a multi-chain model (regression test)", {
+  fit_multichain <- dbarts::bart2(
+    y ~ x1 + x2, data = cbind(y = y_dbarts_cont, x_dbarts),
+    n.trees = 15L, n.burn = 5L, n.samples = 8L, n.chains = 3L,
+    keepTrees = TRUE, verbose = FALSE
+  )
+
+  expected <- dplyr::tibble(
+    .draw = 1:24,
+    .chain = rep(1:3, each = 8L),
+    .iteration = rep(1:8, times = 3L)
+  )
+
+  # no newdata (yhat.train path)
+  ed_train <- epred_draws(fit_multichain, include_newdata = FALSE, value = "fit")
+  chain_train <- ed_train %>% ungroup() %>% distinct(.draw, .chain, .iteration) %>% arrange(.draw)
+  expect_equal(chain_train, expected)
+
+  # newdata (predict() path)
+  ed_newdata <- epred_draws(fit_multichain, newdata = x_dbarts, include_newdata = FALSE, value = "fit")
+  chain_newdata <- ed_newdata %>% ungroup() %>% distinct(.draw, .chain, .iteration) %>% arrange(.draw)
+  expect_equal(chain_newdata, expected)
+
+  # a specific value, checked directly against yhat.train's own array indexing
+  row1draw9 <- ed_train %>% filter(.row == 1, .draw == 9)
+  expect_equal(row1draw9$.chain, 2L)
+  expect_equal(row1draw9$.iteration, 1L)
+  expect_equal(row1draw9$fit, fit_multichain$yhat.train[2, 1, 1])
+})
+
+test_that("epred_draws.bart() sets .chain = 1L (not NA) for a single-chain model", {
+  ed <- epred_draws(fixture_dbarts, include_newdata = FALSE, value = "fit")
+  expect_true(all(ed$.chain == 1L))
+  expect_equal(sort(unique(ed$.iteration)), 1:15)
+})
+
+test_that("residual_draws.bart()/variance_draws.bart() also recover real .chain/.iteration", {
+  fit_multichain <- dbarts::bart2(
+    y ~ x1 + x2, data = cbind(y = y_dbarts_cont, x_dbarts),
+    n.trees = 15L, n.burn = 5L, n.samples = 8L, n.chains = 3L,
+    keepTrees = TRUE, verbose = FALSE
+  )
+
+  rd <- residual_draws(fit_multichain, include_newdata = FALSE)
+  expect_equal(sort(unique(rd$.chain)), 1:3)
+
+  vd <- variance_draws(fit_multichain)
+  expect_equal(vd$.chain, rep(1:3, each = 8L))
+  expect_equal(vd$.iteration, rep(1:8, times = 3L))
+})
+
+test_that("epred_draws()/predicted_draws()/has_common_support()/tidy_draws() work on a bartc() fit's fit.rsp made without a parametric argument", {
   skip_if_not_installed("bartCause")
 
   z <- as.integer(rbinom(n, 1, 0.5))
@@ -153,18 +201,22 @@ test_that("epred_draws()/predicted_draws()/has_common_support() work on a bartc(
 
   ed <- epred_draws(fit, value = "fitted")
   expect_equal(nrow(ed), n * fit$n.chains * 10L)
+  expect_equal(sort(unique(ed$.chain)), seq_len(fit$n.chains))
+  expect_equal(as.integer(table(ed$.chain)) / n, rep(10L, fit$n.chains))
 
   modeldata <- cbind(x_dbarts, data.frame(z = z, ps = fit$p.score))
   cs <- has_common_support(fit$fit.rsp, treatment = "z", method = "sd", modeldata = modeldata)
   expect_equal(nrow(cs), n)
   expect_type(cs$common_support, "logical")
+
+  td <- tidybayes::tidy_draws(fit)
+  expect_equal(nrow(td), fit$n.chains * 10L)
+  expect_true("sigma" %in% names(td))
+  expect_equal(sort(unique(td$.chain)), seq_len(fit$n.chains))
 })
 
 test_that("dbarts_is_binary()'s two signals (sigma-absence, binaryOffset-slot-existence) agree for real bart2() fits", {
-  # Regression test: dbarts::bart2() always carries the `binaryOffset` list
-  # slot for a binary fit, but leaves its *value* NULL - a value-based check
-  # (`!is.null(model$binaryOffset)`) previously disagreed with `sigma` for
-  # every bart2()-binary fixture here; only slot existence agrees.
+  # bart2() carries the `binaryOffset` slot for a binary fit but leaves its value NULL
   expect_false(tidytreatment:::dbarts_is_binary(fixture_dbarts))
   expect_true(tidytreatment:::dbarts_is_binary(fixture_dbarts_bin))
 })
@@ -183,6 +235,39 @@ test_that("model.matrix.bart() exactly reconstructs the training data, restoring
 
 test_that("model.matrix.bart() errors informatively when the model was fit with keepTrees = FALSE", {
   expect_error(model.matrix(fixture_dbarts_no_keeptrees), "keeptrees")
+})
+
+test_that("tidy_draws.bart() returns sigma for a continuous outcome model, no k (fixed, not sampled)", {
+  td <- tidy_draws(fixture_dbarts)
+  expect_equal(nrow(td), nrow(fixture_dbarts$yhat.train))
+  expect_true(all(td$.chain == 1L))
+  expect_equal(td$sigma, fixture_dbarts$sigma)
+  expect_false("k" %in% names(td))
+})
+
+test_that("tidy_draws.bart() returns k (not sigma) for a binary outcome model with k's default hyperprior", {
+  td <- tidy_draws(fixture_dbarts_bin)
+  expect_false("sigma" %in% names(td))
+
+  if (!is.null(fixture_dbarts_bin$k)) {
+    expect_equal(td$k, fixture_dbarts_bin$k)
+  } else {
+    expect_false("k" %in% names(td))
+  }
+})
+
+test_that("tidy_draws.bart() recovers real .chain/.iteration and per-chain k for a multi-chain binary model", {
+  fit_multichain <- dbarts::bart2(
+    y ~ x1 + x2, data = cbind(y = y_dbarts_bin, x_dbarts),
+    n.trees = 15L, n.burn = 5L, n.samples = 8L, n.chains = 3L,
+    keepTrees = TRUE, verbose = FALSE
+  )
+  expect_true(is.matrix(fit_multichain$k))
+
+  td <- tidy_draws(fit_multichain)
+  expect_equal(nrow(td), 24L)
+  expect_equal(sort(unique(td$.chain)), 1:3)
+  expect_equal(td$k, as.vector(t(fit_multichain$k)))
 })
 
 test_that("residual_draws.bart() defaults `response` to the model's own stored response", {

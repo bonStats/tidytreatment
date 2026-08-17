@@ -6,9 +6,7 @@ skip_if(is.null(fixture_pbart))
 skip_if(is.null(fixture_lbart))
 
 check_bernoulli_predicted_draws <- function(model) {
-  # predicted_draws.pbart/.lbart always retain the intermediate `.fitted`
-  # (probability-scale) column alongside the requested `value` column.
-  pred_out <- predicted_draws(model, newdata = fixture_bin_x, value = "pred", include_newdata = FALSE)
+  pred_out <- predicted_draws(model, newdata = fixture_bin_x, value = "pred", include_newdata = FALSE, include_fitted = TRUE)
 
   expect_true(all(c("pred", ".fitted") %in% names(pred_out)))
   expect_true(all(pred_out$pred %in% c(0L, 1L)))
@@ -29,6 +27,14 @@ test_that("predicted_draws.pbart draws Bernoulli(prob) consistent with the fitte
 
 test_that("predicted_draws.lbart draws Bernoulli(prob) consistent with the fitted probability scale", {
   check_bernoulli_predicted_draws(fixture_lbart)
+})
+
+test_that("predicted_draws.pbart/.lbart do not attach .fitted by default (regression test, matches every other supported package's include_fitted = FALSE default)", {
+  pred_p <- predicted_draws(fixture_pbart, newdata = fixture_bin_x, value = "pred")
+  expect_false(".fitted" %in% names(pred_p))
+
+  pred_l <- predicted_draws(fixture_lbart, newdata = fixture_bin_x, value = "pred")
+  expect_false(".fitted" %in% names(pred_l))
 })
 
 test_that("predicted_draws.pbart warns and ignores non-NULL ndraws", {

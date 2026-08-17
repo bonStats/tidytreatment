@@ -2,7 +2,7 @@
 % Please edit documentation in R/tidy-posterior-dbarts.R
 \name{epred_draws.bart}
 \alias{epred_draws.bart}
-\title{Get fitted draws from posterior of a \code{dbarts::bart}/\code{bart2} model}
+\title{Get fitted draws from posterior of a \code{dbarts::bart}/\code{dbarts::bart2} model}
 \usage{
 \method{epred_draws}{bart}(
   object,
@@ -30,11 +30,11 @@
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included? Only applicable to continuous outcome models.}
 
-\item{scale}{Should the fitted values be on the response ("probability"; for a binary/probit outcome model) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Default (\code{NULL}) uses the response scale for the model's outcome type. There is no separate \code{linpred_draws.bart} method - use \code{scale = "linear"} here instead, matching \code{epred_draws.wbart}/\code{.pbart}/\code{.lbart}.}
+\item{scale}{What scale should the returned values be on? Default uses the response scale for the model's outcome type. Other options: \code{scale="probability"} (applicable only for binary/probit outcome model), and \code{scale="linear"} for linear predictor. There is no separate \code{linpred_draws.bart} method - use \code{scale = "linear"} here instead, matching \code{epred_draws.wbart}/\code{.pbart}/\code{.lbart}.}
 }
 \value{
 A tidy data frame (tibble) with fitted values.
 }
 \description{
-Get fitted draws from posterior of a \code{dbarts::bart}/\code{bart2} model
+Use \code{dbarts::bart(..., keeptrees = TRUE)} or \code{bart2(..., keepTrees = TRUE)} to retain training response.
 }

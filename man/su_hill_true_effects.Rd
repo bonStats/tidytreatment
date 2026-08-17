@@ -2,7 +2,7 @@
 % Please edit documentation in R/simulate-su-hill.R
 \name{su_hill_true_effects}
 \alias{su_hill_true_effects}
-\title{Get the true treatment effect for a Su and Hill (2013) simulation}
+\title{Get the ground truth (e.g. treatment effect) for a Su and Hill (2013) simulation}
 \usage{
 su_hill_true_effects(sim)
 }

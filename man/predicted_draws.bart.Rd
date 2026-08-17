@@ -36,6 +36,5 @@
 A tidy data frame (tibble) with predicted values.
 }
 \description{
-Supports continuous outcome models (draws from \code{Normal(fitted, sigma^2)}) and binary
-(probit) outcome models (draws from \code{Bernoulli(fitted probability)}).
+Supports continuous and binary outcome models. Use \code{dbarts::bart(..., keeptrees = TRUE)} or \code{bart2(..., keepTrees = TRUE)} to retain training response.
 }

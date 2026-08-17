@@ -1,3 +1,47 @@
+# wbart: model$sigma is a plain vector for one chain (or mc.wbart(mc.cores = 1)),
+# a [samples x mc.cores] matrix (one column per chain) when mc.wbart() combined
+# several - yhat.train is rbind()'d in the same chain-major block order.
+# pbart/lbart have no equivalent field: mc.pbart()/mc.lbart() only rbind()
+# when combining, so single- vs multi-chain can't be told apart; .chain/
+# .iteration stay NA for those.
+bart_chain_iteration_index <- function(model, n_total) {
+  if (!identical(class(model)[1], "wbart")) {
+    return(list(chain = rep(NA_integer_, n_total), iteration = rep(NA_integer_, n_total)))
+  }
+
+  if (!is.matrix(model$sigma)) {
+    return(list(chain = rep(1L, n_total), iteration = seq_len(n_total)))
+  }
+
+  n_chains <- ncol(model$sigma)
+  n_per_chain <- n_total / n_chains
+
+  stopifnot(
+    "wbart's yhat.train row count isn't a whole multiple of sigma's chain count - can't recover .chain/.iteration" =
+      n_per_chain == round(n_per_chain)
+  )
+
+  list(chain = rep(seq_len(n_chains), each = n_per_chain), iteration = rep(seq_len(n_per_chain), times = n_chains))
+}
+
+# model$sigma prepends nskip burn-in draws to the ndpost kept draws
+# (cwbart.cpp writes sdraw[i] every iteration, yhat.train only once burn-in
+# ends). The correct post-burn-in entries are the *last* n_total, exact when
+# keepevery = 1 (BART's default; keepevery isn't retained on the model, so
+# otherwise this is close but not guaranteed exact). Multi-chain sigma: tail
+# taken per-chain (per column) before flattening.
+bart_sigma_aligned <- function(model, n_total) {
+  sigma <- model$sigma
+
+  if (!is.matrix(sigma)) {
+    return(utils::tail(sigma, n_total))
+  }
+
+  n_chains <- ncol(sigma)
+  n_per_chain <- n_total / n_chains
+  as.vector(utils::tail(sigma, n_per_chain))
+}
+
 #' Get fitted draws from posterior of \code{BART}-package models
 #'
 #' @param model A model from \code{BART} package.
@@ -5,7 +49,7 @@
 #' @param value The name of the output column for \code{epred_draws}; default \code{".value"}.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("probability"; for \code{pbart}/\code{lbart}) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}).
+#' @param scale What scale should the returned values be on? Default uses the response scale for the model's outcome type. Other options: \code{scale="probability"} (applicable only for binary/probit outcome model), and \code{scale="linear"} for linear predictor.
 #' @param ... Arguments to pass to \code{predict} (e.g. \code{BART:::predict.wbart}).
 #'
 #' @return A tidy data frame (tibble) with fitted values.
@@ -49,6 +93,10 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   if (use_scale == "probability" & "lbart" %in% class(model)) posterior <- stats::plogis(posterior)
   if (use_scale == "probability" & "pbart" %in% class(model)) posterior <- stats::pnorm(posterior)
 
+  # joined onto `out` below by .draw, once .draw is recovered as an integer
+  chain_index <- bart_chain_iteration_index(model, nrow(posterior))
+  chain_lookup <- dplyr::tibble(.draw = seq_len(nrow(posterior)), .chain = chain_index$chain, .iteration = chain_index$iteration)
+
   # bind newdata with fitted, wide format
   out <- dplyr::bind_cols(
     if (include_newdata) dplyr::as_tibble(newdata) else NULL,
@@ -61,14 +109,16 @@ fitted_draws_BART <- function(model, newdata = NULL, value = ".value", ..., incl
   # convert to long format
   out <- tidyr::gather(out, key = ".draw", value = !!value, dplyr::starts_with(".col_iter"))
 
-  # add variables to keep to generic standard, remove string in
-  out <- dplyr::mutate(out, .chain = NA_integer_, .iteration = NA_integer_, .draw = as.integer(gsub(pattern = ".col_iter", replacement = "", x = .data$.draw)))
+  # recover .draw as an integer, then attach the real .chain/.iteration each draw came from
+  out <- dplyr::mutate(out, .draw = as.integer(gsub(pattern = ".col_iter", replacement = "", x = .data$.draw)))
+  out <- dplyr::left_join(out, chain_lookup, by = ".draw")
 
   # include sigma^2 if needed
   if (include_sigsqs) {
+    sigma_aligned <- bart_sigma_aligned(model, nrow(posterior))
     sigsq <- dplyr::bind_cols(
-      .draw = 1:length(model$sigma),
-      sigsq = model$sigma^2
+      .draw = seq_along(sigma_aligned),
+      sigsq = sigma_aligned^2
     )
 
     out <- dplyr::left_join(out, sigsq, by = ".draw")
@@ -167,7 +217,7 @@ residual_draws_BART <- function(object, response, newdata = NULL, value = ".resi
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
 #' @param include_sigsqs Should the posterior sigma-squared draw be included?
-#' @param scale Should the fitted values be on the response ("probability"; for \code{pbart}/\code{lbart}) or linear predictor ("linear") scale? Accepts unambiguous abbreviations (e.g. \code{"prob"}, \code{"lin"}). Has no effect for \code{wbart}, which has no link function.
+#' @param scale What scale should the returned values be on? Default uses the response scale for the model's outcome type. Other options: \code{scale="probability"} (applicable only for binary/probit outcome model), and \code{scale="linear"} for linear predictor. Has no effect for \code{wbart}, which has no link function.
 #' @param ... Not currently in use.
 #'
 #' @return A tidy data frame (tibble) with fitted values.
@@ -307,6 +357,7 @@ predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., n
     object = object, newdata = newdata,
     value = value,
     include_newdata = include_newdata,
+    include_fitted = include_fitted,
     include_sigsqs = include_sigsqs, ...
   )
 }
@@ -318,12 +369,13 @@ predicted_draws.wbart <- function(object, newdata, value = ".prediction", ..., n
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
+#' @param include_fitted Should the posterior fitted values be included in the tibble? Default \code{FALSE}.
 #' @param ... Use to specify random number generator, default is \code{rng=stats::rnorm}.
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE) {
+predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE, include_fitted = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -339,8 +391,11 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
   )
 
  # predicted values
- dplyr::mutate(fitted, !!rlang::sym(value) := stats::rbinom(dplyr::n(), 1, .data$.fitted) )
+ out <- dplyr::mutate(fitted, !!rlang::sym(value) := stats::rbinom(dplyr::n(), 1, .data$.fitted) )
 
+ if (!include_fitted) out <- dplyr::select(out, -".fitted")
+
+ out
 }
 
 #' Get predict draws from posterior of \code{lbart} model
@@ -350,12 +405,13 @@ predicted_draws.pbart <- function(object, newdata, value = ".prediction", ..., n
 #' @param value The name of the output column for \code{predicted_draws}; default \code{".prediction"}.
 #' @param ndraws Not currently implemented.
 #' @param include_newdata Should the newdata be included in the tibble? Default \code{FALSE}.
+#' @param include_fitted Should the posterior fitted values be included in the tibble? Default \code{FALSE}.
 #' @param ... Use to specify random number generator, default is \code{rng=stats::rnorm}.
 #'
 #' @return A tidy data frame (tibble) with predicted values.
 #' @export
 #'
-predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE) {
+predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., ndraws = NULL, include_newdata = FALSE, include_fitted = FALSE) {
   if (missing(newdata)) {
     newdata <- NULL
   }
@@ -371,7 +427,11 @@ predicted_draws.lbart <- function(object, newdata, value = ".prediction", ..., n
   )
 
   # predicted values
-  dplyr::mutate(fitted, !!rlang::sym(value) := stats::rbinom(dplyr::n(), 1, .data$.fitted) )
+  out <- dplyr::mutate(fitted, !!rlang::sym(value) := stats::rbinom(dplyr::n(), 1, .data$.fitted) )
+
+  if (!include_fitted) out <- dplyr::select(out, -".fitted")
+
+  out
 
 }
 
@@ -427,4 +487,92 @@ residual_draws.pbart <- function(object, newdata, value = ".residual", ..., ndra
     include_newdata = include_newdata,
     include_sigsqs = include_sigsqs, ...
   )
+}
+
+#' Tidy access to posterior of a \code{wbart} model
+#'
+#' Returns \code{sigma} (the residual standard deviation actually sampled by the model - see
+#' \code{\link{variance_draws}} for \code{sigma^2}) alongside \code{.chain}/\code{.iteration}/
+#' \code{.draw}, aligned and chain-labelled the same way \code{epred_draws.wbart()} is (see
+#' \code{bart_chain_iteration_index()}/\code{bart_sigma_aligned()} in the package source).
+#'
+#' @param model A \code{wbart} model from the \code{BART} package.
+#' @param ... Not currently in use.
+#'
+#' @return A tidy data frame (tibble) of posterior draws.
+#' @export
+#'
+tidy_draws.wbart <- function(model, ...) {
+  n_total <- nrow(model$yhat.train)
+  chain_index <- bart_chain_iteration_index(model, n_total)
+
+  dplyr::tibble(
+    .chain = chain_index$chain,
+    .iteration = chain_index$iteration,
+    .draw = seq_len(n_total),
+    sigma = bart_sigma_aligned(model, n_total)
+  )
+}
+
+#' Tidy access to posterior of a \code{pbart}/\code{lbart} model
+#'
+#' @param model A \code{pbart} or \code{lbart} model from the \code{BART} package.
+#' @param ... Not currently in use.
+#'
+#' @return A tidy data frame (tibble) of posterior draws.
+#' @export
+#' @name tidy_draws-pbart-lbart
+#'
+tidy_draws.pbart <- function(model, ...) {
+  n_total <- nrow(model$yhat.train)
+  chain_index <- bart_chain_iteration_index(model, n_total)
+
+  warning(
+    "BART::pbart has no per-draw non-tree scalar parameters. This function returns an (essentially) empty tibble."
+  )
+
+  dplyr::tibble(
+    .chain = chain_index$chain,
+    .iteration = chain_index$iteration,
+    .draw = seq_len(n_total)
+  )
+}
+
+#' @rdname tidy_draws-pbart-lbart
+#' @export
+tidy_draws.lbart <- function(model, ...) {
+  n_total <- nrow(model$yhat.train)
+  chain_index <- bart_chain_iteration_index(model, n_total)
+
+  warning(
+    "BART::lbart has no per-draw non-tree scalar parameters. This function returns an (essentially) empty tibble."
+  )
+
+  dplyr::tibble(
+    .chain = chain_index$chain,
+    .iteration = chain_index$iteration,
+    .draw = seq_len(n_total)
+  )
+}
+
+#' Multinomial BART models ('mbart'/'mbart2') are not supported
+#'
+#' Multinomial BART models use a per-category tree representation that is incompatible with
+#' this package's machinery for BART-package models.
+#'
+#' @param model A \code{mbart} or \code{mbart2} model.
+#' @param ... Not used.
+#'
+#' @return Does not return; always errors.
+#' @export
+#' @name tidy_draws-mbart-unsupported
+#'
+tidy_draws.mbart <- function(model, ...) {
+  stop_mbart_unsupported("tidy_draws", model)
+}
+
+#' @rdname tidy_draws-mbart-unsupported
+#' @export
+tidy_draws.mbart2 <- function(model, ...) {
+  stop_mbart_unsupported("tidy_draws", model)
 }

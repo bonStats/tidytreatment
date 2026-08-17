@@ -141,9 +141,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
     cat_y_1 <- 0
   }
 
-  # potential outcomes (both arms, every row) and the mean response actually
-  # realized under z - mu0/mu1 double as the exact ground truth for the
-  # treatment effect, stashed on the returned object below
+  # mu0/mu1: potential outcomes, both arms, every row - stashed as ground truth below
   mu0 <- as.vector(model_matrix %*% coef_y_0) + cat_y_0
   mu1 <- as.vector(model_matrix %*% coef_y_1 + response_parallel * tau) + cat_y_1
   mean_y <- ifelse(z == 0, mu0, mu1)
@@ -203,10 +201,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
     coefs = dplyr::bind_rows(coefs_treatment_assignment, coefs_response)
   ), class = "suhillsim")
 
-  # exact ground truth (both potential outcomes, for every row), computed
-  # here once while model_matrix/coef_y_0/coef_y_1/cat_y_0/cat_y_1/tau are
-  # directly in scope - stashed as an attribute rather than a list element so
-  # it doesn't disturb the documented return structure above
+  # attribute, not a list element, so it doesn't disturb the documented return structure above
   attr(result, "ground_truth") <- list(
     mu0 = mu0, mu1 = mu1, ite = mu1 - mu0, ate = mean(mu1 - mu0), tau = tau
   )
@@ -214,7 +209,7 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
   return(result)
 }
 
-#' Get the true treatment effect for a Su and Hill (2013) simulation
+#' Get the ground truth (e.g. treatment effect) for a Su and Hill (2013) simulation
 #'
 #' \code{simulate_su_hill_data()} computes the two potential outcomes (\code{mu0}, \code{mu1})
 #' while it still has direct access to the coefficients, model matrix and \code{tau} used to

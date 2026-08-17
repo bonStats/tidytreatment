@@ -15,12 +15,16 @@ variance_draws <- function(model, value = ".sigma_sq", ...) {
 
 #' @export
 variance_draws.wbart <- function(model, value = ".sigma_sq", ...) {
-  sigma_draws <- model$sigma
+  # model$sigma: plain vector for a single chain, [samples x mc.cores] matrix
+  # for mc.wbart()-combined chains - as.vector() flattens column-major, i.e.
+  # chain-major, matching bart_chain_iteration_index()'s convention.
+  sigma_draws <- if (is.matrix(model$sigma)) as.vector(model$sigma) else model$sigma
+  chain_index <- bart_chain_iteration_index(model, length(sigma_draws))
 
   dplyr::tibble(
-    .chain = NA_integer_,
-    .iteration = NA_integer_,
-    .draw = 1:length(sigma_draws),
+    .chain = chain_index$chain,
+    .iteration = chain_index$iteration,
+    .draw = seq_along(sigma_draws),
     !!value := sigma_draws^2
   )
 }
