@@ -36,6 +36,9 @@
 #' \item{args}{List of arguments passed to function}
 #' \item{formulas}{Response formulas used to generate data}
 #' \item{coefs}{Coefficients for the formulas}
+#' The object includes a \code{"ground_truth"} attribute (see \code{\link{su_hill_true_effects}} for accessor) holding the
+#' exact potential outcomes \code{mu0}/\code{mu1} (and \code{ite}/\code{ate}/\code{tau}) used to
+#' generate \code{mean_y}, for validating treatment effect estimates against.
 #' @export
 simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel = TRUE, response_aligned = TRUE, y_sd = 1, tau = 4, omega = 0, add_categorical = FALSE, n_subjects = 0, sd_subjects = 1, coef_categorical_treatment = NULL, coef_categorical_nontreatment = NULL) {
   fargs <- as.list(match.call())
@@ -138,8 +141,12 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
     cat_y_1 <- 0
   }
 
-  # mean response
-  mean_y <- ifelse(z == 0, model_matrix %*% coef_y_0 + cat_y_0, model_matrix %*% coef_y_1 + response_parallel * tau + cat_y_1)
+  # potential outcomes (both arms, every row) and the mean response actually
+  # realized under z - mu0/mu1 double as the exact ground truth for the
+  # treatment effect, stashed on the returned object below
+  mu0 <- as.vector(model_matrix %*% coef_y_0) + cat_y_0
+  mu1 <- as.vector(model_matrix %*% coef_y_1 + response_parallel * tau) + cat_y_1
+  mean_y <- ifelse(z == 0, mu0, mu1)
 
   # add noise
   y <- rnorm(n = n, mean = mean_y, sd = y_sd)
@@ -188,15 +195,48 @@ simulate_su_hill_data <- function(n, treatment_linear = TRUE, response_parallel 
   frmls$generic <- su_hill_formula
 
 
-  return(
-    structure(list(
-      data = rdata,
-      mean_y = mean_y,
-      args = fargs,
-      formulas = frmls,
-      coefs = dplyr::bind_rows(coefs_treatment_assignment, coefs_response)
-    ), class = "suhillsim")
+  result <- structure(list(
+    data = rdata,
+    mean_y = mean_y,
+    args = fargs,
+    formulas = frmls,
+    coefs = dplyr::bind_rows(coefs_treatment_assignment, coefs_response)
+  ), class = "suhillsim")
+
+  # exact ground truth (both potential outcomes, for every row), computed
+  # here once while model_matrix/coef_y_0/coef_y_1/cat_y_0/cat_y_1/tau are
+  # directly in scope - stashed as an attribute rather than a list element so
+  # it doesn't disturb the documented return structure above
+  attr(result, "ground_truth") <- list(
+    mu0 = mu0, mu1 = mu1, ite = mu1 - mu0, ate = mean(mu1 - mu0), tau = tau
   )
+
+  return(result)
+}
+
+#' Get the true treatment effect for a Su and Hill (2013) simulation
+#'
+#' \code{simulate_su_hill_data()} computes the two potential outcomes (\code{mu0}, \code{mu1})
+#' while it still has direct access to the coefficients, model matrix and \code{tau} used to
+#' generate the data, and stores them as a \code{"ground_truth"} attribute on the object it
+#' returns. This function is a lightweight accessor for that attribute.
+#'
+#' @param sim A \code{suhillsim} object, as returned by \code{\link{simulate_su_hill_data}}.
+#'
+#' @return A list with elements \code{mu0} (potential outcome under control), \code{mu1}
+#'   (potential outcome under treatment), \code{ite} (individual treatment effect, \code{mu1 - mu0}),
+#'   \code{ate} (the average treatment effect, \code{mean(ite)}), and \code{tau} (the \code{tau}
+#'   value originally passed to \code{simulate_su_hill_data()}).
+#' @export
+#'
+su_hill_true_effects <- function(sim) {
+  stopifnot(inherits(sim, "suhillsim"))
+  ground_truth <- attr(sim, "ground_truth")
+  stopifnot(
+    "sim has no \"ground_truth\" attribute (was it created by an old version of simulate_su_hill_data()?)" =
+      !is.null(ground_truth)
+  )
+  ground_truth
 }
 
 #' @export

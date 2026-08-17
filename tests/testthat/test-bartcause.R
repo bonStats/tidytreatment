@@ -99,6 +99,35 @@ test_that("treatment_effects.bartcFit returns per-row/draw cte (bartCause's icat
   expect_true(all(te_nt$treated == 0))
 })
 
+test_that("tidy_draws.bartcFit (type = 'icate') produces a .row per observation when the model has a single chain", {
+  # dbarts::extract(..., combineChains = FALSE) drops the chain dimension
+  # entirely when n.chains = 1, so the sample array for a per-unit type like
+  # icate/ite is 2D (draws x obs) rather than the usual 3D (draws x chains x
+  # obs) - this used to be misinterpreted as draws x chains (no .row column
+  # at all), silently producing the wrong shape instead of an error.
+  n <- 40
+  dat <- data.frame(x1 = rnorm(n), x2 = rnorm(n))
+  dat$z <- rbinom(n, 1, plogis(dat$x1))
+  dat$y <- dat$x1 - dat$x2 + dat$z + rnorm(n, sd = 0.5)
+
+  fit_1chain <- bartCause::bartc(
+    response = y, treatment = z, confounders = x1 + x2, data = dat,
+    method.rsp = "bart", method.trt = "bart",
+    args.rsp = list(n.trees = 10L, n.burn = 5L, n.samples = 10L, n.chains = 1L),
+    args.trt = list(n.trees = 10L, n.burn = 5L, n.samples = 10L, n.chains = 1L),
+    seed = NA_integer_, verbose = FALSE
+  )
+
+  icate_df <- tidy_draws(fit_1chain, type = "icate", fitstage = "response")
+  expect_true(".row" %in% names(icate_df))
+  expect_equal(sort(unique(icate_df$.row)), 1:n)
+  expect_equal(nrow(icate_df), n * 10L)
+
+  te <- treatment_effects(fit_1chain)
+  expect_equal(nrow(te), n * 10L)
+  expect_true(all(c("cte", "ite", "treated") %in% names(te)))
+})
+
 test_that("avg_treatment_effects works end-to-end with a bartcFit model", {
   ate <- avg_treatment_effects(fixture_bartc)
 

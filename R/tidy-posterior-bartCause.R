@@ -76,6 +76,11 @@ linpred_draws.bartcFit = function(
 
 utils::globalVariables(c("var1"))
 
+# Types documented in ?bartCause::extract that return one value per
+# observation, as opposed to a single value per posterior draw
+# (pate/sate/cate/sigma). Used by tidy_draws.bartcFit() below.
+bartcause_per_unit_types <- c("mu.obs", "mu.cf", "mu.0", "mu.1", "y.cf", "y.0", "y.1", "icate", "ite", "p.score", "p.weights")
+
 #' Tidy access to posterior of \code{bartCause}-package objects
 #'
 #' @param model A \code{bartCauseFit} object.
@@ -109,6 +114,20 @@ tidy_draws.bartcFit = function(model, type = NULL, fitstage = c("response","assi
   }
 
   ndim <- length(dim(sample_array))
+  # dbarts::extract(..., combineChains = FALSE) drops the chain dimension
+  # entirely when the model was fit with a single chain (n.chains = 1), so a
+  # 2D array is ambiguous: for a per-unit `type` (one value per observation,
+  # e.g. icate/ite) it means draws x obs with the chain axis simply missing,
+  # not draws x chains as it does for a scalar `type` (pate/sate/cate/sigma).
+  # Restore the dropped chain axis as a leading singleton dimension - the
+  # ndim == 3 branch below expects [chain, draws, obs] (array_to_mcmclist()
+  # is called with chain = dimension 1) - so both cases go through the same
+  # (correct, .row-producing) code path. Checked in
+  # tests/testthat/test-bartcause.R.
+  if (ndim == 2 && type %in% bartcause_per_unit_types) {
+    sample_array <- aperm(array(sample_array, dim = c(dim(sample_array), 1)), c(3, 1, 2))
+    ndim <- 3
+  }
   if(ndim == 2){
     draws <- matrix_to_mcmclist(sample_array, 2, 1) %>%
       tidybayes::tidy_draws() %>%

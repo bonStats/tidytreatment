@@ -51,6 +51,9 @@ An object of class \code{suhillsim} that is a list with elements
 \item{args}{List of arguments passed to function}
 \item{formulas}{Response formulas used to generate data}
 \item{coefs}{Coefficients for the formulas}
+and a \code{"ground_truth"} attribute (see \code{\link{su_hill_true_effects}}) holding the
+exact potential outcomes \code{mu0}/\code{mu1} (and \code{ite}/\code{ate}/\code{tau}) used to
+generate \code{mean_y}, for validating treatment effect estimates against.
 }
 \description{
 Sample \eqn{n} observations with the following scheme:
