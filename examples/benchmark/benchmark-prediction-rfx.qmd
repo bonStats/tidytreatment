@@ -1,0 +1,252 @@
+---
+title: "Benchmark: Prediction With Random Effects"
+subtitle: "stan4bart vs. stochtree::bart(rfx_group_ids), on ground both were built for"
+format:
+  html:
+    toc: true
+    code-fold: true
+params:
+  fast_mode: true
+  n_values: [250, 1000]
+  n_reps: 20
+  seed: 1
+---
+
+```{r setup}
+#| message: false
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tidytreatment)
+library(tidybayes)
+library(stan4bart)
+library(stochtree)
+library(dbarts)
+
+source("R/cache.R")
+source("R/hyperparams.R")
+source("R/dgp.R")
+source("R/metrics.R")
+source("R/fit-engines-rfx.R")
+source("R/metrics-rfx.R")
+source("R/run-benchmark-rfx.R")
+
+sessioninfo::session_info()
+```
+
+## Scope
+
+`benchmark-prediction.qmd` excludes `stan4bart` entirely: it's architecturally
+a mixed-effects+BART model (its formula parser requires at least one
+`(1|group)` term), so it has no fair "no groups" mode to compare against a
+plain BART fit. This document tests it on the ground it was actually built
+for instead, against `stochtree::bart()` with `rfx_group_ids_train`
+(intercept-only random effects - the direct analogue of `(1|group)`).
+`BART`/`bartCause`/`stochtree::bcf` have no random-effects prediction mode
+and are excluded. `bartMachine` is excluded throughout.
+
+4 rows: `stan4bart` baseline/`+auto_k`, `stochtree::bart` baseline/`+gfr`.
+
+DGP: `simulate_friedman_rfx()`/`simulate_friedman_rfx_binary()` (`R/dgp.R`) -
+Friedman's function plus an explicit random intercept per group, with exact
+ground truth for both the fixed-effect surface and the true per-group
+effects (unlike `simulate_su_hill_data()`'s own `n_subjects`/`sd_subjects`
+mechanism, which adds the random effect to noisy `y` directly and doesn't
+return the true effects at all).
+
+Beyond the usual prediction-accuracy metrics, this document's sharpest
+diagnostic is **group-effect recovery**: does each engine's own posterior
+mean per-group random intercept actually track the true simulated group
+effects? Note BART's trees can absorb some of the overall baseline level
+that would otherwise land in the random intercepts (the two aren't uniquely
+identified from data alone), so recovery is reported as correlation plus
+*centred* RMSE (shared shift removed) rather than raw bias.
+
+## Hyperparameters
+
+```{r hyperparams}
+hp <- baseline_hyperparams()
+if (isTRUE(params$fast_mode)) {
+  hp$burn <- 20
+  hp$draws <- 30
+  hp$n_trees <- 20
+}
+str(hp)
+```
+
+## Run
+
+```{r run-benchmark}
+n_values <- if (isTRUE(params$fast_mode)) c(60, 100) else params$n_values
+n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
+
+cache_file <- file.path("cache", sprintf("rfx_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
+res <- cached_run(cache_file, function() {
+  run_benchmark_rfx(n_values = n_values, B = n_reps, hp = hp, seed = params$seed)
+})
+```
+
+## Results
+
+### Prediction accuracy
+
+```{r summary-table}
+res$metrics %>%
+  group_by(outcome, engine, variant, n) %>%
+  summarise(across(c(rmse, mae, coverage95, crps, fit_time_sec), mean), .groups = "drop") %>%
+  arrange(outcome, n, engine, variant) %>%
+  knitr::kable(digits = 3)
+```
+
+### Predicted vs. true (fixed-effect surface + group effect combined)
+
+One representative replication (largest `n`).
+
+```{r pred-scatter-continuous}
+#| fig-height: 4
+res$examples %>%
+  filter(outcome == "continuous") %>%
+  ggplot(aes(x = truth, y = fitted)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  labs(title = "Continuous outcome", x = "True value (f(x) + group effect)", y = "Posterior mean fitted value") +
+  theme_bw()
+```
+
+```{r pred-scatter-binary}
+#| fig-height: 4
+res$examples %>%
+  filter(outcome == "binary") %>%
+  ggplot(aes(x = truth, y = fitted)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(title = "Binary outcome (probability scale)", x = "True probability", y = "Posterior mean fitted probability") +
+  theme_bw()
+```
+
+### Group-effect recovery
+
+The headline diagnostic for this document: does each engine's own posterior
+mean per-group random intercept track the true simulated group effects?
+Centred (see caption) values are comparable in scale across engines within
+the same outcome, so each outcome gets one plot with shared (not free) axes
+across its engine panels - `facet_grid(..., scales = "free")` across the
+engine dimension would give each panel its own axis range independently,
+which is misleading for exactly this side-by-side comparison (see the same
+issue, diagnosed in detail, for `benchmark-prediction.qmd`'s predicted-vs-true
+plot).
+
+```{r group-effect-table}
+res$group_metrics %>%
+  group_by(outcome, engine, variant, n) %>%
+  summarise(across(c(group_effect_cor, group_effect_centered_rmse), mean), .groups = "drop") %>%
+  arrange(outcome, n, engine, variant) %>%
+  knitr::kable(digits = 3)
+```
+
+```{r group-effect-scatter-prep}
+# Centred, matching group_effect_recovery()'s own metric definition: the
+# shared level between BART's trees and the random intercept isn't
+# identified, so only the *relative* effects are comparable.
+group_examples_centred <- res$group_examples %>%
+  group_by(outcome, engine, variant) %>%
+  mutate(
+    true_centred = true_group_effect - mean(true_group_effect),
+    hat_centred = group_effect_hat - mean(group_effect_hat)
+  ) %>%
+  ungroup()
+```
+
+```{r group-effect-scatter-continuous}
+#| fig-height: 4
+group_examples_centred %>%
+  filter(outcome == "continuous") %>%
+  ggplot(aes(x = true_centred, y = hat_centred)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(size = 1.5) +
+  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  labs(title = "Continuous outcome", x = "True group effect (centred)", y = "Posterior mean group effect estimate (centred)") +
+  theme_bw()
+```
+
+```{r group-effect-scatter-binary}
+#| fig-height: 4
+group_examples_centred %>%
+  filter(outcome == "binary") %>%
+  ggplot(aes(x = true_centred, y = hat_centred)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(size = 1.5) +
+  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  labs(title = "Binary outcome (probit latent scale)", x = "True group effect (centred)", y = "Posterior mean group effect estimate (centred)") +
+  theme_bw()
+```
+
+### Coverage: nominal vs. empirical
+
+```{r coverage-plot}
+#| fig-height: 4
+res$metrics %>%
+  group_by(outcome, engine, variant, n) %>%
+  summarise(coverage95 = mean(coverage95), .groups = "drop") %>%
+  ggplot(aes(x = paste(engine, variant), y = coverage95, colour = factor(n))) +
+  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey50") +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  facet_wrap(~outcome) +
+  coord_flip() +
+  labs(x = NULL, y = "Empirical 95% interval coverage", colour = "n") +
+  theme_bw()
+```
+
+### Runtime
+
+```{r runtime-plot}
+#| fig-height: 3
+res$metrics %>%
+  group_by(outcome, engine, variant) %>%
+  summarise(fit_time_sec = mean(fit_time_sec), .groups = "drop") %>%
+  ggplot(aes(x = paste(engine, variant), y = fit_time_sec, fill = outcome)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = NULL, y = "Mean fit time (s)") +
+  theme_bw()
+```
+
+### Flags
+
+Rows whose RMSE (prediction) or centred group-effect RMSE (recovery) is a
+statistical outlier (|z| > 2) within its own outcome/n setting (see
+`flag_outliers()` in `R/metrics.R` for the small-group z-score caveat - with
+only 4 rows per group here, this is a coarse screen).
+
+```{r flags}
+flagged_rmse <- res$metrics %>%
+  group_by(outcome, n, engine, variant) %>%
+  summarise(rmse = mean(rmse), .groups = "drop") %>%
+  flag_outliers("rmse", c("outcome", "n"))
+
+flagged_group <- res$group_metrics %>%
+  group_by(outcome, n, engine, variant) %>%
+  summarise(group_effect_centered_rmse = mean(group_effect_centered_rmse), .groups = "drop") %>%
+  flag_outliers("group_effect_centered_rmse", c("outcome", "n"))
+
+if (nrow(flagged_rmse) == 0) {
+  cat("No prediction RMSE outliers flagged.\n")
+} else {
+  knitr::kable(flagged_rmse, digits = 3, caption = "Prediction RMSE outliers")
+}
+
+if (nrow(flagged_group) == 0) {
+  cat("No group-effect-recovery outliers flagged.\n")
+} else {
+  knitr::kable(flagged_group, digits = 3, caption = "Group-effect recovery outliers")
+}
+```
+
+## Session info
+
+```{r session-info-end}
+sessioninfo::session_info()
+```

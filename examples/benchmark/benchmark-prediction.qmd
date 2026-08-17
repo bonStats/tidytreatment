@@ -1,0 +1,207 @@
+---
+title: "Benchmark: Vanilla Prediction"
+subtitle: "Cross-package comparison of BART-family posterior predictive accuracy, with matched priors"
+format:
+  html:
+    toc: true
+    code-fold: true
+params:
+  fast_mode: true      # tiny hp/n/B for a quick smoke-test render
+  n_values: [250, 1000]
+  n_reps: 20
+  seed: 1
+---
+
+```{r setup}
+#| message: false
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tidytreatment)
+library(tidybayes)
+library(BART)
+library(dbarts)
+library(stochtree)
+
+source("R/cache.R")
+source("R/hyperparams.R")
+source("R/dgp.R")
+source("R/fit-engines-prediction.R")
+source("R/metrics.R")
+source("R/run-benchmark-prediction.R")
+
+sessioninfo::session_info()
+```
+
+## Scope
+
+Engines: `BART::wbart`/`pbart` and `dbarts::bart2` (baseline only - no native
+gfr/auto-k/etc. among the settings varied here), `stochtree::bart` (baseline,
+`num_gfr = 0`; and `+gfr`, `stochtree`'s own warm-start default). `stan4bart`
+is architecturally a mixed-effects+BART model and has no fair "no groups"
+mode, so it's excluded here and tested on its own ground in
+`benchmark-prediction-rfx.qmd` - `dbarts::bart2` fills that slot here
+instead, now that it's a fully supported engine in its own right.
+`bartCause` has no vanilla-prediction-only mode (always fits a response *and*
+treatment model) and is excluded for the same reason; it's exercised fully in
+`benchmark-causal.qmd`. `bartMachine` is excluded throughout per the original
+scope decision.
+
+DGP: Friedman's function (Friedman 1991; the field-standard BART benchmark),
+continuous and a probit-transformed binary variant - see `R/dgp.R` for the
+exact definitions and how "true probability" is defined for the binary case.
+
+## Hyperparameters
+
+```{r hyperparams}
+hp <- baseline_hyperparams()
+if (isTRUE(params$fast_mode)) {
+  hp$burn <- 20
+  hp$draws <- 30
+  hp$n_trees <- 20
+}
+str(hp)
+```
+
+## Run
+
+```{r run-benchmark}
+#| cache: false
+n_values <- if (isTRUE(params$fast_mode)) c(30, 60) else params$n_values
+n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
+
+cache_file <- file.path("cache", sprintf("prediction_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
+res <- cached_run(cache_file, function() {
+  run_benchmark_prediction(n_values = n_values, B = n_reps, hp = hp, seed = params$seed)
+})
+```
+
+## Results
+
+### Summary metrics
+
+```{r summary-table}
+res$metrics %>%
+  group_by(outcome, engine, variant, n) %>%
+  summarise(
+    across(c(rmse, mae, coverage95, crps, fit_time_sec), mean),
+    .groups = "drop"
+  ) %>%
+  arrange(outcome, n, engine, variant) %>%
+  knitr::kable(digits = 3)
+```
+
+### Predicted vs. true
+
+One representative replication (largest `n`), posterior mean fitted value
+against the known ground truth.
+
+Two separate plots, not one faceted by outcome too: `facet_grid(outcome ~
+engine, scales = "free")` gives every individual *cell* its own axis range
+(not just each outcome row), which makes engines within the same outcome
+visually incomparable - misleading for exactly the side-by-side comparison
+this plot exists for.
+
+```{r scatter-plot-continuous}
+#| fig-height: 4
+res$examples %>%
+  filter(outcome == "continuous") %>%
+  ggplot(aes(x = truth, y = fitted)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  labs(title = "Continuous outcome", x = "True value", y = "Posterior mean fitted value") +
+  theme_bw()
+```
+
+```{r scatter-plot-binary}
+#| fig-height: 4
+res$examples %>%
+  filter(outcome == "binary") %>%
+  ggplot(aes(x = truth, y = fitted)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(title = "Binary outcome (probability scale)", x = "True probability", y = "Posterior mean fitted probability") +
+  theme_bw()
+```
+
+### Coverage: nominal vs. empirical
+
+```{r coverage-plot}
+#| fig-height: 4
+res$metrics %>%
+  group_by(outcome, engine, variant, n) %>%
+  summarise(coverage95 = mean(coverage95), .groups = "drop") %>%
+  ggplot(aes(x = paste(engine, variant), y = coverage95, colour = factor(n))) +
+  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey50") +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  facet_wrap(~outcome) +
+  coord_flip() +
+  labs(x = NULL, y = "Empirical 95% interval coverage", colour = "n") +
+  theme_bw()
+```
+
+### Cross-engine agreement (baseline rows)
+
+```{r agreement-table}
+res$agreement %>%
+  group_by(outcome, engine_a, engine_b) %>%
+  summarise(mean_correlation = mean(correlation), mean_rmse = mean(rmse), .groups = "drop") %>%
+  knitr::kable(digits = 3)
+```
+
+```{r agreement-heatmap}
+#| fig-height: 4
+res$agreement %>%
+  group_by(outcome, engine_a, engine_b) %>%
+  summarise(mean_correlation = mean(correlation), .groups = "drop") %>%
+  ggplot(aes(x = engine_a, y = engine_b, fill = mean_correlation)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.2f", mean_correlation)), size = 3) +
+  facet_wrap(~outcome) +
+  scale_fill_distiller(palette = "RdYlBu", direction = 1, limits = c(-1, 1)) +
+  labs(x = NULL, y = NULL, fill = "correlation") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Runtime
+
+```{r runtime-plot}
+#| fig-height: 4
+res$metrics %>%
+  group_by(outcome, engine, variant) %>%
+  summarise(fit_time_sec = mean(fit_time_sec), .groups = "drop") %>%
+  ggplot(aes(x = paste(engine, variant), y = fit_time_sec, fill = outcome)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = NULL, y = "Mean fit time (s)") +
+  theme_bw()
+```
+
+### Flags
+
+Rows whose RMSE is a statistical outlier (|z| > 2) within its own DGP
+setting - worth a look, not necessarily a bug (see `flag_outliers()` in
+`R/metrics.R` for the important caveat about small-group z-scores).
+
+```{r flags}
+flagged <- res$metrics %>%
+  group_by(outcome, n, engine, variant) %>%
+  summarise(rmse = mean(rmse), .groups = "drop") %>%
+  flag_outliers("rmse", c("outcome", "n"))
+
+if (nrow(flagged) == 0) {
+  cat("No rows flagged.\n")
+} else {
+  knitr::kable(flagged, digits = 3)
+}
+```
+
+## Session info
+
+```{r session-info-end}
+sessioninfo::session_info()
+```

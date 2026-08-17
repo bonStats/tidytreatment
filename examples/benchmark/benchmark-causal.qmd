@@ -1,0 +1,264 @@
+---
+title: "Benchmark: Causal Estimates"
+subtitle: "Cross-package comparison of ATE/CATE recovery, with matched priors"
+format:
+  html:
+    toc: true
+    code-fold: true
+params:
+  fast_mode: true
+  n_values: [250, 1000]
+  n_reps: 20
+  seed: 1
+---
+
+```{r setup}
+#| message: false
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tidytreatment)
+library(tidybayes)
+library(BART)
+library(stochtree)
+library(bartCause)
+
+source("R/cache.R")
+source("R/hyperparams.R")
+source("R/dgp.R")
+source("R/metrics.R")
+source("R/metrics-causal.R")
+source("R/propensity.R")
+source("R/fit-engines-causal.R")
+source("R/run-benchmark-causal.R")
+
+sessioninfo::session_info()
+```
+
+## Scope
+
+13 engine/variant/propensity-recipe rows (see `R/run-benchmark-causal.R`):
+`BART`/`stochtree::bart` two-step (VS -> PS -> TE, matching the package's own
+BART/stochtree vignettes), `bartCause::bartc` (native causal machinery,
+including its own internal propensity estimation), and `stochtree::bcf`
+(native `tau`/`cate`, including its own internal propensity estimation).
+`stan4bart` is excluded as a standalone causal engine for the same
+architectural reason it's excluded from `benchmark-prediction.qmd`.
+`bartMachine` is excluded throughout.
+
+Every "DIY" propensity row is fit with `fit_diy_propensity()` (shared across
+all engines that use it, so the causal engine is the only thing varying) and
+compared under two recipes: `two_stage` (variable-selection then propensity,
+matching the vignettes exactly) and `ps_all` (propensity on every confounder
+directly, no selection).
+
+DGP: `simulate_su_hill_data()` (Hill & Su 2013), continuous and a
+median-thresholded binary variant, each run under `response_parallel = TRUE`
+(homogeneous truth - clean ATE recovery check) and `FALSE` (heterogeneous
+truth - PEHE becomes meaningful). Ground truth via
+`tidytreatment::su_hill_true_effects()` (an exact, not simulated,
+reconstruction of the DGP's potential outcomes - verified bit-for-bit against
+`simulate_su_hill_data()`'s own `mean_y` in the package's own test suite) and
+this file's own `su_hill_truth_binary()` (`R/dgp.R`) for the binary variant's
+probability-scale truth, verified against it by direct Monte Carlo.
+
+## Hyperparameters
+
+```{r hyperparams}
+hp <- baseline_hyperparams()
+if (isTRUE(params$fast_mode)) {
+  hp$burn <- 20
+  hp$draws <- 30
+  hp$n_trees <- 20
+}
+str(hp)
+```
+
+## Run
+
+```{r run-benchmark}
+n_values <- if (isTRUE(params$fast_mode)) c(40, 60) else params$n_values
+n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
+
+cache_file <- file.path("cache", sprintf("causal_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
+res <- cached_run(cache_file, function() {
+  run_benchmark_causal(n_values = n_values, B = n_reps, hp = hp, seed = params$seed)
+})
+```
+
+## Results
+
+### Summary metrics
+
+```{r summary-table}
+res$metrics %>%
+  group_by(outcome, response_parallel, engine, variant, propensity_recipe, n) %>%
+  summarise(
+    across(c(ate_bias, ate_covered, att_bias, att_covered, pehe, fit_time_sec), ~ mean(.x, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>%
+  arrange(outcome, response_parallel, n, engine, variant) %>%
+  knitr::kable(digits = 3)
+```
+
+### CATE-hat vs. true CATE
+
+One representative replication (largest `n`, heterogeneous-truth DGP setting
+only - `response_parallel = FALSE`, since `TRUE` has a constant true effect
+with nothing to show a relationship against). Two separate plots (not one
+faceted by outcome) for the same reason as the equivalent plot in
+`benchmark-prediction.qmd`: shared axes within an outcome, not per-panel free
+scales, so engines are visually comparable.
+
+```{r cate-scatter-continuous}
+#| fig-height: 7
+res$examples %>%
+  filter(outcome == "continuous") %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  ggplot(aes(x = true_ite, y = cte_hat)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~row_label, ncol = 4) +
+  labs(title = "Continuous outcome", x = "True CATE", y = "Posterior mean CATE-hat") +
+  theme_bw()
+```
+
+```{r cate-scatter-binary}
+#| fig-height: 7
+res$examples %>%
+  filter(outcome == "binary") %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  ggplot(aes(x = true_ite, y = cte_hat)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~row_label, ncol = 4) +
+  labs(title = "Binary outcome (probability scale)", x = "True CATE (probability scale)", y = "Posterior mean CATE-hat") +
+  theme_bw()
+```
+
+### ATE / ATT coverage: nominal vs. empirical
+
+```{r coverage-plot}
+#| fig-height: 6
+res$metrics %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  group_by(outcome, response_parallel, row_label, n) %>%
+  summarise(across(c(ate_covered, att_covered), mean), .groups = "drop") %>%
+  pivot_longer(c(ate_covered, att_covered), names_to = "estimand", values_to = "coverage") %>%
+  ggplot(aes(x = row_label, y = coverage, colour = factor(n), shape = estimand)) +
+  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey50") +
+  geom_point(position = position_dodge(width = 0.5), size = 2) +
+  facet_grid(response_parallel ~ outcome, labeller = label_both) +
+  coord_flip() +
+  labs(x = NULL, y = "Empirical 95% interval coverage", colour = "n") +
+  theme_bw()
+```
+
+### PEHE (heterogeneous-truth setting only)
+
+```{r pehe-plot}
+#| fig-height: 5
+res$metrics %>%
+  filter(!is.na(pehe)) %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  group_by(outcome, row_label, n) %>%
+  summarise(pehe = mean(pehe), .groups = "drop") %>%
+  ggplot(aes(x = row_label, y = pehe, fill = factor(n))) +
+  geom_col(position = "dodge") +
+  facet_wrap(~outcome) +
+  coord_flip() +
+  labs(x = NULL, y = "PEHE", fill = "n") +
+  theme_bw()
+```
+
+### Cross-engine CATE agreement (baseline rows, by propensity recipe)
+
+```{r agreement-table}
+res$agreement %>%
+  group_by(outcome, response_parallel, engine_a, engine_b) %>%
+  summarise(mean_correlation = mean(correlation), mean_rmse = mean(rmse), .groups = "drop") %>%
+  knitr::kable(digits = 3)
+```
+
+```{r agreement-heatmap}
+#| fig-height: 10
+#| fig-width: 9
+res$agreement %>%
+  group_by(outcome, response_parallel, engine_a, engine_b) %>%
+  summarise(mean_correlation = mean(correlation), .groups = "drop") %>%
+  ggplot(aes(x = engine_a, y = engine_b, fill = mean_correlation)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.2f", mean_correlation)), size = 2.5) +
+  facet_grid(response_parallel ~ outcome, labeller = label_both) +
+  scale_fill_distiller(palette = "RdYlBu", direction = 1, limits = c(-1, 1)) +
+  labs(x = NULL, y = NULL, fill = "correlation") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Runtime
+
+```{r runtime-plot}
+#| fig-height: 6
+res$metrics %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  group_by(outcome, row_label) %>%
+  summarise(fit_time_sec = mean(fit_time_sec), .groups = "drop") %>%
+  ggplot(aes(x = row_label, y = fit_time_sec, fill = outcome)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = NULL, y = "Mean fit time (s)") +
+  theme_bw()
+```
+
+### Common support: tidytreatment vs. bartCause's native `commonSup.rule`
+
+Agreement rate between bartCause's own native SD-rule common-support flag
+and tidytreatment's independently-coded `has_common_support()`, applied to
+the *same* fitted response-stage model (`bartc_fit$fit.rsp`) - see
+`bartc_common_support_agreement()` in `R/metrics-causal.R`.
+
+```{r common-support-table}
+res$common_support %>%
+  group_by(outcome, response_parallel, variant, propensity_recipe) %>%
+  summarise(mean_agreement_rate = mean(agreement_rate), .groups = "drop") %>%
+  knitr::kable(digits = 3)
+```
+
+### Flags
+
+Rows whose PEHE (heterogeneous-truth setting) or ATE bias (homogeneous
+setting) is a statistical outlier (|z| > 2) within its own DGP setting -
+worth a look, not necessarily a bug (see `flag_outliers()` in `R/metrics.R`
+for the small-group z-score caveat).
+
+```{r flags}
+flagged_pehe <- res$metrics %>%
+  filter(!is.na(pehe)) %>%
+  group_by(outcome, n, engine, variant, propensity_recipe) %>%
+  summarise(pehe = mean(pehe), .groups = "drop") %>%
+  flag_outliers("pehe", c("outcome", "n"))
+
+flagged_ate <- res$metrics %>%
+  group_by(outcome, n, engine, variant, propensity_recipe) %>%
+  summarise(abs_ate_bias = mean(abs(ate_bias)), .groups = "drop") %>%
+  flag_outliers("abs_ate_bias", c("outcome", "n"))
+
+if (nrow(flagged_pehe) == 0) {
+  cat("No PEHE outliers flagged.\n")
+} else {
+  knitr::kable(flagged_pehe, digits = 3, caption = "PEHE outliers")
+}
+
+if (nrow(flagged_ate) == 0) {
+  cat("No |ATE bias| outliers flagged.\n")
+} else {
+  knitr::kable(flagged_ate, digits = 3, caption = "|ATE bias| outliers")
+}
+```
+
+## Session info
+
+```{r session-info-end}
+sessioninfo::session_info()
+```
