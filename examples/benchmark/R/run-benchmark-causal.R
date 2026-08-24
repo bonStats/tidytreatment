@@ -31,7 +31,7 @@ causal_row_specs <- function(outcome = c("continuous", "binary")) {
          fit = twostep(fit_stochtree_bart_twostep, propensity_recipe = "two_stage", outcome = outcome, num_gfr = 0)),
     list(engine = "stochtree::bart two-step", variant = "baseline", propensity_recipe = "ps_all",
          fit = twostep(fit_stochtree_bart_twostep, propensity_recipe = "ps_all", outcome = outcome, num_gfr = 0)),
-    list(engine = "stochtree::bart two-step", variant = "+gfr", propensity_recipe = "two_stage",
+    list(engine = "stochtree::bart two-step", variant = "baseline+gfr", propensity_recipe = "two_stage",
          fit = twostep(fit_stochtree_bart_twostep, propensity_recipe = "two_stage", outcome = outcome, num_gfr = 5)),
 
     list(engine = "bartc", variant = "baseline", propensity_recipe = "two_stage",
@@ -63,18 +63,20 @@ extract_cte_draws <- function(row_result) {
 }
 
 # Orchestration: DGP settings (outcome x response_parallel) x n x replication
-# x the 13 rows from causal_row_specs(). Uses simulate_su_hill_data() (tau
-# fixed at 4) for exact ground truth throughout - response_parallel = TRUE
-# gives a homogeneous truth (clean ATE recovery check), FALSE gives
-# heterogeneous truth (PEHE becomes meaningful). The binary-outcome variant
-# thresholds y at its own median and uses su_hill_truth_binary() for the
-# correct probability-scale ground truth (not just mu1 - mu0).
+# x the 13 rows from causal_row_specs(). response_parallel = TRUE gives a
+# homogeneous truth (clean ATE recovery check), FALSE gives heterogeneous
+# truth (PEHE becomes meaningful). The binary-outcome variant thresholds y at
+# its own median and uses su_hill_truth_binary() for probability-scale truth.
 run_benchmark_causal <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L, tau = 4, y_sd = 1) {
   metrics <- list()
   agreement <- list()
   common_support <- list()
   examples <- list()
   n_for_examples <- max(n_values)
+
+  n_rows <- length(causal_row_specs("continuous"))
+  total_fits <- 2 * 2 * length(n_values) * B * n_rows
+  fit_i <- 0
 
   for (outcome in c("continuous", "binary")) {
     for (response_parallel in c(TRUE, FALSE)) {
@@ -107,6 +109,9 @@ run_benchmark_causal <- function(n_values, B, hp = baseline_hyperparams(), seed 
           cte_by_row <- list()
 
           for (row in rows) {
+            fit_i <- fit_i + 1
+            progress_note(fit_i, total_fits, "outcome =", outcome, "response_parallel =", response_parallel, "n =", n, "rep =", paste0(rep, "/", B), "engine =", row$engine, row$variant, row$propensity_recipe %||% "")
+
             t0 <- Sys.time()
             fitted <- row$fit(X, y, z, hp)
             fit_time_sec <- as.numeric(difftime(Sys.time(), t0, units = "secs"))

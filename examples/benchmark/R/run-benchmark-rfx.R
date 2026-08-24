@@ -9,7 +9,7 @@ rfx_rows <- function(outcome = c("continuous", "binary")) {
          fit = function(X, y, group, hp) fit_stan4bart_rfx(X, y, group, hp, auto_k = TRUE)),
     list(engine = "stochtree::bart", variant = "baseline",
          fit = function(X, y, group, hp) fit_stochtree_bart_rfx(X, y, group, hp, outcome = outcome, num_gfr = 0)),
-    list(engine = "stochtree::bart", variant = "+gfr",
+    list(engine = "stochtree::bart", variant = "baseline+gfr",
          fit = function(X, y, group, hp) fit_stochtree_bart_rfx(X, y, group, hp, outcome = outcome, num_gfr = 5))
   )
 }
@@ -31,9 +31,8 @@ extract_rfx_group_effects <- function(fit, engine, group_ids_unique) {
 }
 
 # sd_group defaults differ between outcome types because they live on
-# different scales (raw y vs. the probit latent, which has sd 1 by
-# construction) - see simulate_friedman_rfx()/simulate_friedman_rfx_binary()
-# in dgp.R.
+# different scales (raw y vs. the probit latent, sd 1 by construction) -
+# see dgp.R.
 run_benchmark_rfx <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L,
                                n_groups = 20, sd_group_continuous = 3, sd_group_binary = 0.5) {
   metrics <- list()
@@ -41,6 +40,10 @@ run_benchmark_rfx <- function(n_values, B, hp = baseline_hyperparams(), seed = 1
   examples <- list()
   group_examples <- list()
   n_for_examples <- max(n_values)
+
+  n_rows <- length(rfx_rows("continuous"))
+  total_fits <- 2 * length(n_values) * B * n_rows
+  fit_i <- 0
 
   for (outcome in c("continuous", "binary")) {
     rows <- rfx_rows(outcome)
@@ -64,6 +67,9 @@ run_benchmark_rfx <- function(n_values, B, hp = baseline_hyperparams(), seed = 1
         keep_example <- (n == n_for_examples) && (rep == 1)
 
         for (row in rows) {
+          fit_i <- fit_i + 1
+          progress_note(fit_i, total_fits, "outcome =", outcome, "n =", n, "rep =", paste0(rep, "/", B), "engine =", row$engine, row$variant)
+
           t0 <- Sys.time()
           fit <- row$fit(X, y, group, hp)
           fit_time_sec <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
@@ -87,10 +93,8 @@ run_benchmark_rfx <- function(n_values, B, hp = baseline_hyperparams(), seed = 1
             fit_time_sec = fit_time_sec
           )
 
-          # Not every group is guaranteed to appear in a given sample (more
-          # likely at small n relative to n_groups), so ge only has one
-          # estimate per *observed* group - restrict the true effects to the
-          # same set before comparing.
+          # Not every group is guaranteed to appear in a given sample, so ge
+          # only has one estimate per *observed* group - restrict true_ge to match.
           ge <- extract_rfx_group_effects(fit, row$engine, group_ids_unique)
           true_ge <- sim$group_effect[group_ids_unique]
           gr <- group_effect_recovery(ge, true_ge)

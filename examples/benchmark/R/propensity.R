@@ -1,19 +1,16 @@
 # Shared DIY propensity-score fitting, used by every "DIY" row in Part B
-# (BART/stan4bart/stochtree::bart two-step causal rows, and the bartc/bcf
-# baseline-DIY rows) - fit once here, not reimplemented per engine, so DIY
-# rows across different causal engines are comparable (only the causal
-# engine itself varies; the propensity nuisance component is held fixed).
+# (BART/stochtree::bart two-step causal rows, and the bartc/bcf baseline-DIY
+# rows) - fit once here so DIY rows across different causal engines are
+# comparable (only the causal engine itself varies).
 #
-# `BART::pbart` is used as the one canonical propensity-estimation engine
-# for every DIY row, regardless of which causal engine will consume the
-# resulting score - otherwise "DIY vs built-in" would conflate two things
-# that vary at once (which engine estimates the causal effect, and which
-# engine estimates propensity).
+# `BART::pbart` is the one propensity-estimation engine for every DIY row,
+# regardless of which causal engine consumes the score - otherwise "DIY vs
+# built-in" would conflate two things varying at once.
 #
 # Two recipes:
-#  - "two_stage": mirrors the package vignettes' actual VS -> PS approach -
-#    fit an outcome model (y ~ X), take variables at/above the median
-#    avg_inclusion importance, then fit propensity on that subset only.
+#  - "two_stage": mirrors the package vignettes' VS -> PS approach - fit an
+#    outcome model (y ~ X), take variables at/above the median avg_inclusion
+#    importance, then fit propensity on that subset only.
 #  - "ps_all": propensity fit directly on every confounder in X, no
 #    variable-selection step.
 

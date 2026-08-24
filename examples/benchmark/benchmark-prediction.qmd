@@ -1,12 +1,13 @@
 ---
 title: "Benchmark: Vanilla Prediction"
-subtitle: "Cross-package comparison of BART-family posterior predictive accuracy, with matched priors"
+subtitle: "Cross-package comparison of BART-family posterior predictive accuracy"
 format:
   html:
     toc: true
     code-fold: true
+    html-math-method: katex
 params:
-  fast_mode: true      # tiny hp/n/B for a quick smoke-test render
+  fast_mode: false      # quick non-informative render to check for errors
   n_values: [250, 1000]
   n_reps: 20
   seed: 1
@@ -30,28 +31,33 @@ source("R/fit-engines-prediction.R")
 source("R/metrics.R")
 source("R/run-benchmark-prediction.R")
 
-sessioninfo::session_info()
 ```
 
 ## Scope
 
-Engines: `BART::wbart`/`pbart` and `dbarts::bart2` (baseline only - no native
-gfr/auto-k/etc. among the settings varied here), `stochtree::bart` (baseline,
-`num_gfr = 0`; and `+gfr`, `stochtree`'s own warm-start default). `stan4bart`
-is architecturally a mixed-effects+BART model and has no fair "no groups"
-mode, so it's excluded here and tested on its own ground in
-`benchmark-prediction-rfx.qmd` - `dbarts::bart2` fills that slot here
-instead, now that it's a fully supported engine in its own right.
-`bartCause` has no vanilla-prediction-only mode (always fits a response *and*
-treatment model) and is excluded for the same reason; it's exercised fully in
-`benchmark-causal.qmd`. `bartMachine` is excluded throughout per the original
-scope decision.
+This document compares predictions from several Bayesian Additive Regression Tree  (BART) packages in R. Specific "engines" from each of these packages are consider over binary and real valued response data. Each engine has some different parameter settings. The packages considered are
 
-DGP: Friedman's function (Friedman 1991; the field-standard BART benchmark),
-continuous and a probit-transformed binary variant - see `R/dgp.R` for the
-exact definitions and how "true probability" is defined for the binary case.
+- `BART` with `wbart`/`pbart` for real/binary-valuedresponses
+- `dbarts` with `bart2` (equivalent to `bart` with a different API)
+- `stochtree` with `bart`
+
+A `baseline` engine is implemented for the above methods which attempts to match hyper-prior specification across the methods, for a fair comparison.
+
+When the `baseline` differs significantly from the `default` settings of the method, we also test a `default` engine.
+
+For `stochtree` we also run a `baseline+gfr` engine where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance resampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect - see Package-default hyperprior variants below.
+
+Two packages supported by `tidytreatment` that are not becnhmarked here are `stan4bart` and `bartCause`. Random effects are tested in an alternative benchmark, `benchmark-prediction-rfx.qmd`, where `stan4bart` does appear, it is specifically designed for this setting. Whilst, `bartCause` is for causal inference and estimating treatment effects which is also tested in a different benchmark, `benchmark-causal.qmd`. Neither package has a vanilla-prediction-only mode anyway.
+
+The data-generating process is Friedman's function (Friedman 1991), the
+field-standard benchmark for BART methods, used here in both a continuous
+and a probit-transformed binary version. See `R/dgp.R` for the exact
+definitions, and for how "true probability" is defined for the binary
+variant.
 
 ## Hyperparameters
+
+The main hyperparameters are specified below.
 
 ```{r hyperparams}
 hp <- baseline_hyperparams()
@@ -60,15 +66,110 @@ if (isTRUE(params$fast_mode)) {
   hp$draws <- 30
   hp$n_trees <- 20
 }
-str(hp)
+hp_vals <- unlist(hp)
+hp_display <- ifelse(hp_vals == round(hp_vals), sprintf("%.0f", hp_vals), as.character(hp_vals))
+names(hp_display) <- sprintf("`%s`", names(hp))
+knitr::kable(t(hp_display), align = "c", row.names = FALSE)
 ```
+
+For the `baseline` models, most of the hyper-prior parameter specification is trivial to match across engines. However, some hyper-priors are chosen based on the data itself (more or less an empirical Bayes decision).
+
+### Tree-structure prior
+
+Naming conventions for the prior on trees differ across packages: `alpha` = `base` and `beta`=`power`.
+
+These control the prior probability that a node at depth $d$ splits further: $$P(\text{split at depth } d) = \alpha (1+d)^{-\beta}.$$
+These are constants, passed unchanged to whichever argument name each
+package uses.
+
+### Leaf-shrinkage prior
+
+Each leaf's contribution gets a $N(0, \tau^2)$
+prior, with $\tau$ set from `k` (the number of prior standard deviations a
+leaf is expected to sit from the boundary of $y$'s range) and the number of
+trees:
+
+$$
+\tau = \begin{cases}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} & \text{continuous outcome - uses the data's own range} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} & \text{binary outcome - calibrated to the probit latent's } \pm 3 \text{ range instead}
+\end{cases}
+$$
+
+Some differences between packages:
+
+- `BART`/`dbarts` take $\tau$ via `k` directly. 
+- `stochtree` standardizes a continuous outcome internally, so it needs the *variance* $\tau^2$ on that standardized scale instead. This is $\tau^2 / \text{var}(y)$ for a continuous outcome, or plain $\tau^2$ for binary (the probit latent isn't rescaled).
+
+### Global error-variance prior
+
+:::{.callout-note}
+The follow applies to the real-valued response only.
+:::
+
+The residual variance $\sigma^2$ has an inverse-gamma prior,
+$$\sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta),$$
+with shape $\alpha = \nu / 2$ set from $\nu =$ `sigdf` degrees of freedom^[This may be referred to as a "scaled inverse-chi-squared$(\nu, \lambda)$", here we match `stochtree`'s arguments names `shape`/`scale`, which is in terms of an inverse-gamma].
+
+In the `baseline` engines, we follow the precedent of `BART`. An
+intermediate quantity $\lambda$ is calibrated from the data so that the
+prior places `sigquant` probability below a rough, data-driven estimate of
+$\sigma$ itself, giving the scale $\beta$:
+
+$$
+\beta = \frac{\nu \lambda}{2}, \qquad
+\lambda = \hat\sigma^2 \cdot \frac{\chi^2_{\nu,\,1 - \texttt{sigquant}}}{\nu}, \qquad
+\hat\sigma =  \begin{cases}
+  \hat\sigma_\text{LM-MLE} & \text{if}~n > p,\\
+  \hat\sigma_y & \text{otherwise},
+\end{cases}
+$$
+where $\chi^2_{\nu,\,p}$ is the $p$-quantile of a $\chi^2_\nu$ distribution, where
+$\hat\sigma_\text{LM-MLE}$ is the residual SD of a linear fit regressing the response against the covariates, and where $\hat\sigma_y$ is the standard deviation of the data $y$.
+
+
+The packages do the following:
+
+- `BART`/`dbarts` compute $\hat\sigma$, $\lambda$, and this inverse-gamma
+prior internally when `sigest` argument is left at its default.
+- `stochtree` has no equivalent default-calibration of its own. It uses an
+improper flat prior on $\sigma^2$ by default (`shape = scale = 0`). Matching
+it means passing `stochtree`'s own `shape`/`scale` arguments directly, on
+its internally-standardized scale:
+
+$$
+\text{shape} = \alpha = \frac{\nu}{2}, \qquad \text{scale} = \beta_{\text{std}} = \frac{\nu \lambda}{2 \text{var}(y)}.
+$$
+
+## Package-default hyperprior variants
+
+The `default` engine uses each package's own out-of-the-box hyperprior settings (tree-structure prior,
+leaf-shrinkage prior, global error-variance prior) instead, while holding everything else constant: burn-in, posterior draws, and number of chains fixed at the same values as `baseline`. Note that 
+
+- `stochtree`'s warm-start setting is turned off (unlike its default).
+- We rerun `stochtree` with the `baseline` settings _and_ the warm-start under the `baseline+gfr` engine.
+- We rerun `stochtree` with the `baseline` settings _and_ the an unknown leaf variance under the `baseline+leaf_var` engine.
+- `BART::wbart` has no `default` row. The defaults for this engine are already identical
+to this benchmark's `baseline`.
+
+The following engines' defaults differ from `baseline` as:
+
+- **`BART::pbart`**: `ntree = 50` (vs 200) - the tree-structure and leaf-shrinkage priors are otherwise identical to `baseline`.
+
+- **`dbarts::bart2`**: `n.trees = 75` (vs 200) and `k = NULL`. For the continuous case `k = NULL` sets $k=2$ (like the default), whilst for the binary case uses a hyperprior. See `?dbarts::bart2` for more information.
+
+- **`stochtree::bart`**: `num_trees`/`alpha`/`beta` already match `baseline`. Unlike `BART`/`dbarts`, the `stochtree` default assigns a hyperprior to the variance of the leaf values. In the continuous case the global error-variance prior also reverts to the improper `shape = scale = 0` described above.
 
 ## Run
 
+<details>
+
 ```{r run-benchmark}
 #| cache: false
+
 n_values <- if (isTRUE(params$fast_mode)) c(30, 60) else params$n_values
 n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
+n_for_examples <- max(n_values)
 
 cache_file <- file.path("cache", sprintf("prediction_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
 res <- cached_run(cache_file, function() {
@@ -76,31 +177,33 @@ res <- cached_run(cache_file, function() {
 })
 ```
 
+</details>
+
 ## Results
 
 ### Summary metrics
+
+- `fit_time_sec` is reported as a median. There can be outliers (see Runtime).
 
 ```{r summary-table}
 res$metrics %>%
   group_by(outcome, engine, variant, n) %>%
   summarise(
-    across(c(rmse, mae, coverage95, crps, fit_time_sec), mean),
+    across(c(rmse, mae, coverage95, crps), mean),
+    fit_time_sec = median(fit_time_sec),
     .groups = "drop"
   ) %>%
+  select(outcome, n, engine, variant, rmse, mae, coverage95, crps, fit_time_sec) %>%
   arrange(outcome, n, engine, variant) %>%
-  knitr::kable(digits = 3)
+  knitr::kable(digits = 3, format = "html") %>%
+  kableExtra::collapse_rows(columns = 1:3, valign = "top")
 ```
 
 ### Predicted vs. true
 
-One representative replication (largest `n`), posterior mean fitted value
+These plots show the first replication for `` n = `r n_for_examples` `` (the
+largest value tested), comparing each engine's posterior mean fitted value
 against the known ground truth.
-
-Two separate plots, not one faceted by outcome too: `facet_grid(outcome ~
-engine, scales = "free")` gives every individual *cell* its own axis range
-(not just each outcome row), which makes engines within the same outcome
-visually incomparable - misleading for exactly the side-by-side comparison
-this plot exists for.
 
 ```{r scatter-plot-continuous}
 #| fig-height: 4
@@ -109,7 +212,7 @@ res$examples %>%
   ggplot(aes(x = truth, y = fitted)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
   geom_point(alpha = 0.4, size = 0.8) +
-  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  facet_wrap(~ paste(engine, variant), nrow = 2) +
   labs(title = "Continuous outcome", x = "True value", y = "Posterior mean fitted value") +
   theme_bw()
 ```
@@ -121,7 +224,7 @@ res$examples %>%
   ggplot(aes(x = truth, y = fitted)) +
   geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
   geom_point(alpha = 0.4, size = 0.8) +
-  facet_wrap(~ paste(engine, variant), nrow = 1) +
+  facet_wrap(~ paste(engine, variant), nrow = 2) +
   coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(title = "Binary outcome (probability scale)", x = "True probability", y = "Posterior mean fitted probability") +
   theme_bw()
@@ -169,23 +272,27 @@ res$agreement %>%
 
 ### Runtime
 
-```{r runtime-plot}
-#| fig-height: 4
+The box plot below shows the full per-replication fit-time distribution on a
+log scale.
+
+```{r runtime-boxplot}
+#| fig-height: 5
 res$metrics %>%
-  group_by(outcome, engine, variant) %>%
-  summarise(fit_time_sec = mean(fit_time_sec), .groups = "drop") %>%
-  ggplot(aes(x = paste(engine, variant), y = fit_time_sec, fill = outcome)) +
-  geom_col(position = "dodge") +
+  ggplot(aes(x = paste(engine, variant), y = fit_time_sec, colour = factor(n))) +
+  geom_boxplot(outlier.alpha = 0.5) +
+  facet_wrap(~outcome) +
   coord_flip() +
-  labs(x = NULL, y = "Mean fit time (s)") +
+  scale_y_log10() +
+  labs(x = NULL, y = "Fit time (s, log scale)", colour = "n") +
   theme_bw()
 ```
 
 ### Flags
 
-Rows whose RMSE is a statistical outlier (|z| > 2) within its own DGP
-setting - worth a look, not necessarily a bug (see `flag_outliers()` in
-`R/metrics.R` for the important caveat about small-group z-scores).
+This table lists rows whose RMSE is a statistical outlier (|z| > 2) within
+its own DGP setting. A flagged row is worth a closer look, but is not
+necessarily a bug - see `flag_outliers()` in `R/metrics.R` for an important
+caveat about how unreliable z-scores can be within a small group.
 
 ```{r flags}
 flagged <- res$metrics %>%
@@ -198,6 +305,216 @@ if (nrow(flagged) == 0) {
 } else {
   knitr::kable(flagged, digits = 3)
 }
+```
+
+## Equivalent direct calls
+
+The back-end of this document uses a `do.call(engine_fn, c(list(...), hp_to_*(hp)))` layer (see `R/fit-engines-prediction.R`), so that the hyperparameters can be called from a single location (see `R/hyperparams.R`).
+
+The below block below gives the equivalent direct call for each engine, followed by a check (click to expand) that builds the same call from the `hp` object to verify it against what `do.call()` actually constructs.
+
+```{r equivalent-calls}
+set.seed(1)
+n_demo <- 300
+X_demo <- as.data.frame(matrix(runif(n_demo * 10), ncol = 10))
+colnames(X_demo) <- paste0("x", 1:10)
+y_demo <- friedman_f(X_demo) + rnorm(n_demo)
+y_demo_bin <- rbinom(n_demo, 1, 0.5)
+
+check_equivalent <- function(label, user_call_args, operative_args) {
+  ok <- identical(user_call_args[order(names(user_call_args))], operative_args[order(names(operative_args))])
+  if (!ok) {
+    cat(sprintf("%-28s DOES NOT MATCH - doc is out of date\n", label))
+  }
+  invisible(ok)
+}
+```
+
+### `BART::wbart` (continuous)
+
+#### `baseline`
+
+```{r equivalent-wbart}
+#| code-fold: false
+# BART::wbart(...)
+user_call <- list(
+  x.train = X_demo, y.train = y_demo,
+  ntree = hp$n_trees, k = hp$k, power = hp$beta, base = hp$alpha,
+  sigdf = hp$sigdf, sigquant = hp$sigquant,
+  nskip = hp$burn, ndpost = hp$draws, printevery = 10000L
+)
+```
+
+```{r equivalent-wbart-check}
+operative <- c(list(x.train = X_demo, y.train = y_demo, printevery = 10000L), hp_to_wbart(hp))
+check_equivalent("BART::wbart", user_call, operative)
+```
+
+#### `default`
+
+Not run, `BART::wbart`'s own defaults are already identical to `baseline`.
+
+### `BART::pbart` (binary)
+
+#### `baseline`
+
+```{r equivalent-pbart}
+#| code-fold: false
+# BART::pbart(...)
+user_call <- list(
+  x.train = X_demo, y.train = as.integer(y_demo_bin),
+  ntree = hp$n_trees, k = hp$k, power = hp$beta, base = hp$alpha,
+  nskip = hp$burn, ndpost = hp$draws, printevery = 10000L
+)
+```
+
+```{r equivalent-pbart-check}
+operative <- c(list(x.train = X_demo, y.train = as.integer(y_demo_bin), printevery = 10000L), hp_to_pbart(hp))
+check_equivalent("BART::pbart", user_call, operative)
+```
+
+#### `default`
+
+```{r equivalent-pbart-default}
+#| code-fold: false
+# BART::pbart(...)
+user_call <- list(
+  x.train = X_demo, y.train = as.integer(y_demo_bin),
+  ntree = 50L,
+  nskip = hp$burn, ndpost = hp$draws, printevery = 10000L
+)
+```
+
+```{r equivalent-pbart-default-check}
+operative <- c(list(x.train = X_demo, y.train = as.integer(y_demo_bin), printevery = 10000L), hp_to_pbart_default(hp))
+check_equivalent("BART::pbart (default)", user_call, operative)
+```
+
+### `dbarts::bart2` (continuous/binary)
+
+`bart2()` detects binary data for probit model automatically.
+
+#### `baseline`
+
+```{r equivalent-dbarts}
+#| code-fold: false
+dat_demo <- cbind(X_demo, data.frame(.y = y_demo))
+# dbarts::bart2(...)
+user_call <- list(
+  formula = .y ~ ., data = dat_demo,
+  n.trees = hp$n_trees, k = hp$k, power = hp$beta, base = hp$alpha,
+  sigdf = hp$sigdf, sigquant = hp$sigquant,
+  n.burn = hp$burn, n.samples = hp$draws, n.chains = hp$chains, keepTrees = TRUE
+)
+```
+
+```{r equivalent-dbarts-check}
+operative <- c(list(formula = .y ~ ., data = dat_demo), hp_to_dbarts(hp))
+check_equivalent("dbarts::bart2", user_call, operative)
+```
+
+#### `default`
+
+```{r equivalent-dbarts-default}
+#| code-fold: false
+# dbarts::bart2(...)
+user_call <- list(
+  formula = .y ~ ., data = dat_demo,
+  n.trees = 75L, k = NULL,
+  n.burn = hp$burn, n.samples = hp$draws, n.chains = hp$chains, keepTrees = TRUE
+)
+```
+
+```{r equivalent-dbarts-default-check}
+operative <- c(list(formula = .y ~ ., data = dat_demo), hp_to_dbarts_default(hp))
+check_equivalent("dbarts::bart2 (default)", user_call, operative)
+```
+
+### `stochtree::bart` (continuous)
+
+#### `baseline`
+
+```{r equivalent-stochtree}
+#| code-fold: false
+sigma2_prior_demo <- hp_to_stochtree_sigma2_prior(hp, X_demo, y_demo)
+# stochtree::bart(...)
+user_call <- list(
+  X_train = X_demo, y_train = y_demo,
+  num_gfr = 0, num_burnin = hp$burn, num_mcmc = hp$draws,
+  general_params = sigma2_prior_demo,
+  mean_forest_params = list(
+    num_trees = hp$n_trees, alpha = hp$alpha, beta = hp$beta,
+    sigma2_leaf_init = hp_to_stochtree_leaf_var(hp, y = y_demo, outcome = "continuous"),
+    sample_sigma2_leaf = FALSE
+  )
+)
+```
+
+```{r equivalent-stochtree-check}
+operative <- c(list(X_train = X_demo, y_train = y_demo), hp_to_stochtree_bart(hp, X = X_demo, y = y_demo, outcome = "continuous", num_gfr = 0))
+check_equivalent("stochtree::bart (continuous)", user_call, operative)
+```
+
+
+#### `default`
+
+```{r equivalent-stochtree-default}
+#| code-fold: false
+# stochtree::bart(...)
+user_call <- list(
+  X_train = X_demo, y_train = y_demo,
+  num_gfr = 0, num_burnin = hp$burn, num_mcmc = hp$draws,
+  general_params = list(),
+  mean_forest_params = list()
+)
+```
+
+```{r equivalent-stochtree-default-check}
+operative <- c(list(X_train = X_demo, y_train = y_demo), hp_to_stochtree_bart_default(hp, outcome = "continuous"))
+check_equivalent("stochtree::bart (default, continuous)", user_call, operative)
+```
+
+### `stochtree::bart` (binary)
+
+#### `baseline`
+
+```{r equivalent-stochtree-binary}
+#| code-fold: false
+# stochtree::bart(...)
+user_call <- list(
+  X_train = X_demo, y_train = as.integer(y_demo_bin),
+  num_gfr = 0, num_burnin = hp$burn, num_mcmc = hp$draws,
+  general_params = list(outcome_model = stochtree::OutcomeModel(outcome = "binary", link = "probit")),
+  mean_forest_params = list(
+    num_trees = hp$n_trees, alpha = hp$alpha, beta = hp$beta,
+    sigma2_leaf_init = hp_to_stochtree_leaf_var(hp, y = y_demo_bin, outcome = "binary"),
+    sample_sigma2_leaf = FALSE
+  )
+)
+```
+
+```{r equivalent-stochtree-binary-check}
+operative <- c(list(X_train = X_demo, y_train = as.integer(y_demo_bin)), hp_to_stochtree_bart(hp, X = X_demo, y = y_demo_bin, outcome = "binary", num_gfr = 0))
+check_equivalent("stochtree::bart (binary)", user_call, operative)
+```
+
+
+#### `default`
+
+```{r equivalent-stochtree-default-binary}
+#| code-fold: false
+# stochtree::bart(...)
+user_call <- list(
+  X_train = X_demo, y_train = as.integer(y_demo_bin),
+  num_gfr = 0, num_burnin = hp$burn, num_mcmc = hp$draws,
+  general_params = list(outcome_model = stochtree::OutcomeModel(outcome = "binary", link = "probit")),
+  mean_forest_params = list()
+)
+```
+
+```{r equivalent-stochtree-default-binary-check}
+operative <- c(list(X_train = X_demo, y_train = as.integer(y_demo_bin)), hp_to_stochtree_bart_default(hp, outcome = "binary"))
+check_equivalent("stochtree::bart (default, binary)", user_call, operative)
 ```
 
 ## Session info

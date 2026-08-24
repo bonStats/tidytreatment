@@ -37,30 +37,41 @@ sessioninfo::session_info()
 
 ## Scope
 
-13 engine/variant/propensity-recipe rows (see `R/run-benchmark-causal.R`):
-`BART`/`stochtree::bart` two-step (VS -> PS -> TE, matching the package's own
-BART/stochtree vignettes), `bartCause::bartc` (native causal machinery,
-including its own internal propensity estimation), and `stochtree::bcf`
-(native `tau`/`cate`, including its own internal propensity estimation).
-`stan4bart` is excluded as a standalone causal engine for the same
-architectural reason it's excluded from `benchmark-prediction.qmd`.
-`bartMachine` is excluded throughout.
+This document runs 13 engine/variant/propensity-recipe rows in total (see
+`R/run-benchmark-causal.R` for the full list). Three families of causal
+engine are compared: `BART` and `stochtree::bart` fit as a two-step
+procedure (variable selection, then propensity, then the treatment-effect
+model - matching the two-step workflow shown in the package's own BART and
+stochtree vignettes), `bartCause::bartc`, which has native causal machinery
+including its own internal propensity estimation, and `stochtree::bcf`,
+which likewise estimates `tau`/`cate` natively with its own internal
+propensity estimation. `stan4bart` is excluded as a standalone causal engine
+for the same architectural reason it is excluded from
+`benchmark-prediction.qmd`, and `bartMachine` is excluded throughout.
 
-Every "DIY" propensity row is fit with `fit_diy_propensity()` (shared across
-all engines that use it, so the causal engine is the only thing varying) and
-compared under two recipes: `two_stage` (variable-selection then propensity,
-matching the vignettes exactly) and `ps_all` (propensity on every confounder
-directly, no selection).
+Every "DIY" propensity row - meaning every row where the propensity score is
+estimated outside the causal engine itself, rather than natively - is fit
+with the same `fit_diy_propensity()` function, shared across all engines
+that use it so that the causal engine is the only thing that varies between
+rows. Each of these rows is compared under two recipes: `two_stage`, where
+variable selection is run first and the propensity model is fit only on the
+selected variables (matching the vignettes exactly), and `ps_all`, where the
+propensity model instead uses every confounder directly, with no selection
+step.
 
-DGP: `simulate_su_hill_data()` (Hill & Su 2013), continuous and a
-median-thresholded binary variant, each run under `response_parallel = TRUE`
-(homogeneous truth - clean ATE recovery check) and `FALSE` (heterogeneous
-truth - PEHE becomes meaningful). Ground truth via
-`tidytreatment::su_hill_true_effects()` (an exact, not simulated,
-reconstruction of the DGP's potential outcomes - verified bit-for-bit against
-`simulate_su_hill_data()`'s own `mean_y` in the package's own test suite) and
-this file's own `su_hill_truth_binary()` (`R/dgp.R`) for the binary variant's
-probability-scale truth, verified against it by direct Monte Carlo.
+The data-generating process is `simulate_su_hill_data()` (Hill & Su 2013),
+used here in a continuous version and in a binary version thresholded at the
+median. Each is run under two settings: `response_parallel = TRUE`, which
+gives a homogeneous true effect and so is a clean check on ATE recovery, and
+`response_parallel = FALSE`, which gives a heterogeneous true effect and so
+is where PEHE becomes a meaningful metric. Ground truth for the continuous
+outcome comes from `tidytreatment::su_hill_true_effects()`, an exact (not
+simulated) reconstruction of the DGP's potential outcomes, verified
+bit-for-bit against `simulate_su_hill_data()`'s own `mean_y` in the
+package's own test suite. Ground truth for the binary variant, on the
+probability scale, comes from this file's own `su_hill_truth_binary()`
+(`R/dgp.R`), which is in turn verified against `su_hill_true_effects()` by
+direct Monte Carlo.
 
 ## Hyperparameters
 
@@ -76,6 +87,9 @@ str(hp)
 
 ## Run
 
+<details>
+<summary>Show run log</summary>
+
 ```{r run-benchmark}
 n_values <- if (isTRUE(params$fast_mode)) c(40, 60) else params$n_values
 n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
@@ -85,6 +99,8 @@ res <- cached_run(cache_file, function() {
   run_benchmark_causal(n_values = n_values, B = n_reps, hp = hp, seed = params$seed)
 })
 ```
+
+</details>
 
 ## Results
 
@@ -103,12 +119,14 @@ res$metrics %>%
 
 ### CATE-hat vs. true CATE
 
-One representative replication (largest `n`, heterogeneous-truth DGP setting
-only - `response_parallel = FALSE`, since `TRUE` has a constant true effect
-with nothing to show a relationship against). Two separate plots (not one
-faceted by outcome) for the same reason as the equivalent plot in
-`benchmark-prediction.qmd`: shared axes within an outcome, not per-panel free
-scales, so engines are visually comparable.
+These plots show one representative replication, the one with the largest
+`n`, and only the heterogeneous-truth DGP setting (`response_parallel =
+FALSE`) - the homogeneous setting (`TRUE`) has a constant true effect, so
+there is no relationship to show. As with the equivalent plot in
+`benchmark-prediction.qmd`, the continuous and binary outcomes get two
+separate plots rather than one faceted by outcome, so that axes stay shared
+within an outcome instead of floating freely per panel, keeping the engines
+visually comparable.
 
 ```{r cate-scatter-continuous}
 #| fig-height: 7
@@ -213,10 +231,11 @@ res$metrics %>%
 
 ### Common support: tidytreatment vs. bartCause's native `commonSup.rule`
 
-Agreement rate between bartCause's own native SD-rule common-support flag
-and tidytreatment's independently-coded `has_common_support()`, applied to
-the *same* fitted response-stage model (`bartc_fit$fit.rsp`) - see
-`bartc_common_support_agreement()` in `R/metrics-causal.R`.
+This table reports the agreement rate between bartCause's own native
+SD-rule common-support flag and tidytreatment's independently-coded
+`has_common_support()`, both applied to the *same* fitted response-stage
+model (`bartc_fit$fit.rsp`). See `bartc_common_support_agreement()` in
+`R/metrics-causal.R` for how the comparison is made.
 
 ```{r common-support-table}
 res$common_support %>%
@@ -227,10 +246,11 @@ res$common_support %>%
 
 ### Flags
 
-Rows whose PEHE (heterogeneous-truth setting) or ATE bias (homogeneous
-setting) is a statistical outlier (|z| > 2) within its own DGP setting -
-worth a look, not necessarily a bug (see `flag_outliers()` in `R/metrics.R`
-for the small-group z-score caveat).
+This section lists rows whose PEHE (in the heterogeneous-truth setting) or
+ATE bias (in the homogeneous setting) is a statistical outlier (|z| > 2)
+within its own DGP setting. A flagged row is worth a closer look, but is not
+necessarily a bug - see `flag_outliers()` in `R/metrics.R` for the caveat
+about small-group z-scores.
 
 ```{r flags}
 flagged_pehe <- res$metrics %>%

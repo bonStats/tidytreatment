@@ -36,31 +36,36 @@ sessioninfo::session_info()
 
 ## Scope
 
-`benchmark-prediction.qmd` excludes `stan4bart` entirely: it's architecturally
-a mixed-effects+BART model (its formula parser requires at least one
-`(1|group)` term), so it has no fair "no groups" mode to compare against a
-plain BART fit. This document tests it on the ground it was actually built
-for instead, against `stochtree::bart()` with `rfx_group_ids_train`
-(intercept-only random effects - the direct analogue of `(1|group)`).
-`BART`/`bartCause`/`stochtree::bcf` have no random-effects prediction mode
-and are excluded. `bartMachine` is excluded throughout.
+`benchmark-prediction.qmd` excludes `stan4bart` entirely, because it is
+architecturally a mixed-effects-plus-BART model: its formula parser requires
+at least one `(1|group)` random-effects term, so there is no fair "no
+groups" version of it to test there. This document gives it the ground it
+was actually built for instead, comparing it against `stochtree::bart()` fit
+with `rfx_group_ids_train` - intercept-only random effects, the direct
+analogue of a `(1|group)` term. `BART`, `bartCause`, and `stochtree::bcf`
+have no random-effects prediction mode of their own, so they are excluded
+here. `bartMachine` is excluded throughout, as in the other benchmark
+documents.
 
-4 rows: `stan4bart` baseline/`+auto_k`, `stochtree::bart` baseline/`+gfr`.
+There are four rows in total: `stan4bart` at baseline and with `+auto_k`,
+and `stochtree::bart` at baseline and with `baseline+gfr`.
 
-DGP: `simulate_friedman_rfx()`/`simulate_friedman_rfx_binary()` (`R/dgp.R`) -
-Friedman's function plus an explicit random intercept per group, with exact
-ground truth for both the fixed-effect surface and the true per-group
-effects (unlike `simulate_su_hill_data()`'s own `n_subjects`/`sd_subjects`
-mechanism, which adds the random effect to noisy `y` directly and doesn't
-return the true effects at all).
+The data-generating process is
+`simulate_friedman_rfx()`/`simulate_friedman_rfx_binary()` (`R/dgp.R`):
+Friedman's function plus an explicit random intercept for each group. Unlike
+`simulate_su_hill_data()`'s own `n_subjects`/`sd_subjects` mechanism - which
+adds the random effect straight into the noisy `y` and never returns the
+true effects at all - this DGP hands back exact ground truth for both the
+fixed-effect surface and the true per-group effects.
 
-Beyond the usual prediction-accuracy metrics, this document's sharpest
-diagnostic is **group-effect recovery**: does each engine's own posterior
+Beyond the usual prediction-accuracy metrics, the sharpest diagnostic in
+this document is **group-effect recovery**: does each engine's own posterior
 mean per-group random intercept actually track the true simulated group
-effects? Note BART's trees can absorb some of the overall baseline level
-that would otherwise land in the random intercepts (the two aren't uniquely
-identified from data alone), so recovery is reported as correlation plus
-*centred* RMSE (shared shift removed) rather than raw bias.
+effects? One wrinkle worth keeping in mind when reading it: BART's trees can
+absorb some of the overall baseline level that would otherwise land in the
+random intercepts, since the two are not uniquely identified from the data
+alone. For that reason, recovery is reported as a correlation plus a
+*centred* RMSE (with any shared shift removed) rather than as a raw bias.
 
 ## Hyperparameters
 
@@ -76,6 +81,9 @@ str(hp)
 
 ## Run
 
+<details>
+<summary>Show run log</summary>
+
 ```{r run-benchmark}
 n_values <- if (isTRUE(params$fast_mode)) c(60, 100) else params$n_values
 n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
@@ -85,6 +93,8 @@ res <- cached_run(cache_file, function() {
   run_benchmark_rfx(n_values = n_values, B = n_reps, hp = hp, seed = params$seed)
 })
 ```
+
+</details>
 
 ## Results
 
@@ -100,7 +110,8 @@ res$metrics %>%
 
 ### Predicted vs. true (fixed-effect surface + group effect combined)
 
-One representative replication (largest `n`).
+As with the other benchmark documents, this plot shows one representative
+replication - the one with the largest `n`.
 
 ```{r pred-scatter-continuous}
 #| fig-height: 4
@@ -129,15 +140,16 @@ res$examples %>%
 
 ### Group-effect recovery
 
-The headline diagnostic for this document: does each engine's own posterior
-mean per-group random intercept track the true simulated group effects?
-Centred (see caption) values are comparable in scale across engines within
-the same outcome, so each outcome gets one plot with shared (not free) axes
-across its engine panels - `facet_grid(..., scales = "free")` across the
-engine dimension would give each panel its own axis range independently,
-which is misleading for exactly this side-by-side comparison (see the same
-issue, diagnosed in detail, for `benchmark-prediction.qmd`'s predicted-vs-true
-plot).
+This is the headline diagnostic for the whole document: does each engine's
+own posterior mean per-group random intercept track the true simulated group
+effects? The values plotted are centred (see the axis labels), which makes
+them comparable in scale across engines within the same outcome - so each
+outcome gets a single plot with shared, not free, axes across its engine
+panels. Giving the engine dimension its own free scale via
+`facet_grid(..., scales = "free")` would let each panel float on its own
+axis range independently, which would be misleading for exactly this
+side-by-side comparison - the same issue that is diagnosed in more detail
+for the predicted-vs-true plot in `benchmark-prediction.qmd`.
 
 ```{r group-effect-table}
 res$group_metrics %>%
@@ -216,10 +228,11 @@ res$metrics %>%
 
 ### Flags
 
-Rows whose RMSE (prediction) or centred group-effect RMSE (recovery) is a
-statistical outlier (|z| > 2) within its own outcome/n setting (see
-`flag_outliers()` in `R/metrics.R` for the small-group z-score caveat - with
-only 4 rows per group here, this is a coarse screen).
+This section lists rows whose RMSE (for prediction) or centred group-effect
+RMSE (for recovery) is a statistical outlier (|z| > 2) within its own
+outcome/`n` setting. See `flag_outliers()` in `R/metrics.R` for the caveat
+about small-group z-scores - with only four rows per group here, this
+flagging is necessarily a coarse screen, not a precise test.
 
 ```{r flags}
 flagged_rmse <- res$metrics %>%

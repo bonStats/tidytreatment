@@ -1,7 +1,5 @@
-# Random-effects prediction fitting adapters. Unlike fit-engines-prediction.R,
-# `group` here is a *real* grouping factor (not an uninformative stand-in),
-# so stan4bart needs none of that file's dummy-group workaround - just its
-# other quirk (a literal formula, not one built via as.formula(paste(...))).
+# Random-effects prediction fitting adapters. stan4bart requires a literal
+# formula, not one built via as.formula(paste(...)).
 
 fit_stan4bart_rfx <- function(X, y, group, hp, auto_k = FALSE) {
   .y <- y
@@ -27,7 +25,7 @@ fit_stan4bart_rfx <- function(X, y, group, hp, auto_k = FALSE) {
 # explicitly.
 fit_stochtree_bart_rfx <- function(X, y, group, hp, outcome = c("continuous", "binary"), num_gfr = 0) {
   outcome <- match.arg(outcome)
-  args <- hp_to_stochtree_bart(hp, y = y, outcome = outcome, num_gfr = num_gfr)
+  args <- hp_to_stochtree_bart(hp, X = X, y = y, outcome = outcome, num_gfr = num_gfr)
   args$random_effects_params <- list(model_spec = "intercept_only")
   y_train <- if (outcome == "binary") as.integer(y) else y
 
