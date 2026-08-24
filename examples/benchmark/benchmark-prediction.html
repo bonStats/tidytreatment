@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Benchmark: Vanilla Prediction</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="benchmark-prediction_files/libs/clipboard/clipboard.min.js"></script>
+<script src="benchmark-prediction_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="benchmark-prediction_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="benchmark-prediction_files/libs/quarto-html/popper.min.js"></script>
+<script src="benchmark-prediction_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="benchmark-prediction_files/libs/quarto-html/anchor.min.js"></script>
+<link href="benchmark-prediction_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="benchmark-prediction_files/libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="benchmark-prediction_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="benchmark-prediction_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="benchmark-prediction_files/libs/bootstrap/bootstrap-138a6193a3bd40baf1e627da441a4734.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="benchmark-prediction_files/libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="benchmark-prediction_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#scope" id="toc-scope" class="nav-link active" data-scroll-target="#scope">Scope</a></li>
+  <li><a href="#hyperparameters" id="toc-hyperparameters" class="nav-link" data-scroll-target="#hyperparameters">Hyperparameters</a>
+  <ul class="collapse">
+  <li><a href="#tree-structure-prior" id="toc-tree-structure-prior" class="nav-link" data-scroll-target="#tree-structure-prior">Tree-structure prior</a></li>
+  <li><a href="#leaf-shrinkage-prior" id="toc-leaf-shrinkage-prior" class="nav-link" data-scroll-target="#leaf-shrinkage-prior">Leaf-shrinkage prior</a></li>
+  <li><a href="#global-error-variance-prior" id="toc-global-error-variance-prior" class="nav-link" data-scroll-target="#global-error-variance-prior">Global error-variance prior</a></li>
+  </ul></li>
+  <li><a href="#package-default-hyperprior-variants" id="toc-package-default-hyperprior-variants" class="nav-link" data-scroll-target="#package-default-hyperprior-variants">Package-default hyperprior variants</a></li>
+  <li><a href="#run" id="toc-run" class="nav-link" data-scroll-target="#run">Run</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a>
+  <ul class="collapse">
+  <li><a href="#summary-metrics" id="toc-summary-metrics" class="nav-link" data-scroll-target="#summary-metrics">Summary metrics</a></li>
+  <li><a href="#predicted-vs.-true" id="toc-predicted-vs.-true" class="nav-link" data-scroll-target="#predicted-vs.-true">Predicted vs.&nbsp;true</a></li>
+  <li><a href="#coverage-nominal-vs.-empirical" id="toc-coverage-nominal-vs.-empirical" class="nav-link" data-scroll-target="#coverage-nominal-vs.-empirical">Coverage: nominal vs.&nbsp;empirical</a></li>
+  <li><a href="#cross-engine-agreement-baseline-rows" id="toc-cross-engine-agreement-baseline-rows" class="nav-link" data-scroll-target="#cross-engine-agreement-baseline-rows">Cross-engine agreement (baseline rows)</a></li>
+  <li><a href="#runtime" id="toc-runtime" class="nav-link" data-scroll-target="#runtime">Runtime</a></li>
+  <li><a href="#flags" id="toc-flags" class="nav-link" data-scroll-target="#flags">Flags</a></li>
+  </ul></li>
+  <li><a href="#equivalent-direct-calls" id="toc-equivalent-direct-calls" class="nav-link" data-scroll-target="#equivalent-direct-calls">Equivalent direct calls</a>
+  <ul class="collapse">
+  <li><a href="#bartwbart-continuous" id="toc-bartwbart-continuous" class="nav-link" data-scroll-target="#bartwbart-continuous"><code>BART::wbart</code> (continuous)</a></li>
+  <li><a href="#bartpbart-binary" id="toc-bartpbart-binary" class="nav-link" data-scroll-target="#bartpbart-binary"><code>BART::pbart</code> (binary)</a></li>
+  <li><a href="#dbartsbart2-continuousbinary" id="toc-dbartsbart2-continuousbinary" class="nav-link" data-scroll-target="#dbartsbart2-continuousbinary"><code>dbarts::bart2</code> (continuous/binary)</a></li>
+  <li><a href="#stochtreebart-continuous" id="toc-stochtreebart-continuous" class="nav-link" data-scroll-target="#stochtreebart-continuous"><code>stochtree::bart</code> (continuous)</a></li>
+  <li><a href="#stochtreebart-binary" id="toc-stochtreebart-binary" class="nav-link" data-scroll-target="#stochtreebart-binary"><code>stochtree::bart</code> (binary)</a></li>
+  </ul></li>
+  <li><a href="#session-info" id="toc-session-info" class="nav-link" data-scroll-target="#session-info">Session info</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Benchmark: Vanilla Prediction</h1>
+<p class="subtitle lead">Cross-package comparison of BART-family posterior predictive accuracy</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidytreatment)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidybayes)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(BART)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dbarts)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stochtree)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/cache.R"</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/hyperparams.R"</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/dgp.R"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/fit-engines-prediction.R"</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metrics.R"</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/run-benchmark-prediction.R"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="scope" class="level2">
+<h2 class="anchored" data-anchor-id="scope">Scope</h2>
+<p>This document compares predictions from several Bayesian Additive Regression Tree (BART) packages in R. Specific “engines” from each of these packages are consider over binary and real valued response data. Each engine has some different parameter settings. The packages considered are</p>
+<ul>
+<li><code>BART</code> with <code>wbart</code>/<code>pbart</code> for real/binary-valued responses</li>
+<li><code>dbarts</code> with <code>bart2</code> (equivalent to <code>bart</code> with a different API)</li>
+<li><code>stochtree</code> with <code>bart</code></li>
+</ul>
+<p>A <code>baseline</code> engine is implemented for the above methods which attempts to match hyper-prior specification across the methods, for a fair comparison.</p>
+<p>When the <code>baseline</code> differs significantly from the <code>default</code> settings of the method, we also test a <code>default</code> engine.</p>
+<p>For <code>stochtree</code> we also run a <code>baseline+gfr</code> engine where <code>stochtree</code>’s own warm-start default turned back on (we turn it off for the <code>baseline</code> because the other methods don’t have this). Similarly, <code>baseline+leaf_var</code> turns leaf-variance sampling back on (<code>sample_sigma2_leaf = TRUE</code>) with everything else left at <code>baseline</code>, isolating just that one setting’s effect - see Package-default hyperprior variants below.</p>
+<p>Two packages supported by <code>tidytreatment</code> that are not becnhmarked here are <code>stan4bart</code> and <code>bartCause</code>. Random effects are tested in an alternative benchmark, <code>benchmark-prediction-rfx.qmd</code>, where <code>stan4bart</code> does appear, it is specifically designed for this setting. Whilst, <code>bartCause</code> is for causal inference and estimating treatment effects which is also tested in a different benchmark, <code>benchmark-causal.qmd</code>. Neither package has a vanilla-prediction-only mode anyway.</p>
+<p>The data-generating process is Friedman’s function <span class="citation" data-cites="friedman1991multivariate">(<a href="#ref-friedman1991multivariate" role="doc-biblioref">Friedman 1991</a>)</span>, the field-standard benchmark for BART methods, used here in both a continuous and a probit-transformed binary version. See <code>R/dgp.R</code> for the exact definitions, and for how “true probability” is defined for the binary variant.</p>
+</section>
+<section id="hyperparameters" class="level2">
+<h2 class="anchored" data-anchor-id="hyperparameters">Hyperparameters</h2>
+<p>The main hyperparameters are specified below.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>hp <span class="ot">&lt;-</span> <span class="fu">baseline_hyperparams</span>()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  hp<span class="sc">$</span>burn <span class="ot">&lt;-</span> <span class="dv">20</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  hp<span class="sc">$</span>draws <span class="ot">&lt;-</span> <span class="dv">30</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  hp<span class="sc">$</span>n_trees <span class="ot">&lt;-</span> <span class="dv">20</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>hp_vals <span class="ot">&lt;-</span> <span class="fu">unlist</span>(hp)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>hp_display <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(hp_vals <span class="sc">==</span> <span class="fu">round</span>(hp_vals), <span class="fu">sprintf</span>(<span class="st">"%.0f"</span>, hp_vals), <span class="fu">as.character</span>(hp_vals))</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(hp_display) <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"`%s`"</span>, <span class="fu">names</span>(hp))</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">t</span>(hp_display), <span class="at">align =</span> <span class="st">"c"</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 13%">
+<col style="width: 11%">
+<col style="width: 9%">
+<col style="width: 6%">
+<col style="width: 11%">
+<col style="width: 14%">
+<col style="width: 9%">
+<col style="width: 11%">
+<col style="width: 12%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;"><code>n_trees</code></th>
+<th style="text-align: center;"><code>alpha</code></th>
+<th style="text-align: center;"><code>beta</code></th>
+<th style="text-align: center;"><code>k</code></th>
+<th style="text-align: center;"><code>sigdf</code></th>
+<th style="text-align: center;"><code>sigquant</code></th>
+<th style="text-align: center;"><code>burn</code></th>
+<th style="text-align: center;"><code>draws</code></th>
+<th style="text-align: center;"><code>chains</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">200</td>
+<td style="text-align: center;">0.95</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">0.9</td>
+<td style="text-align: center;">1000</td>
+<td style="text-align: center;">1000</td>
+<td style="text-align: center;">1</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>For the <code>baseline</code> models, most of the hyper-prior parameter specification is trivial to match across engines. However, some hyper-priors are chosen based on the data itself (more or less an empirical Bayes decision).</p>
+<section id="tree-structure-prior" class="level3">
+<h3 class="anchored" data-anchor-id="tree-structure-prior">Tree-structure prior</h3>
+<p>Naming conventions for the prior on trees differ across packages: <code>alpha</code> = <code>base</code> and <code>beta</code>=<code>power</code>.</p>
+<p>These control the prior probability that a node at depth <span class="math inline">d</span> splits further: <span class="math display">P(\text{split at depth } d) = \alpha (1+d)^{-\beta}.</span> These are constants, passed unchanged to whichever argument name each package uses.</p>
+</section>
+<section id="leaf-shrinkage-prior" class="level3">
+<h3 class="anchored" data-anchor-id="leaf-shrinkage-prior">Leaf-shrinkage prior</h3>
+<p>Each leaf’s contribution gets a <span class="math inline">N(0, \tau^2)</span> prior, with <span class="math inline">\tau</span> set from <code>k</code> (the number of prior standard deviations a leaf is expected to sit from the boundary of <span class="math inline">y</span>’s range) and the number of trees:</p>
+<p><span class="math display">
+\tau = \begin{cases}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} &amp; \text{continuous outcome - uses the data's own range} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} &amp; \text{binary outcome - calibrated to the probit latent's } \pm 3 \text{ range instead}
+\end{cases}
+</span></p>
+<p>Some differences between packages:</p>
+<ul>
+<li><code>BART</code>/<code>dbarts</code> take <span class="math inline">\tau</span> via <code>k</code> directly.</li>
+<li><code>stochtree</code> standardizes a continuous outcome internally, so it needs the <em>variance</em> <span class="math inline">\tau^2</span> on that standardized scale instead. This is <span class="math inline">\tau^2 / \text{var}(y)</span> for a continuous outcome, or plain <span class="math inline">\tau^2</span> for binary (the probit latent isn’t rescaled).</li>
+</ul>
+</section>
+<section id="global-error-variance-prior" class="level3">
+<h3 class="anchored" data-anchor-id="global-error-variance-prior">Global error-variance prior</h3>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The follow applies to the real-valued response only.</p>
+</div>
+</div>
+<p>The residual variance <span class="math inline">\sigma^2</span> has an inverse-gamma prior, <span class="math display">\sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta),</span> with shape <span class="math inline">\alpha = \nu / 2</span> set from <span class="math inline">\nu =</span> <code>sigdf</code> degrees of freedom<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>.</p>
+<p>In the <code>baseline</code> engines, we follow the precedent of <code>BART</code>. An intermediate quantity <span class="math inline">\lambda</span> is calibrated from the data so that the prior places <code>sigquant</code> probability below a rough, data-driven estimate of <span class="math inline">\sigma</span> itself, giving the scale <span class="math inline">\beta</span>:</p>
+<p><span class="math display">
+\beta = \frac{\nu \lambda}{2}, \qquad
+\lambda = \hat\sigma^2 \cdot \frac{\chi^2_{\nu,\,1 - \texttt{sigquant}}}{\nu}, \qquad
+\hat\sigma =  \begin{cases}
+  \hat\sigma_\text{LM-MLE} &amp; \text{if}~n &gt; p,\\
+  \hat\sigma_y &amp; \text{otherwise},
+\end{cases}
+</span> where <span class="math inline">\chi^2_{\nu,\,p}</span> is the <span class="math inline">p</span>-quantile of a <span class="math inline">\chi^2_\nu</span> distribution, where <span class="math inline">\hat\sigma_\text{LM-MLE}</span> is the residual SD of a linear fit regressing the response against the covariates, and where <span class="math inline">\hat\sigma_y</span> is the standard deviation of the data <span class="math inline">y</span>.</p>
+<p>The packages do the following:</p>
+<ul>
+<li><code>BART</code>/<code>dbarts</code> compute <span class="math inline">\hat\sigma</span>, <span class="math inline">\lambda</span>, and this inverse-gamma prior internally when <code>sigest</code> argument is left at its default.</li>
+<li><code>stochtree</code> has no equivalent default-calibration of its own. It uses an improper flat prior on <span class="math inline">\sigma^2</span> by default (<code>shape = scale = 0</code>). Matching it means passing <code>stochtree</code>’s own <code>shape</code>/<code>scale</code> arguments directly, on its internally-standardized scale:</li>
+</ul>
+<p><span class="math display">
+\text{shape} = \alpha = \frac{\nu}{2}, \qquad \text{scale} = \beta_{\text{std}} = \frac{\nu \lambda}{2 \text{var}(y)}.
+</span></p>
+</section>
+</section>
+<section id="package-default-hyperprior-variants" class="level2">
+<h2 class="anchored" data-anchor-id="package-default-hyperprior-variants">Package-default hyperprior variants</h2>
+<p>The <code>default</code> engine uses each package’s own out-of-the-box hyperprior settings (tree-structure prior, leaf-shrinkage prior, global error-variance prior) instead, while holding everything else constant: burn-in, posterior draws, and number of chains fixed at the same values as <code>baseline</code>. Note that</p>
+<ul>
+<li><code>stochtree</code>’s warm-start setting is turned off (unlike its default).</li>
+<li>We rerun <code>stochtree</code> with the <code>baseline</code> settings <em>and</em> the warm-start under the <code>baseline+gfr</code> engine.</li>
+<li>We rerun <code>stochtree</code> with the <code>baseline</code> settings <em>and</em> the an unknown leaf variance under the <code>baseline+leaf_var</code> engine.</li>
+<li><code>BART::wbart</code> has no <code>default</code> row. The defaults for this engine are already identical to this benchmark’s <code>baseline</code>.</li>
+</ul>
+<p>The following engines’ defaults differ from <code>baseline</code> as:</p>
+<ul>
+<li><p><strong><code>BART::pbart</code></strong>: <code>ntree = 50</code> (vs 200) - the tree-structure and leaf-shrinkage priors are otherwise identical to <code>baseline</code>.</p></li>
+<li><p><strong><code>dbarts::bart2</code></strong>: <code>n.trees = 75</code> (vs 200) and <code>k = NULL</code>. For the continuous case <code>k = NULL</code> sets <span class="math inline">k=2</span> (like the default), whilst for the binary case uses a hyperprior. See <code>?dbarts::bart2</code> for more information.</p></li>
+<li><p><strong><code>stochtree::bart</code></strong>: <code>num_trees</code>/<code>alpha</code>/<code>beta</code> already match <code>baseline</code>. Unlike <code>BART</code>/<code>dbarts</code>, the <code>stochtree</code> default assigns a hyperprior to the variance of the leaf values. In the continuous case the global error-variance prior also reverts to the improper <code>shape = scale = 0</code> described above.</p></li>
+</ul>
+</section>
+<section id="run" class="level2">
+<h2 class="anchored" data-anchor-id="run">Run</h2>
+<details>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>n_values <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) <span class="fu">c</span>(<span class="dv">30</span>, <span class="dv">60</span>) <span class="cf">else</span> params<span class="sc">$</span>n_values</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>n_reps <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) <span class="dv">2</span> <span class="cf">else</span> params<span class="sc">$</span>n_reps</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>n_for_examples <span class="ot">&lt;-</span> <span class="fu">max</span>(n_values)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>cache_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="st">"cache"</span>, <span class="fu">sprintf</span>(<span class="st">"prediction_%s.rds"</span>, <span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) <span class="st">"fast"</span> <span class="cf">else</span> <span class="st">"full"</span>))</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">cached_run</span>(cache_file, <span class="cf">function</span>() {</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">run_benchmark_prediction</span>(<span class="at">n_values =</span> n_values, <span class="at">B =</span> n_reps, <span class="at">hp =</span> hp, <span class="at">seed =</span> params<span class="sc">$</span>seed)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</details>
+</section>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<section id="summary-metrics" class="level3">
+<h3 class="anchored" data-anchor-id="summary-metrics">Summary metrics</h3>
+<ul>
+<li><code>fit_time_sec</code> is reported as a median. There can be outliers (see Runtime).</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine, variant, n) <span class="sc">%&gt;%</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">across</span>(<span class="fu">c</span>(rmse, mae, coverage95, crps), mean),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">fit_time_sec =</span> <span class="fu">median</span>(fit_time_sec),</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(outcome, n, engine, variant, rmse, mae, coverage95, crps, fit_time_sec) <span class="sc">%&gt;%</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(outcome, n, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>, <span class="at">format =</span> <span class="st">"html"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">collapse_rows</span>(<span class="at">columns =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">valign =</span> <span class="st">"top"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th">outcome</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">n</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">engine</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">variant</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">rmse</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">mae</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">coverage95</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">crps</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">fit_time_sec</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td rowspan="16" style="text-align: left; vertical-align: top !important;">binary</td>
+<td rowspan="8" style="text-align: right; vertical-align: top !important;">250</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">BART::pbart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.144</td>
+<td style="text-align: right;">0.114</td>
+<td style="text-align: right;">0.969</td>
+<td style="text-align: right;">0.078</td>
+<td style="text-align: right;">2.299</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.144</td>
+<td style="text-align: right;">0.113</td>
+<td style="text-align: right;">0.968</td>
+<td style="text-align: right;">0.078</td>
+<td style="text-align: right;">0.572</td>
+</tr>
+<tr class="odd">
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">dbarts::bart2</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.144</td>
+<td style="text-align: right;">0.114</td>
+<td style="text-align: right;">0.975</td>
+<td style="text-align: right;">0.078</td>
+<td style="text-align: right;">0.504</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.147</td>
+<td style="text-align: right;">0.116</td>
+<td style="text-align: right;">0.968</td>
+<td style="text-align: right;">0.081</td>
+<td style="text-align: right;">0.215</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.144</td>
+<td style="text-align: right;">0.113</td>
+<td style="text-align: right;">0.968</td>
+<td style="text-align: right;">0.078</td>
+<td style="text-align: right;">2.042</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.144</td>
+<td style="text-align: right;">0.113</td>
+<td style="text-align: right;">0.966</td>
+<td style="text-align: right;">0.078</td>
+<td style="text-align: right;">2.119</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+leaf_var</td>
+<td style="text-align: right;">0.149</td>
+<td style="text-align: right;">0.118</td>
+<td style="text-align: right;">0.951</td>
+<td style="text-align: right;">0.082</td>
+<td style="text-align: right;">2.052</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.147</td>
+<td style="text-align: right;">0.116</td>
+<td style="text-align: right;">0.963</td>
+<td style="text-align: right;">0.081</td>
+<td style="text-align: right;">2.050</td>
+</tr>
+<tr class="odd">
+<td rowspan="8" style="text-align: right; vertical-align: top !important;">1000</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">BART::pbart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.108</td>
+<td style="text-align: right;">0.081</td>
+<td style="text-align: right;">0.973</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;">8.313</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.108</td>
+<td style="text-align: right;">0.081</td>
+<td style="text-align: right;">0.960</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">2.036</td>
+</tr>
+<tr class="odd">
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">dbarts::bart2</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.108</td>
+<td style="text-align: right;">0.081</td>
+<td style="text-align: right;">0.977</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">1.172</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.106</td>
+<td style="text-align: right;">0.080</td>
+<td style="text-align: right;">0.971</td>
+<td style="text-align: right;">0.056</td>
+<td style="text-align: right;">0.499</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.108</td>
+<td style="text-align: right;">0.081</td>
+<td style="text-align: right;">0.970</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">6.895</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.108</td>
+<td style="text-align: right;">0.082</td>
+<td style="text-align: right;">0.969</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">6.970</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+leaf_var</td>
+<td style="text-align: right;">0.107</td>
+<td style="text-align: right;">0.082</td>
+<td style="text-align: right;">0.961</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;">6.970</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.107</td>
+<td style="text-align: right;">0.081</td>
+<td style="text-align: right;">0.966</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;">6.940</td>
+</tr>
+<tr class="odd">
+<td rowspan="14" style="text-align: left; vertical-align: top !important;">continuous</td>
+<td rowspan="7" style="text-align: right; vertical-align: top !important;">250</td>
+<td style="text-align: left;">BART::wbart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.816</td>
+<td style="text-align: right;">0.654</td>
+<td style="text-align: right;">0.854</td>
+<td style="text-align: right;">0.471</td>
+<td style="text-align: right;">2.238</td>
+</tr>
+<tr class="even">
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">dbarts::bart2</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.832</td>
+<td style="text-align: right;">0.666</td>
+<td style="text-align: right;">0.845</td>
+<td style="text-align: right;">0.482</td>
+<td style="text-align: right;">0.489</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.794</td>
+<td style="text-align: right;">0.630</td>
+<td style="text-align: right;">0.874</td>
+<td style="text-align: right;">0.455</td>
+<td style="text-align: right;">0.188</td>
+</tr>
+<tr class="even">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.827</td>
+<td style="text-align: right;">0.659</td>
+<td style="text-align: right;">0.833</td>
+<td style="text-align: right;">0.480</td>
+<td style="text-align: right;">1.421</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.831</td>
+<td style="text-align: right;">0.664</td>
+<td style="text-align: right;">0.828</td>
+<td style="text-align: right;">0.484</td>
+<td style="text-align: right;">1.519</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+leaf_var</td>
+<td style="text-align: right;">0.812</td>
+<td style="text-align: right;">0.649</td>
+<td style="text-align: right;">0.860</td>
+<td style="text-align: right;">0.469</td>
+<td style="text-align: right;">1.440</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.912</td>
+<td style="text-align: right;">0.727</td>
+<td style="text-align: right;">0.611</td>
+<td style="text-align: right;">0.577</td>
+<td style="text-align: right;">1.428</td>
+</tr>
+<tr class="even">
+<td rowspan="7" style="text-align: right; vertical-align: top !important;">1000</td>
+<td style="text-align: left;">BART::wbart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.580</td>
+<td style="text-align: right;">0.461</td>
+<td style="text-align: right;">0.917</td>
+<td style="text-align: right;">0.328</td>
+<td style="text-align: right;">7.949</td>
+</tr>
+<tr class="odd">
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">dbarts::bart2</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.583</td>
+<td style="text-align: right;">0.464</td>
+<td style="text-align: right;">0.927</td>
+<td style="text-align: right;">0.329</td>
+<td style="text-align: right;">1.095</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.577</td>
+<td style="text-align: right;">0.460</td>
+<td style="text-align: right;">0.870</td>
+<td style="text-align: right;">0.332</td>
+<td style="text-align: right;">0.418</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.592</td>
+<td style="text-align: right;">0.471</td>
+<td style="text-align: right;">0.903</td>
+<td style="text-align: right;">0.336</td>
+<td style="text-align: right;">4.505</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.601</td>
+<td style="text-align: right;">0.477</td>
+<td style="text-align: right;">0.893</td>
+<td style="text-align: right;">0.341</td>
+<td style="text-align: right;">4.658</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+leaf_var</td>
+<td style="text-align: right;">0.550</td>
+<td style="text-align: right;">0.437</td>
+<td style="text-align: right;">0.925</td>
+<td style="text-align: right;">0.310</td>
+<td style="text-align: right;">4.513</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.558</td>
+<td style="text-align: right;">0.443</td>
+<td style="text-align: right;">0.917</td>
+<td style="text-align: right;">0.315</td>
+<td style="text-align: right;">4.498</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="predicted-vs.-true" class="level3">
+<h3 class="anchored" data-anchor-id="predicted-vs.-true">Predicted vs.&nbsp;true</h3>
+<p>These plots show the first replication for <code>n = 1000</code> (the largest value tested), comparing each engine’s posterior mean fitted value against the known ground truth.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>examples <span class="sc">%&gt;%</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"continuous"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> truth, <span class="at">y =</span> fitted)) <span class="sc">+</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey60"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste</span>(engine, variant), <span class="at">nrow =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Continuous outcome"</span>, <span class="at">x =</span> <span class="st">"True value"</span>, <span class="at">y =</span> <span class="st">"Posterior mean fitted value"</span>) <span class="sc">+</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction_files/figure-html/scatter-plot-continuous-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>examples <span class="sc">%&gt;%</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"binary"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> truth, <span class="at">y =</span> fitted)) <span class="sc">+</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey60"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste</span>(engine, variant), <span class="at">nrow =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_equal</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Binary outcome (probability scale)"</span>, <span class="at">x =</span> <span class="st">"True probability"</span>, <span class="at">y =</span> <span class="st">"Posterior mean fitted probability"</span>) <span class="sc">+</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction_files/figure-html/scatter-plot-binary-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="coverage-nominal-vs.-empirical" class="level3">
+<h3 class="anchored" data-anchor-id="coverage-nominal-vs.-empirical">Coverage: nominal vs.&nbsp;empirical</h3>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine, variant, n) <span class="sc">%&gt;%</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">coverage95 =</span> <span class="fu">mean</span>(coverage95), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">paste</span>(engine, variant), <span class="at">y =</span> coverage95, <span class="at">colour =</span> <span class="fu">factor</span>(n))) <span class="sc">+</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fl">0.95</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">colour =</span> <span class="st">"grey50"</span>) <span class="sc">+</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.4</span>), <span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>outcome) <span class="sc">+</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">"Empirical 95% interval coverage"</span>, <span class="at">colour =</span> <span class="st">"n"</span>) <span class="sc">+</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction_files/figure-html/coverage-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cross-engine-agreement-baseline-rows" class="level3">
+<h3 class="anchored" data-anchor-id="cross-engine-agreement-baseline-rows">Cross-engine agreement (baseline rows)</h3>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>agreement <span class="sc">%&gt;%</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine_a, engine_b) <span class="sc">%&gt;%</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mean_correlation =</span> <span class="fu">mean</span>(correlation), <span class="at">mean_rmse =</span> <span class="fu">mean</span>(rmse), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 20%">
+<col style="width: 23%">
+<col style="width: 25%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">outcome</th>
+<th style="text-align: left;">engine_a</th>
+<th style="text-align: left;">engine_b</th>
+<th style="text-align: right;">mean_correlation</th>
+<th style="text-align: right;">mean_rmse</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">binary</td>
+<td style="text-align: left;">BART::pbart</td>
+<td style="text-align: left;">dbarts::bart2</td>
+<td style="text-align: right;">0.999</td>
+<td style="text-align: right;">0.014</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">binary</td>
+<td style="text-align: left;">BART::pbart</td>
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: right;">0.998</td>
+<td style="text-align: right;">0.016</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">binary</td>
+<td style="text-align: left;">dbarts::bart2</td>
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: right;">0.998</td>
+<td style="text-align: right;">0.016</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">continuous</td>
+<td style="text-align: left;">BART::wbart</td>
+<td style="text-align: left;">dbarts::bart2</td>
+<td style="text-align: right;">0.999</td>
+<td style="text-align: right;">0.243</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">continuous</td>
+<td style="text-align: left;">BART::wbart</td>
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: right;">0.998</td>
+<td style="text-align: right;">0.272</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">continuous</td>
+<td style="text-align: left;">dbarts::bart2</td>
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: right;">0.998</td>
+<td style="text-align: right;">0.254</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>agreement <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine_a, engine_b) <span class="sc">%&gt;%</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mean_correlation =</span> <span class="fu">mean</span>(correlation), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> engine_a, <span class="at">y =</span> engine_b, <span class="at">fill =</span> mean_correlation)) <span class="sc">+</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>() <span class="sc">+</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label =</span> <span class="fu">sprintf</span>(<span class="st">"%.2f"</span>, mean_correlation)), <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>outcome) <span class="sc">+</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_distiller</span>(<span class="at">palette =</span> <span class="st">"RdYlBu"</span>, <span class="at">direction =</span> <span class="dv">1</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">fill =</span> <span class="st">"correlation"</span>) <span class="sc">+</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction_files/figure-html/agreement-heatmap-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="runtime" class="level3">
+<h3 class="anchored" data-anchor-id="runtime">Runtime</h3>
+<p>The box plot below shows the full per-replication fit-time distribution on a log scale.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">paste</span>(engine, variant), <span class="at">y =</span> fit_time_sec, <span class="at">colour =</span> <span class="fu">factor</span>(n))) <span class="sc">+</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>outcome) <span class="sc">+</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_log10</span>() <span class="sc">+</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">"Fit time (s, log scale)"</span>, <span class="at">colour =</span> <span class="st">"n"</span>) <span class="sc">+</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction_files/figure-html/runtime-boxplot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="flags" class="level3">
+<h3 class="anchored" data-anchor-id="flags">Flags</h3>
+<p>This table lists rows whose RMSE is a statistical outlier (|z| &gt; 2) within its own DGP setting. A flagged row is worth a closer look, but is not necessarily a bug - see <code>flag_outliers()</code> in <code>R/metrics.R</code> for an important caveat about how unreliable z-scores can be within a small group.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>flagged <span class="ot">&lt;-</span> res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, n, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">rmse =</span> <span class="fu">mean</span>(rmse), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flag_outliers</span>(<span class="st">"rmse"</span>, <span class="fu">c</span>(<span class="st">"outcome"</span>, <span class="st">"n"</span>))</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">nrow</span>(flagged) <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">"No rows flagged.</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(flagged, <span class="at">digits =</span> <span class="dv">3</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">outcome</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: left;">engine</th>
+<th style="text-align: left;">variant</th>
+<th style="text-align: right;">rmse</th>
+<th style="text-align: right;">.z</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">binary</td>
+<td style="text-align: right;">1000</td>
+<td style="text-align: left;">dbarts::bart2</td>
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.106</td>
+<td style="text-align: right;">-2.303</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">continuous</td>
+<td style="text-align: right;">250</td>
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.912</td>
+<td style="text-align: right;">2.119</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+</section>
+<section id="equivalent-direct-calls" class="level2">
+<h2 class="anchored" data-anchor-id="equivalent-direct-calls">Equivalent direct calls</h2>
+<p>The back-end of this document uses a <code>do.call(engine_fn, c(list(...), hp_to_*(hp)))</code> layer (see <code>R/fit-engines-prediction.R</code>), so that the hyperparameters can be called from a single location (see <code>R/hyperparams.R</code>).</p>
+<p>The below block below gives the equivalent direct call for each engine, followed by a check (click to expand) that builds the same call from the <code>hp</code> object to verify it against what <code>do.call()</code> actually constructs.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>n_demo <span class="ot">&lt;-</span> <span class="dv">300</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>X_demo <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">matrix</span>(<span class="fu">runif</span>(n_demo <span class="sc">*</span> <span class="dv">10</span>), <span class="at">ncol =</span> <span class="dv">10</span>))</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(X_demo) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"x"</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>y_demo <span class="ot">&lt;-</span> <span class="fu">friedman_f</span>(X_demo) <span class="sc">+</span> <span class="fu">rnorm</span>(n_demo)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>y_demo_bin <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n_demo, <span class="dv">1</span>, <span class="fl">0.5</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>check_equivalent <span class="ot">&lt;-</span> <span class="cf">function</span>(label, user_call_args, operative_args) {</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  ok <span class="ot">&lt;-</span> <span class="fu">identical</span>(user_call_args[<span class="fu">order</span>(<span class="fu">names</span>(user_call_args))], operative_args[<span class="fu">order</span>(<span class="fu">names</span>(operative_args))])</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>ok) {</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">"%-28s DOES NOT MATCH - doc is out of date</span><span class="sc">\n</span><span class="st">"</span>, label))</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">invisible</span>(ok)</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="bartwbart-continuous" class="level3">
+<h3 class="anchored" data-anchor-id="bartwbart-continuous"><code>BART::wbart</code> (continuous)</h3>
+<section id="baseline" class="level4">
+<h4 class="anchored" data-anchor-id="baseline"><code>baseline</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># BART::wbart(...)</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">x.train =</span> X_demo, <span class="at">y.train =</span> y_demo,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">ntree =</span> hp<span class="sc">$</span>n_trees, <span class="at">k =</span> hp<span class="sc">$</span>k, <span class="at">power =</span> hp<span class="sc">$</span>beta, <span class="at">base =</span> hp<span class="sc">$</span>alpha,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigdf =</span> hp<span class="sc">$</span>sigdf, <span class="at">sigquant =</span> hp<span class="sc">$</span>sigquant,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">nskip =</span> hp<span class="sc">$</span>burn, <span class="at">ndpost =</span> hp<span class="sc">$</span>draws, <span class="at">printevery =</span> <span class="dv">10000</span>L</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">x.train =</span> X_demo, <span class="at">y.train =</span> y_demo, <span class="at">printevery =</span> <span class="dv">10000</span>L), <span class="fu">hp_to_wbart</span>(hp))</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"BART::wbart"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="default" class="level4">
+<h4 class="anchored" data-anchor-id="default"><code>default</code></h4>
+<p>Not run, <code>BART::wbart</code>’s own defaults are already identical to <code>baseline</code>.</p>
+</section>
+</section>
+<section id="bartpbart-binary" class="level3">
+<h3 class="anchored" data-anchor-id="bartpbart-binary"><code>BART::pbart</code> (binary)</h3>
+<section id="baseline-1" class="level4">
+<h4 class="anchored" data-anchor-id="baseline-1"><code>baseline</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># BART::pbart(...)</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">x.train =</span> X_demo, <span class="at">y.train =</span> <span class="fu">as.integer</span>(y_demo_bin),</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">ntree =</span> hp<span class="sc">$</span>n_trees, <span class="at">k =</span> hp<span class="sc">$</span>k, <span class="at">power =</span> hp<span class="sc">$</span>beta, <span class="at">base =</span> hp<span class="sc">$</span>alpha,</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">nskip =</span> hp<span class="sc">$</span>burn, <span class="at">ndpost =</span> hp<span class="sc">$</span>draws, <span class="at">printevery =</span> <span class="dv">10000</span>L</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">x.train =</span> X_demo, <span class="at">y.train =</span> <span class="fu">as.integer</span>(y_demo_bin), <span class="at">printevery =</span> <span class="dv">10000</span>L), <span class="fu">hp_to_pbart</span>(hp))</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"BART::pbart"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="default-1" class="level4">
+<h4 class="anchored" data-anchor-id="default-1"><code>default</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># BART::pbart(...)</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">x.train =</span> X_demo, <span class="at">y.train =</span> <span class="fu">as.integer</span>(y_demo_bin),</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">ntree =</span> <span class="dv">50</span>L,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">nskip =</span> hp<span class="sc">$</span>burn, <span class="at">ndpost =</span> hp<span class="sc">$</span>draws, <span class="at">printevery =</span> <span class="dv">10000</span>L</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">x.train =</span> X_demo, <span class="at">y.train =</span> <span class="fu">as.integer</span>(y_demo_bin), <span class="at">printevery =</span> <span class="dv">10000</span>L), <span class="fu">hp_to_pbart_default</span>(hp))</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"BART::pbart (default)"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+</section>
+<section id="dbartsbart2-continuousbinary" class="level3">
+<h3 class="anchored" data-anchor-id="dbartsbart2-continuousbinary"><code>dbarts::bart2</code> (continuous/binary)</h3>
+<p><code>bart2()</code> detects binary data for probit model automatically.</p>
+<section id="baseline-2" class="level4">
+<h4 class="anchored" data-anchor-id="baseline-2"><code>baseline</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>dat_demo <span class="ot">&lt;-</span> <span class="fu">cbind</span>(X_demo, <span class="fu">data.frame</span>(<span class="at">.y =</span> y_demo))</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="co"># dbarts::bart2(...)</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> .y <span class="sc">~</span> ., <span class="at">data =</span> dat_demo,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.trees =</span> hp<span class="sc">$</span>n_trees, <span class="at">k =</span> hp<span class="sc">$</span>k, <span class="at">power =</span> hp<span class="sc">$</span>beta, <span class="at">base =</span> hp<span class="sc">$</span>alpha,</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">sigdf =</span> hp<span class="sc">$</span>sigdf, <span class="at">sigquant =</span> hp<span class="sc">$</span>sigquant,</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.burn =</span> hp<span class="sc">$</span>burn, <span class="at">n.samples =</span> hp<span class="sc">$</span>draws, <span class="at">n.chains =</span> hp<span class="sc">$</span>chains, <span class="at">keepTrees =</span> <span class="cn">TRUE</span></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">formula =</span> .y <span class="sc">~</span> ., <span class="at">data =</span> dat_demo), <span class="fu">hp_to_dbarts</span>(hp))</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"dbarts::bart2"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="default-2" class="level4">
+<h4 class="anchored" data-anchor-id="default-2"><code>default</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dbarts::bart2(...)</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">formula =</span> .y <span class="sc">~</span> ., <span class="at">data =</span> dat_demo,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.trees =</span> <span class="dv">75</span>L, <span class="at">k =</span> <span class="cn">NULL</span>,</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">n.burn =</span> hp<span class="sc">$</span>burn, <span class="at">n.samples =</span> hp<span class="sc">$</span>draws, <span class="at">n.chains =</span> hp<span class="sc">$</span>chains, <span class="at">keepTrees =</span> <span class="cn">TRUE</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">formula =</span> .y <span class="sc">~</span> ., <span class="at">data =</span> dat_demo), <span class="fu">hp_to_dbarts_default</span>(hp))</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"dbarts::bart2 (default)"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+</section>
+<section id="stochtreebart-continuous" class="level3">
+<h3 class="anchored" data-anchor-id="stochtreebart-continuous"><code>stochtree::bart</code> (continuous)</h3>
+<section id="baseline-3" class="level4">
+<h4 class="anchored" data-anchor-id="baseline-3"><code>baseline</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>sigma2_prior_demo <span class="ot">&lt;-</span> <span class="fu">hp_to_stochtree_sigma2_prior</span>(hp, X_demo, y_demo)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="co"># stochtree::bart(...)</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> y_demo,</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">num_gfr =</span> <span class="dv">0</span>, <span class="at">num_burnin =</span> hp<span class="sc">$</span>burn, <span class="at">num_mcmc =</span> hp<span class="sc">$</span>draws,</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">general_params =</span> sigma2_prior_demo,</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_forest_params =</span> <span class="fu">list</span>(</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">num_trees =</span> hp<span class="sc">$</span>n_trees, <span class="at">alpha =</span> hp<span class="sc">$</span>alpha, <span class="at">beta =</span> hp<span class="sc">$</span>beta,</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">sigma2_leaf_init =</span> <span class="fu">hp_to_stochtree_leaf_var</span>(hp, <span class="at">y =</span> y_demo, <span class="at">outcome =</span> <span class="st">"continuous"</span>),</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">sample_sigma2_leaf =</span> <span class="cn">FALSE</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> y_demo), <span class="fu">hp_to_stochtree_bart</span>(hp, <span class="at">X =</span> X_demo, <span class="at">y =</span> y_demo, <span class="at">outcome =</span> <span class="st">"continuous"</span>, <span class="at">num_gfr =</span> <span class="dv">0</span>))</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"stochtree::bart (continuous)"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="default-3" class="level4">
+<h4 class="anchored" data-anchor-id="default-3"><code>default</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stochtree::bart(...)</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> y_demo,</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">num_gfr =</span> <span class="dv">0</span>, <span class="at">num_burnin =</span> hp<span class="sc">$</span>burn, <span class="at">num_mcmc =</span> hp<span class="sc">$</span>draws,</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">general_params =</span> <span class="fu">list</span>(),</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_forest_params =</span> <span class="fu">list</span>()</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> y_demo), <span class="fu">hp_to_stochtree_bart_default</span>(hp, <span class="at">outcome =</span> <span class="st">"continuous"</span>))</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"stochtree::bart (default, continuous)"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+</section>
+<section id="stochtreebart-binary" class="level3">
+<h3 class="anchored" data-anchor-id="stochtreebart-binary"><code>stochtree::bart</code> (binary)</h3>
+<section id="baseline-4" class="level4">
+<h4 class="anchored" data-anchor-id="baseline-4"><code>baseline</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stochtree::bart(...)</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> <span class="fu">as.integer</span>(y_demo_bin),</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">num_gfr =</span> <span class="dv">0</span>, <span class="at">num_burnin =</span> hp<span class="sc">$</span>burn, <span class="at">num_mcmc =</span> hp<span class="sc">$</span>draws,</span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">general_params =</span> <span class="fu">list</span>(<span class="at">outcome_model =</span> stochtree<span class="sc">::</span><span class="fu">OutcomeModel</span>(<span class="at">outcome =</span> <span class="st">"binary"</span>, <span class="at">link =</span> <span class="st">"probit"</span>)),</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_forest_params =</span> <span class="fu">list</span>(</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">num_trees =</span> hp<span class="sc">$</span>n_trees, <span class="at">alpha =</span> hp<span class="sc">$</span>alpha, <span class="at">beta =</span> hp<span class="sc">$</span>beta,</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">sigma2_leaf_init =</span> <span class="fu">hp_to_stochtree_leaf_var</span>(hp, <span class="at">y =</span> y_demo_bin, <span class="at">outcome =</span> <span class="st">"binary"</span>),</span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">sample_sigma2_leaf =</span> <span class="cn">FALSE</span></span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> <span class="fu">as.integer</span>(y_demo_bin)), <span class="fu">hp_to_stochtree_bart</span>(hp, <span class="at">X =</span> X_demo, <span class="at">y =</span> y_demo_bin, <span class="at">outcome =</span> <span class="st">"binary"</span>, <span class="at">num_gfr =</span> <span class="dv">0</span>))</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"stochtree::bart (binary)"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="default-4" class="level4">
+<h4 class="anchored" data-anchor-id="default-4"><code>default</code></h4>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># stochtree::bart(...)</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>user_call <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> <span class="fu">as.integer</span>(y_demo_bin),</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">num_gfr =</span> <span class="dv">0</span>, <span class="at">num_burnin =</span> hp<span class="sc">$</span>burn, <span class="at">num_mcmc =</span> hp<span class="sc">$</span>draws,</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">general_params =</span> <span class="fu">list</span>(<span class="at">outcome_model =</span> stochtree<span class="sc">::</span><span class="fu">OutcomeModel</span>(<span class="at">outcome =</span> <span class="st">"binary"</span>, <span class="at">link =</span> <span class="st">"probit"</span>)),</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">mean_forest_params =</span> <span class="fu">list</span>()</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>operative <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">list</span>(<span class="at">X_train =</span> X_demo, <span class="at">y_train =</span> <span class="fu">as.integer</span>(y_demo_bin)), <span class="fu">hp_to_stochtree_bart_default</span>(hp, <span class="at">outcome =</span> <span class="st">"binary"</span>))</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">check_equivalent</span>(<span class="st">"stochtree::bart (default, binary)"</span>, user_call, operative)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+</section>
+</section>
+<section id="session-info" class="level2">
+<h2 class="anchored" data-anchor-id="session-info">Session info</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>sessioninfo<span class="sc">::</span><span class="fu">session_info</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>─ Session info ───────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.6.1 (2026-06-24)
+ os       macOS Tahoe 26.5.2
+ system   aarch64, darwin23
+ ui       X11
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       Australia/Adelaide
+ date     2026-08-24
+ pandoc   3.8.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.9.38 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ───────────────────────────────────────────────────────────────────
+ package        * version    date (UTC) lib source
+ abind            1.4-8      2024-09-12 [1] CRAN (R 4.6.0)
+ arrayhelpers     1.1-1      2026-07-05 [1] CRAN (R 4.6.1)
+ backports        1.5.1      2026-04-03 [1] CRAN (R 4.6.0)
+ BART           * 2.9.10     2026-01-24 [1] CRAN (R 4.6.0)
+ checkmate        2.3.4      2026-02-03 [1] CRAN (R 4.6.0)
+ cli              3.6.6      2026-04-09 [1] CRAN (R 4.6.0)
+ coda             0.19-4.1   2024-01-31 [1] CRAN (R 4.6.0)
+ dbarts         * 0.9-33     2026-03-20 [1] CRAN (R 4.6.0)
+ digest           0.6.39     2025-11-19 [1] CRAN (R 4.6.0)
+ distributional   0.8.1      2026-06-27 [1] CRAN (R 4.6.1)
+ dplyr          * 1.2.1      2026-04-03 [1] CRAN (R 4.6.0)
+ evaluate         1.0.5      2025-08-27 [1] CRAN (R 4.6.0)
+ farver           2.1.2      2024-05-13 [1] CRAN (R 4.6.0)
+ fastmap          1.2.0      2024-05-15 [1] CRAN (R 4.6.0)
+ generics         0.1.4      2025-05-09 [1] CRAN (R 4.6.0)
+ ggdist           3.3.3      2025-04-23 [1] CRAN (R 4.6.0)
+ ggplot2        * 4.0.3      2026-04-22 [1] CRAN (R 4.6.0)
+ glue             1.8.1      2026-04-17 [1] CRAN (R 4.6.0)
+ gtable           0.3.6      2024-10-25 [1] CRAN (R 4.6.0)
+ htmltools        0.5.9      2025-12-04 [1] CRAN (R 4.6.0)
+ htmlwidgets      1.6.4      2023-12-06 [1] CRAN (R 4.6.0)
+ jsonlite         2.0.0      2025-03-27 [1] CRAN (R 4.6.0)
+ kableExtra       1.4.1      2026-07-08 [1] CRAN (R 4.6.1)
+ knitr            1.51       2025-12-20 [1] CRAN (R 4.6.0)
+ labeling         0.4.3      2023-08-29 [1] CRAN (R 4.6.0)
+ lattice          0.22-9     2026-02-09 [1] CRAN (R 4.6.1)
+ lifecycle        1.0.5      2026-01-08 [1] CRAN (R 4.6.0)
+ magrittr         2.0.5      2026-04-04 [1] CRAN (R 4.6.0)
+ Matrix           1.7-5      2026-03-21 [1] CRAN (R 4.6.1)
+ nlme           * 3.1-169    2026-03-27 [1] CRAN (R 4.6.1)
+ otel             0.2.0      2025-08-29 [1] CRAN (R 4.6.0)
+ pillar           1.11.1     2025-09-17 [1] CRAN (R 4.6.0)
+ pkgconfig        2.0.3      2019-09-22 [1] CRAN (R 4.6.0)
+ posterior        1.7.0      2026-04-01 [1] CRAN (R 4.6.0)
+ purrr            1.2.2      2026-04-10 [1] CRAN (R 4.6.0)
+ R6               2.6.1      2025-02-15 [1] CRAN (R 4.6.0)
+ RColorBrewer     1.1-3      2022-04-03 [1] CRAN (R 4.6.0)
+ Rcpp             1.1.2      2026-07-05 [1] CRAN (R 4.6.1)
+ rlang            1.3.0      2026-07-05 [1] CRAN (R 4.6.1)
+ rmarkdown        2.31       2026-03-26 [1] CRAN (R 4.6.0)
+ rstudioapi       0.19.0     2026-06-11 [1] CRAN (R 4.6.0)
+ S7               0.2.2      2026-04-22 [1] CRAN (R 4.6.0)
+ scales           1.4.0      2025-04-24 [1] CRAN (R 4.6.0)
+ sessioninfo      1.2.4      2026-06-04 [1] CRAN (R 4.6.0)
+ stochtree      * 0.4.5      2026-06-30 [1] CRAN (R 4.6.1)
+ stringi          1.8.7      2025-03-27 [1] CRAN (R 4.6.0)
+ stringr          1.6.0      2025-11-04 [1] CRAN (R 4.6.0)
+ survival       * 3.8-6      2026-01-16 [1] CRAN (R 4.6.1)
+ svglite          2.2.2      2025-10-21 [1] CRAN (R 4.6.0)
+ svUnit           1.0.8      2025-08-26 [1] CRAN (R 4.6.0)
+ systemfonts      1.3.2      2026-03-05 [1] CRAN (R 4.6.0)
+ tensorA          0.36.2.1   2023-12-13 [1] CRAN (R 4.6.0)
+ textshaping      1.0.5      2026-03-06 [1] CRAN (R 4.6.0)
+ tibble           3.3.1      2026-01-11 [1] CRAN (R 4.6.0)
+ tidybayes      * 3.0.7      2024-09-15 [1] CRAN (R 4.6.0)
+ tidyr          * 1.3.2      2025-12-19 [1] CRAN (R 4.6.0)
+ tidyselect       1.2.1      2024-03-11 [1] CRAN (R 4.6.0)
+ tidytreatment  * 0.3.2.9000 2026-08-17 [1] local
+ vctrs            0.7.3      2026-04-11 [1] CRAN (R 4.6.0)
+ viridisLite      0.4.3      2026-02-04 [1] CRAN (R 4.6.0)
+ withr            3.0.3      2026-06-19 [1] CRAN (R 4.6.0)
+ xfun             0.60       2026-07-09 [1] CRAN (R 4.6.1)
+ xml2             1.6.0      2026-06-22 [1] CRAN (R 4.6.1)
+ yaml             2.3.12     2025-12-10 [1] CRAN (R 4.6.0)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.6/Resources/library
+ * ── Packages attached to the search path.
+
+──────────────────────────────────────────────────────────────────────────────</code></pre>
+</div>
+</div>
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-friedman1991multivariate" class="csl-entry" role="listitem">
+Friedman, Jerome H. 1991. <span>“Multivariate Adaptive Regression Splines.”</span> <em>The Annals of Statistics</em> 19 (1): 1–67.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>This may be referred to as a “scaled inverse-chi-squared<span class="math inline">(\nu, \lambda)</span>”, here we match <code>stochtree</code>’s arguments names <code>shape</code>/<code>scale</code>, which is in terms of an inverse-gamma<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

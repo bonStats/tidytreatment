@@ -6,6 +6,7 @@ format:
     toc: true
     code-fold: true
     html-math-method: katex
+bibliography: refs.bib
 params:
   fast_mode: false      # quick non-informative render to check for errors
   n_values: [250, 1000]
@@ -37,7 +38,7 @@ source("R/run-benchmark-prediction.R")
 
 This document compares predictions from several Bayesian Additive Regression Tree  (BART) packages in R. Specific "engines" from each of these packages are consider over binary and real valued response data. Each engine has some different parameter settings. The packages considered are
 
-- `BART` with `wbart`/`pbart` for real/binary-valuedresponses
+- `BART` with `wbart`/`pbart` for real/binary-valued responses
 - `dbarts` with `bart2` (equivalent to `bart` with a different API)
 - `stochtree` with `bart`
 
@@ -45,15 +46,11 @@ A `baseline` engine is implemented for the above methods which attempts to match
 
 When the `baseline` differs significantly from the `default` settings of the method, we also test a `default` engine.
 
-For `stochtree` we also run a `baseline+gfr` engine where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance resampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect - see Package-default hyperprior variants below.
+For `stochtree` we also run a `baseline+gfr` engine where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance sampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect - see Package-default hyperprior variants below.
 
 Two packages supported by `tidytreatment` that are not becnhmarked here are `stan4bart` and `bartCause`. Random effects are tested in an alternative benchmark, `benchmark-prediction-rfx.qmd`, where `stan4bart` does appear, it is specifically designed for this setting. Whilst, `bartCause` is for causal inference and estimating treatment effects which is also tested in a different benchmark, `benchmark-causal.qmd`. Neither package has a vanilla-prediction-only mode anyway.
 
-The data-generating process is Friedman's function (Friedman 1991), the
-field-standard benchmark for BART methods, used here in both a continuous
-and a probit-transformed binary version. See `R/dgp.R` for the exact
-definitions, and for how "true probability" is defined for the binary
-variant.
+The data-generating process is Friedman's function [@friedman1991multivariate], the field-standard benchmark for BART methods, used here in both a continuous and a probit-transformed binary version. See `R/dgp.R` for the exact definitions, and for how "true probability" is defined for the binary variant.
 
 ## Hyperparameters
 
