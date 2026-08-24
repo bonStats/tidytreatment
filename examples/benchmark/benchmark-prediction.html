@@ -228,7 +228,7 @@ window.Quarto = {
 <li><code>dbarts</code> with <code>bart2</code> (equivalent to <code>bart</code> with a different API)</li>
 <li><code>stochtree</code> with <code>bart</code></li>
 </ul>
-<p>A <code>baseline</code> engine is implemented for the above methods which attempts to match hyper-prior specification across the methods, for a fair comparison.</p>
+<p>A <code>baseline</code> engine is implemented for the above methods which attempts to match hyperprior specification across the methods, for a fair comparison.</p>
 <p>When the <code>baseline</code> differs significantly from the <code>default</code> settings of the method, we also test a <code>default</code> engine.</p>
 <p>For <code>stochtree</code> we also run a <code>baseline+gfr</code> engine where <code>stochtree</code>’s own warm-start default turned back on (we turn it off for the <code>baseline</code> because the other methods don’t have this). Similarly, <code>baseline+leaf_var</code> turns leaf-variance sampling back on (<code>sample_sigma2_leaf = TRUE</code>) with everything else left at <code>baseline</code>, isolating just that one setting’s effect - see Package-default hyperprior variants below.</p>
 <p>Two packages supported by <code>tidytreatment</code> that are not becnhmarked here are <code>stan4bart</code> and <code>bartCause</code>. Random effects are tested in an alternative benchmark, <code>benchmark-prediction-rfx.qmd</code>, where <code>stan4bart</code> does appear, it is specifically designed for this setting. Whilst, <code>bartCause</code> is for causal inference and estimating treatment effects which is also tested in a different benchmark, <code>benchmark-causal.qmd</code>. Neither package has a vanilla-prediction-only mode anyway.</p>
@@ -293,7 +293,7 @@ window.Quarto = {
 </table>
 </div>
 </div>
-<p>For the <code>baseline</code> models, most of the hyper-prior parameter specification is trivial to match across engines. However, some hyper-priors are chosen based on the data itself (more or less an empirical Bayes decision).</p>
+<p>For the <code>baseline</code> models, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).</p>
 <section id="tree-structure-prior" class="level3">
 <h3 class="anchored" data-anchor-id="tree-structure-prior">Tree-structure prior</h3>
 <p>Naming conventions for the prior on trees differ across packages: <code>alpha</code> = <code>base</code> and <code>beta</code>=<code>power</code>.</p>

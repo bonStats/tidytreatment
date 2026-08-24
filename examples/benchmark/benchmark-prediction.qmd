@@ -42,7 +42,7 @@ This document compares predictions from several Bayesian Additive Regression Tre
 - `dbarts` with `bart2` (equivalent to `bart` with a different API)
 - `stochtree` with `bart`
 
-A `baseline` engine is implemented for the above methods which attempts to match hyper-prior specification across the methods, for a fair comparison.
+A `baseline` engine is implemented for the above methods which attempts to match hyperprior specification across the methods, for a fair comparison.
 
 When the `baseline` differs significantly from the `default` settings of the method, we also test a `default` engine.
 
@@ -69,7 +69,7 @@ names(hp_display) <- sprintf("`%s`", names(hp))
 knitr::kable(t(hp_display), align = "c", row.names = FALSE)
 ```
 
-For the `baseline` models, most of the hyper-prior parameter specification is trivial to match across engines. However, some hyper-priors are chosen based on the data itself (more or less an empirical Bayes decision).
+For the `baseline` models, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).
 
 ### Tree-structure prior
 
