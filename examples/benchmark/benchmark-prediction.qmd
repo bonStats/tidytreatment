@@ -46,7 +46,7 @@ A `baseline` engine is implemented for the above methods which attempts to match
 
 When the `baseline` differs significantly from the `default` settings of the method, we also test a `default` engine.
 
-For `stochtree` we also run a `baseline+gfr` engine where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance sampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect - see Package-default hyperprior variants below.
+For `stochtree` we also run a `baseline+gfr` engine where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance sampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect (see @sec-defaults).
 
 Two packages supported by `tidytreatment` that are not becnhmarked here are `stan4bart` and `bartCause`. Random effects are tested in an alternative benchmark, `benchmark-prediction-rfx.qmd`, where `stan4bart` does appear, it is specifically designed for this setting. Whilst, `bartCause` is for causal inference and estimating treatment effects which is also tested in a different benchmark, `benchmark-causal.qmd`. Neither package has a vanilla-prediction-only mode anyway.
 
@@ -76,15 +76,11 @@ For the `baseline` models, most of the hyperprior parameter specification is tri
 Naming conventions for the prior on trees differ across packages: `alpha` = `base` and `beta`=`power`.
 
 These control the prior probability that a node at depth $d$ splits further: $$P(\text{split at depth } d) = \alpha (1+d)^{-\beta}.$$
-These are constants, passed unchanged to whichever argument name each
-package uses.
+These are constants, passed unchanged to whichever argument name each package uses.
 
 ### Leaf-shrinkage prior
 
-Each leaf's contribution gets a $N(0, \tau^2)$
-prior, with $\tau$ set from `k` (the number of prior standard deviations a
-leaf is expected to sit from the boundary of $y$'s range) and the number of
-trees:
+Each leaf's contribution gets a $N(0, \tau^2)$ prior, with $\tau$ set from `k` (the number of prior standard deviations a leaf is expected to sit from the boundary of $y$'s range) and the number of trees:
 
 $$
 \tau = \begin{cases}
@@ -108,10 +104,7 @@ The residual variance $\sigma^2$ has an inverse-gamma prior,
 $$\sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta),$$
 with shape $\alpha = \nu / 2$ set from $\nu =$ `sigdf` degrees of freedom^[This may be referred to as a "scaled inverse-chi-squared$(\nu, \lambda)$", here we match `stochtree`'s arguments names `shape`/`scale`, which is in terms of an inverse-gamma].
 
-In the `baseline` engines, we follow the precedent of `BART`. An
-intermediate quantity $\lambda$ is calibrated from the data so that the
-prior places `sigquant` probability below a rough, data-driven estimate of
-$\sigma$ itself, giving the scale $\beta$:
+In the `baseline` engines, we follow the precedent of `BART`. An intermediate quantity $\lambda$ is calibrated from the data so that the prior places `sigquant` probability below a rough, data-driven estimate of $\sigma$ itself, giving the scale $\beta$:
 
 $$
 \beta = \frac{\nu \lambda}{2}, \qquad
@@ -121,33 +114,26 @@ $$
   \hat\sigma_y & \text{otherwise},
 \end{cases}
 $$
-where $\chi^2_{\nu,\,p}$ is the $p$-quantile of a $\chi^2_\nu$ distribution, where
-$\hat\sigma_\text{LM-MLE}$ is the residual SD of a linear fit regressing the response against the covariates, and where $\hat\sigma_y$ is the standard deviation of the data $y$.
+where $\chi^2_{\nu,\,p}$ is the $p$-quantile of a $\chi^2_\nu$ distribution, where $\hat\sigma_\text{LM-MLE}$ is the residual SD of a linear fit regressing the response against the covariates, and where $\hat\sigma_y$ is the standard deviation of the data $y$.
 
 
 The packages do the following:
 
-- `BART`/`dbarts` compute $\hat\sigma$, $\lambda$, and this inverse-gamma
-prior internally when `sigest` argument is left at its default.
-- `stochtree` has no equivalent default-calibration of its own. It uses an
-improper flat prior on $\sigma^2$ by default (`shape = scale = 0`). Matching
-it means passing `stochtree`'s own `shape`/`scale` arguments directly, on
-its internally-standardized scale:
+- `BART`/`dbarts` compute $\hat\sigma$, $\lambda$, and this inverse-gamma prior internally when `sigest` argument is left at its default.
+- `stochtree` has no equivalent default-calibration of its own. It uses an improper flat prior on $\sigma^2$ by default (`shape = scale = 0`). Matching it means passing `stochtree`'s own `shape`/`scale` arguments directly, on its internally-standardized scale:
 
 $$
 \text{shape} = \alpha = \frac{\nu}{2}, \qquad \text{scale} = \beta_{\text{std}} = \frac{\nu \lambda}{2 \text{var}(y)}.
 $$
 
-## Package-default hyperprior variants
+## Package-default hyperprior variants {#sec-defaults}
 
-The `default` engine uses each package's own out-of-the-box hyperprior settings (tree-structure prior,
-leaf-shrinkage prior, global error-variance prior) instead, while holding everything else constant: burn-in, posterior draws, and number of chains fixed at the same values as `baseline`. Note that 
+The `default` engine uses each package's own out-of-the-box hyperprior settings (tree-structure prior, leaf-shrinkage prior, global error-variance prior) instead, while holding everything else constant: burn-in, posterior draws, and number of chains fixed at the same values as `baseline`. Note that 
 
 - `stochtree`'s warm-start setting is turned off (unlike its default).
 - We rerun `stochtree` with the `baseline` settings _and_ the warm-start under the `baseline+gfr` engine.
 - We rerun `stochtree` with the `baseline` settings _and_ the an unknown leaf variance under the `baseline+leaf_var` engine.
-- `BART::wbart` has no `default` row. The defaults for this engine are already identical
-to this benchmark's `baseline`.
+- `BART::wbart` has no `default` row. The defaults for this engine are already identical to this benchmark's `baseline`.
 
 The following engines' defaults differ from `baseline` as:
 
@@ -180,7 +166,7 @@ res <- cached_run(cache_file, function() {
 
 ### Summary metrics
 
-- `fit_time_sec` is reported as a median. There can be outliers (see Runtime).
+- `fit_time_sec` is reported as a median as there can be outliers (see @sec-runtime).
 
 ```{r summary-table}
 res$metrics %>%
@@ -198,9 +184,7 @@ res$metrics %>%
 
 ### Predicted vs. true
 
-These plots show the first replication for `` n = `r n_for_examples` `` (the
-largest value tested), comparing each engine's posterior mean fitted value
-against the known ground truth.
+These plots show the first replication for `` n = `r n_for_examples` `` (the largest value tested), comparing each engine's posterior mean fitted value against the known ground truth.
 
 ```{r scatter-plot-continuous}
 #| fig-height: 4
@@ -267,10 +251,9 @@ res$agreement %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-### Runtime
+### Runtime {#sec-runtime}
 
-The box plot below shows the full per-replication fit-time distribution on a
-log scale.
+The box plot below shows the full per-replication fit-time distribution on a log scale.
 
 ```{r runtime-boxplot}
 #| fig-height: 5
@@ -286,10 +269,7 @@ res$metrics %>%
 
 ### Flags
 
-This table lists rows whose RMSE is a statistical outlier (|z| > 2) within
-its own DGP setting. A flagged row is worth a closer look, but is not
-necessarily a bug - see `flag_outliers()` in `R/metrics.R` for an important
-caveat about how unreliable z-scores can be within a small group.
+This table lists rows whose RMSE is a statistical outlier (|z| > 2) within its own DGP setting. A flagged row is worth a closer look, but is not necessarily a bug - see `flag_outliers()` in `R/metrics.R` for an important caveat about how unreliable z-scores can be within a small group.
 
 ```{r flags}
 flagged <- res$metrics %>%
@@ -311,7 +291,7 @@ The back-end of this document uses a `do.call(engine_fn, c(list(...), hp_to_*(hp
 The below block below gives the equivalent direct call for each engine, followed by a check (click to expand) that builds the same call from the `hp` object to verify it against what `do.call()` actually constructs.
 
 ```{r equivalent-calls}
-set.seed(1)
+set.seed(params$seed)
 n_demo <- 300
 X_demo <- as.data.frame(matrix(runif(n_demo * 10), ncol = 10))
 colnames(X_demo) <- paste0("x", 1:10)

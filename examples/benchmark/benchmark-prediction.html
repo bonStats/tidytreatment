@@ -155,7 +155,7 @@ window.Quarto = {
   <li><a href="#leaf-shrinkage-prior" id="toc-leaf-shrinkage-prior" class="nav-link" data-scroll-target="#leaf-shrinkage-prior">Leaf-shrinkage prior</a></li>
   <li><a href="#global-error-variance-prior" id="toc-global-error-variance-prior" class="nav-link" data-scroll-target="#global-error-variance-prior">Global error-variance prior</a></li>
   </ul></li>
-  <li><a href="#package-default-hyperprior-variants" id="toc-package-default-hyperprior-variants" class="nav-link" data-scroll-target="#package-default-hyperprior-variants">Package-default hyperprior variants</a></li>
+  <li><a href="#sec-defaults" id="toc-sec-defaults" class="nav-link" data-scroll-target="#sec-defaults">Package-default hyperprior variants</a></li>
   <li><a href="#run" id="toc-run" class="nav-link" data-scroll-target="#run">Run</a></li>
   <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a>
   <ul class="collapse">
@@ -163,7 +163,7 @@ window.Quarto = {
   <li><a href="#predicted-vs.-true" id="toc-predicted-vs.-true" class="nav-link" data-scroll-target="#predicted-vs.-true">Predicted vs.&nbsp;true</a></li>
   <li><a href="#coverage-nominal-vs.-empirical" id="toc-coverage-nominal-vs.-empirical" class="nav-link" data-scroll-target="#coverage-nominal-vs.-empirical">Coverage: nominal vs.&nbsp;empirical</a></li>
   <li><a href="#cross-engine-agreement-baseline-rows" id="toc-cross-engine-agreement-baseline-rows" class="nav-link" data-scroll-target="#cross-engine-agreement-baseline-rows">Cross-engine agreement (baseline rows)</a></li>
-  <li><a href="#runtime" id="toc-runtime" class="nav-link" data-scroll-target="#runtime">Runtime</a></li>
+  <li><a href="#sec-runtime" id="toc-sec-runtime" class="nav-link" data-scroll-target="#sec-runtime">Runtime</a></li>
   <li><a href="#flags" id="toc-flags" class="nav-link" data-scroll-target="#flags">Flags</a></li>
   </ul></li>
   <li><a href="#equivalent-direct-calls" id="toc-equivalent-direct-calls" class="nav-link" data-scroll-target="#equivalent-direct-calls">Equivalent direct calls</a>
@@ -230,7 +230,7 @@ window.Quarto = {
 </ul>
 <p>A <code>baseline</code> engine is implemented for the above methods which attempts to match hyperprior specification across the methods, for a fair comparison.</p>
 <p>When the <code>baseline</code> differs significantly from the <code>default</code> settings of the method, we also test a <code>default</code> engine.</p>
-<p>For <code>stochtree</code> we also run a <code>baseline+gfr</code> engine where <code>stochtree</code>’s own warm-start default turned back on (we turn it off for the <code>baseline</code> because the other methods don’t have this). Similarly, <code>baseline+leaf_var</code> turns leaf-variance sampling back on (<code>sample_sigma2_leaf = TRUE</code>) with everything else left at <code>baseline</code>, isolating just that one setting’s effect - see Package-default hyperprior variants below.</p>
+<p>For <code>stochtree</code> we also run a <code>baseline+gfr</code> engine where <code>stochtree</code>’s own warm-start default turned back on (we turn it off for the <code>baseline</code> because the other methods don’t have this). Similarly, <code>baseline+leaf_var</code> turns leaf-variance sampling back on (<code>sample_sigma2_leaf = TRUE</code>) with everything else left at <code>baseline</code>, isolating just that one setting’s effect (see <a href="#sec-defaults" class="quarto-xref">Section&nbsp;3</a>).</p>
 <p>Two packages supported by <code>tidytreatment</code> that are not becnhmarked here are <code>stan4bart</code> and <code>bartCause</code>. Random effects are tested in an alternative benchmark, <code>benchmark-prediction-rfx.qmd</code>, where <code>stan4bart</code> does appear, it is specifically designed for this setting. Whilst, <code>bartCause</code> is for causal inference and estimating treatment effects which is also tested in a different benchmark, <code>benchmark-causal.qmd</code>. Neither package has a vanilla-prediction-only mode anyway.</p>
 <p>The data-generating process is Friedman’s function <span class="citation" data-cites="friedman1991multivariate">(<a href="#ref-friedman1991multivariate" role="doc-biblioref">Friedman 1991</a>)</span>, the field-standard benchmark for BART methods, used here in both a continuous and a probit-transformed binary version. See <code>R/dgp.R</code> for the exact definitions, and for how “true probability” is defined for the binary variant.</p>
 </section>
@@ -349,8 +349,8 @@ Note
 </span></p>
 </section>
 </section>
-<section id="package-default-hyperprior-variants" class="level2">
-<h2 class="anchored" data-anchor-id="package-default-hyperprior-variants">Package-default hyperprior variants</h2>
+<section id="sec-defaults" class="level2">
+<h2 class="anchored" data-anchor-id="sec-defaults">Package-default hyperprior variants</h2>
 <p>The <code>default</code> engine uses each package’s own out-of-the-box hyperprior settings (tree-structure prior, leaf-shrinkage prior, global error-variance prior) instead, while holding everything else constant: burn-in, posterior draws, and number of chains fixed at the same values as <code>baseline</code>. Note that</p>
 <ul>
 <li><code>stochtree</code>’s warm-start setting is turned off (unlike its default).</li>
@@ -388,7 +388,7 @@ Note
 <section id="summary-metrics" class="level3">
 <h3 class="anchored" data-anchor-id="summary-metrics">Summary metrics</h3>
 <ul>
-<li><code>fit_time_sec</code> is reported as a median. There can be outliers (see Runtime).</li>
+<li><code>fit_time_sec</code> is reported as a median as there can be outliers (see <a href="#sec-runtime" class="quarto-xref">Section&nbsp;5.5</a>).</li>
 </ul>
 <div class="cell">
 <details class="code-fold">
@@ -853,8 +853,8 @@ Note
 </div>
 </div>
 </section>
-<section id="runtime" class="level3">
-<h3 class="anchored" data-anchor-id="runtime">Runtime</h3>
+<section id="sec-runtime" class="level3">
+<h3 class="anchored" data-anchor-id="sec-runtime">Runtime</h3>
 <p>The box plot below shows the full per-replication fit-time distribution on a log scale.</p>
 <div class="cell">
 <details class="code-fold">
@@ -936,7 +936,7 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(params<span class="sc">$</span>seed)</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>n_demo <span class="ot">&lt;-</span> <span class="dv">300</span></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>X_demo <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">matrix</span>(<span class="fu">runif</span>(n_demo <span class="sc">*</span> <span class="dv">10</span>), <span class="at">ncol =</span> <span class="dv">10</span>))</span>
 <span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(X_demo) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"x"</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span>
