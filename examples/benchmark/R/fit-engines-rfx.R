@@ -1,11 +1,30 @@
 # Random-effects prediction fitting adapters. stan4bart requires a literal
 # formula, not one built via as.formula(paste(...)).
 
-fit_stan4bart_rfx <- function(X, y, group, hp, auto_k = FALSE) {
+fit_stan4bart_rfx <- function(X, y, group, hp, variant = c("baseline", "default"), seed = NA_integer_) {
+  variant <- match.arg(variant)
   .y <- y
   .group <- group
   dat <- cbind(X, data.frame(.y = .y, .group = .group))
-  dbart_args <- hp_to_dbarts(hp, auto_k = auto_k)
+
+  # "default" leaves bart_args/stan_args entirely at stan4bart's own
+  # out-of-the-box settings (tree/leaf priors via dbartsControl/parsePriors'
+  # own defaults, sigma via Stan's default prior_aux) - burn/draws/chains
+  # still come from hp, same MCMC-budget-only principle as the other
+  # engines' "default" rows.
+  #
+  # k comes from hp$k (= 2, baseline_hyperparams()'s default, same as the
+  # vanilla prediction benchmark) unconditionally - no auto_k variant here.
+  # Investigating stan4bart's own auto_k row showed it doesn't do what its
+  # name suggests: no k-related parameter is ever sampled (checked directly
+  # via the Stan parameter names) for either outcome type, unlike plain
+  # dbarts::bart2() where k = NULL is a genuine adaptive chi(1.25, Inf)
+  # hyperprior for a binary outcome. Since it produces no real second
+  # variant here, it's dropped rather than kept as a misleading row name.
+  bart_args <- if (variant == "default") NULL else hp_to_dbarts(hp)
+  # group is passed so sigest is computed net of the group intercepts rather
+  # than absorbing them into the residual (see compute_sigest()).
+  stan_args <- if (variant == "default") NULL else hp_to_stan4bart_sigma_prior(hp, X = X, y = .y, group = .group)
 
   stan4bart::stan4bart(
     .y ~ bart(. - .group) + (1 | .group),
@@ -14,7 +33,9 @@ fit_stan4bart_rfx <- function(X, y, group, hp, auto_k = FALSE) {
     iter = hp$draws + hp$burn,
     warmup = hp$burn,
     chains = hp$chains,
-    bart_args = dbart_args
+    bart_args = bart_args,
+    stan_args = stan_args,
+    seed = seed
   )
 }
 
@@ -23,10 +44,39 @@ fit_stan4bart_rfx <- function(X, y, group, hp, auto_k = FALSE) {
 # to "custom" (which then requires an explicit rfx_basis_train and errors
 # without one) rather than "intercept_only", so this must be requested
 # explicitly.
-fit_stochtree_bart_rfx <- function(X, y, group, hp, outcome = c("continuous", "binary"), num_gfr = 0) {
+fit_stochtree_bart_rfx <- function(X, y, group, hp, outcome = c("continuous", "binary"), num_gfr = 0,
+                                    variant = c("baseline", "default"), thin = 1, burnin_multiplier = 1,
+                                    seed = NULL) {
   outcome <- match.arg(outcome)
-  args <- hp_to_stochtree_bart(hp, X = X, y = y, outcome = outcome, num_gfr = num_gfr)
+  variant <- match.arg(variant)
+  args <- if (variant == "default") {
+    hp_to_stochtree_bart_default(hp, outcome = outcome)
+  } else {
+    hp_to_stochtree_bart(hp, X = X, y = y, outcome = outcome, num_gfr = num_gfr, group = group)
+  }
   args$random_effects_params <- list(model_spec = "intercept_only")
+  # stochtree's own default (general_params$random_seed = -1) seeds its
+  # internal C++ RNG from hardware entropy, not R's own RNG state - set.seed()
+  # around the call has no effect on it. Without this, stochtree fits are not
+  # reproducible run-to-run even at a fixed R seed (confirmed empirically).
+  if (!is.null(seed)) args$general_params$random_seed <- seed
+
+  # For the "+thin" row: investigating the rfx prediction-RMSE gap between
+  # engines found stochtree's chains for sigma^2/sigma_G running at markedly
+  # lower effective sample size than stan4bart's Stan-sampled equivalents,
+  # for the same nominal number of retained draws (see the ESS section of
+  # the results below) - a sampler-mixing difference, not a prior one. This
+  # tests that diagnosis directly: num_mcmc is left at hp$draws (the same
+  # number of *retained* draws, so the comparison stays apples-to-apples on
+  # the final sample size everyone gets to average over), but keep_every
+  # thins the chain, and num_burnin is extended - both raise the number of
+  # raw sweeps run per retained draw, which is what should reduce
+  # autocorrelation if it's a mixing-rate effect. Per stochtree's own docs,
+  # each chain runs num_mcmc * keep_every + num_burnin raw iterations with
+  # num_gfr = 0, so this multiplies stochtree's runtime by roughly `thin`.
+  if (thin != 1) args$general_params$keep_every <- thin
+  if (burnin_multiplier != 1) args$num_burnin <- args$num_burnin * burnin_multiplier
+
   y_train <- if (outcome == "binary") as.integer(y) else y
 
   do.call(stochtree::bart, c(

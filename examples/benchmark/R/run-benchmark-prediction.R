@@ -53,7 +53,7 @@ prediction_rows <- function(outcome = c("continuous", "binary")) {
 # epred_draws() is called with no explicit `scale`: every engine's default
 # resolves to the response scale on its own (continuous -> "linear"/no-op,
 # binary -> "probability"), so no outcome-specific branching is needed here.
-run_benchmark_prediction <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L) {
+run_benchmark_prediction <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L, y_sd = 1) {
   metrics <- list()
   agreement <- list()
   examples <- list()
@@ -75,7 +75,7 @@ run_benchmark_prediction <- function(n_values, B, hp = baseline_hyperparams(), s
         rep_seed <- seed * 1e6 + n * 1e3 + rep
         set.seed(rep_seed)
 
-        dgp <- if (outcome == "continuous") simulate_friedman(n) else simulate_friedman_binary(n)
+        dgp <- if (outcome == "continuous") simulate_friedman(n, y_sd = y_sd) else simulate_friedman_binary(n)
         X <- dplyr::select(dgp$data, dplyr::starts_with("x"))
         y <- dgp$data$y
         truth <- if (outcome == "continuous") dgp$f_true else dgp$prob_true
@@ -108,7 +108,8 @@ run_benchmark_prediction <- function(n_values, B, hp = baseline_hyperparams(), s
             mae = mae(pm, truth),
             coverage95 = coverage(draws, "fit", truth, level = 0.95),
             crps = crps_from_draws(draws, "fit", truth),
-            fit_time_sec = fit_time_sec
+            fit_time_sec = fit_time_sec,
+            fitted_ess = fitted_value_ess(draws, "fit")
           )
 
           if (keep_example) {

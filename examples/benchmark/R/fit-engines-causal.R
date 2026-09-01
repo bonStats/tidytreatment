@@ -22,25 +22,31 @@ fit_bart_twostep <- function(X, y, z, hp, propensity_recipe = c("two_stage", "ps
   list(fit = fit, newdata = newdata, treatment_col = ".z", propensity = diy$propensity, selected_vars = diy$selected_vars)
 }
 
-fit_pbart_twostep <- function(X, y, z, hp, propensity_recipe = c("two_stage", "ps_all")) {
+fit_pbart_twostep <- function(X, y, z, hp, propensity_recipe = c("two_stage", "ps_all"), variant = c("baseline", "default")) {
   propensity_recipe <- match.arg(propensity_recipe)
+  variant <- match.arg(variant)
   diy <- fit_diy_propensity(X, y, z, hp, recipe = propensity_recipe)
 
   newdata <- cbind(X, data.frame(.z = z, .prop = diy$propensity))
-  args <- hp_to_pbart(hp)
+  args <- if (variant == "default") hp_to_pbart_default(hp) else hp_to_pbart(hp)
   fit <- do.call(BART::pbart, c(list(x.train = newdata, y.train = as.integer(y), printevery = 10000L), args))
 
   list(fit = fit, newdata = newdata, treatment_col = ".z", propensity = diy$propensity, selected_vars = diy$selected_vars)
 }
 
 fit_stochtree_bart_twostep <- function(X, y, z, hp, propensity_recipe = c("two_stage", "ps_all"),
-                                        outcome = c("continuous", "binary"), num_gfr = 0) {
+                                        outcome = c("continuous", "binary"), num_gfr = 0, variant = c("baseline", "default")) {
   propensity_recipe <- match.arg(propensity_recipe)
   outcome <- match.arg(outcome)
+  variant <- match.arg(variant)
   diy <- fit_diy_propensity(X, y, z, hp, recipe = propensity_recipe)
 
   newdata <- cbind(X, data.frame(.z = z, .prop = diy$propensity))
-  args <- hp_to_stochtree_bart(hp, X = newdata, y = y, outcome = outcome, num_gfr = num_gfr)
+  args <- if (variant == "default") {
+    hp_to_stochtree_bart_default(hp, outcome = outcome)
+  } else {
+    hp_to_stochtree_bart(hp, X = newdata, y = y, outcome = outcome, num_gfr = num_gfr)
+  }
   y_train <- if (outcome == "binary") as.integer(y) else y
   # X_train must be a data.frame, not a matrix - see fit-engines-prediction.R
   fit <- do.call(stochtree::bart, c(list(X_train = newdata, y_train = y_train), args))
@@ -51,8 +57,9 @@ fit_stochtree_bart_twostep <- function(X, y, z, hp, propensity_recipe = c("two_s
 # propensity_mode: "diy_two_stage" / "diy_ps_all" (method.trt = a precomputed
 # score vector, from fit_diy_propensity()) or "builtin" (method.trt = "bart",
 # bartCause's own internal treatment model).
-fit_bartc <- function(X, y, z, hp, propensity_mode = c("diy_two_stage", "diy_ps_all", "builtin"), auto_k = FALSE) {
+fit_bartc <- function(X, y, z, hp, propensity_mode = c("diy_two_stage", "diy_ps_all", "builtin"), auto_k = FALSE, variant = c("baseline", "default")) {
   propensity_mode <- match.arg(propensity_mode)
+  variant <- match.arg(variant)
   dat <- cbind(X, data.frame(.y = y, .z = z))
   # bartc()'s `confounders` uses NSE - a bare sum expression (x1 + x2 + x3),
   # not a formula object; stats::reformulate() fails inside bartc()'s own terms.formula() call.
@@ -65,8 +72,13 @@ fit_bartc <- function(X, y, z, hp, propensity_mode = c("diy_two_stage", "diy_ps_
     fit_diy_propensity(X, y, z, hp, recipe = recipe)$propensity
   }
 
-  args_rsp <- hp_to_dbarts(hp, auto_k = auto_k)
-  args_trt <- hp_to_dbarts(hp, auto_k = auto_k)
+  # bartc()'s response/treatment models genuinely call dbarts::bart2()
+  # internally (confirmed by tracing getBartResponseFit()'s source, and
+  # empirically - unlike stan4bart, sigest here has a real, substantial
+  # effect), so hp_to_dbarts_default() applies to both exactly as it would
+  # to a bare dbarts::bart2() call.
+  args_rsp <- if (variant == "default") hp_to_dbarts_default(hp) else hp_to_dbarts(hp, auto_k = auto_k)
+  args_trt <- if (variant == "default") hp_to_dbarts_default(hp) else hp_to_dbarts(hp, auto_k = auto_k)
 
   # bartc() breaks under do.call() ("wrong arguments for subsetting an
   # environment", from its NSE handling of `data`) - built via bquote()/eval() instead.
@@ -83,9 +95,11 @@ fit_bartc <- function(X, y, z, hp, propensity_mode = c("diy_two_stage", "diy_ps_
 # precomputed score vector) or "builtin" (propensity_train = NULL, bcf's own
 # internal stochtree::bart()-based propensity estimation).
 fit_bcf <- function(X, y, z, hp, propensity_mode = c("diy_two_stage", "diy_ps_all", "builtin"),
-                     outcome = c("continuous", "binary"), num_gfr = 0, adaptive_coding = FALSE) {
+                     outcome = c("continuous", "binary"), num_gfr = 0, adaptive_coding = FALSE,
+                     variant = c("baseline", "default")) {
   propensity_mode <- match.arg(propensity_mode)
   outcome <- match.arg(outcome)
+  variant <- match.arg(variant)
 
   propensity <- if (propensity_mode == "builtin") {
     NULL
@@ -94,7 +108,11 @@ fit_bcf <- function(X, y, z, hp, propensity_mode = c("diy_two_stage", "diy_ps_al
     fit_diy_propensity(X, y, z, hp, recipe = recipe)$propensity
   }
 
-  args <- hp_to_stochtree_bcf(hp, X = X, y = y, outcome = outcome, num_gfr = num_gfr, adaptive_coding = adaptive_coding)
+  args <- if (variant == "default") {
+    hp_to_stochtree_bcf_default(hp, outcome = outcome)
+  } else {
+    hp_to_stochtree_bcf(hp, X = X, y = y, outcome = outcome, num_gfr = num_gfr, adaptive_coding = adaptive_coding)
+  }
   y_train <- if (outcome == "binary") as.integer(y) else y
 
   # X_train must be a data.frame, not a matrix - see fit-engines-prediction.R

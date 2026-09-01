@@ -25,7 +25,6 @@ library(tidybayes)
 library(BART)
 library(dbarts)
 library(stochtree)
-library(coda)
 
 source("R/cache.R")
 source("R/hyperparams.R")
@@ -38,17 +37,17 @@ source("R/run-benchmark-prediction.R")
 
 ## Scope
 
-This document compares predictions from several Bayesian Additive Regression Tree  (BART) packages in R. Specific engines from each of these packages are considered over binary and real valued response data. Each engine is tested under several variants - different parameter-setting combinations. The packages considered are
+This document compares predictions from several Bayesian Additive Regression Tree  (BART) packages in R. Specific "engines" from each of these packages are consider over binary and real valued response data. Each engine has some different parameter settings. The packages considered are
 
 - `BART` with `wbart`/`pbart` for real/binary-valued responses
 - `dbarts` with `bart2` (equivalent to `bart` with a different API)
 - `stochtree` with `bart`
 
-A `baseline` variant is implemented for the above methods which attempts to match hyperprior specification across the methods, for a fair comparison.
+A `baseline` engine is implemented for the above methods which attempts to match hyperprior specification across the methods, for a fair comparison.
 
-When the `baseline` differs significantly from the `default` settings of the method, we also test a `default` variant.
+When the `baseline` differs significantly from the `default` settings of the method, we also test a `default` engine.
 
-For `stochtree` we also run a `baseline+gfr` variant where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance sampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect (see @sec-defaults).
+For `stochtree` we also run a `baseline+gfr` engine where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance sampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect (see @sec-defaults).
 
 Two packages supported by `tidytreatment` that are not becnhmarked here are `stan4bart` and `bartCause`. Random effects are tested in an alternative benchmark, `benchmark-prediction-rfx.qmd`, where `stan4bart` does appear, it is specifically designed for this setting. Whilst, `bartCause` is for causal inference and estimating treatment effects which is also tested in a different benchmark, `benchmark-causal.qmd`. Neither package has a vanilla-prediction-only mode anyway.
 
@@ -87,7 +86,7 @@ names(hp_display) <- sprintf("`%s`", names(hp))
 knitr::kable(t(hp_display), align = "c", row.names = FALSE)
 ```
 
-For the `baseline` variant, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).
+For the `baseline` models, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).
 
 ### Tree-structure prior
 
@@ -112,8 +111,6 @@ Some differences between packages:
 - `BART`/`dbarts` calculate $\tau$ internally from the user-specified `k` argument. 
 - `stochtree` requires the specification of $\tau$ directly. It also standardizes continuous outcomes internally, so it requires the  $\tau^2$ to be specified on this standardized scale instead --- we calculate the standardisation manually with $\tau^2 / \text{var}(y)$.
 
-More generally, `BART::wbart` and `stochtree` centre the response before fitting for a continuous outcome (`stochtree` also rescales it, per the standardisation above), while `dbarts::bart2` works on the raw scale throughout. Neither centering concept applies to the binary outcome, fit directly on the 0/1 response under a probit link in every package here.
-
 ### Global error-variance prior
 
 :::{.callout-note}
@@ -124,7 +121,7 @@ The residual variance $\sigma^2$ has an inverse-gamma prior,
 $$\sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta),$$
 with shape $\alpha = \nu / 2$ set from $\nu =$ `sigdf` degrees of freedom^[This may be referred to as a "scaled inverse-chi-squared$(\nu, \lambda)$", here we match `stochtree`'s arguments names `shape`/`scale`, which is in terms of an inverse-gamma].
 
-In the `baseline` variant, we follow the precedent of `BART`. An intermediate quantity $\lambda$ is calibrated from the data so that the prior places `sigquant` probability below a rough, data-driven estimate of $\sigma$ itself, giving the scale $\beta$:
+In the `baseline` engines, we follow the precedent of `BART`. An intermediate quantity $\lambda$ is calibrated from the data so that the prior places `sigquant` probability below a rough, data-driven estimate of $\sigma$ itself, giving the scale $\beta$:
 
 $$
 \beta = \frac{\nu \lambda}{2}, \qquad
@@ -148,11 +145,11 @@ $$
 
 ## Package-default hyperprior variants {#sec-defaults}
 
-The `default` variant uses each package's own out-of-the-box hyperprior settings (tree-structure prior, leaf-shrinkage prior, global error-variance prior) instead, while holding everything else constant: burn-in, posterior draws, and number of chains fixed at the same values as `baseline`. Note that
+The `default` engine uses each package's own out-of-the-box hyperprior settings (tree-structure prior, leaf-shrinkage prior, global error-variance prior) instead, while holding everything else constant: burn-in, posterior draws, and number of chains fixed at the same values as `baseline`. Note that 
 
 - `stochtree`'s warm-start setting is turned off (unlike its default).
-- We rerun `stochtree` with the `baseline` settings _and_ the warm-start under the `baseline+gfr` variant.
-- We rerun `stochtree` with the `baseline` settings _and_ the an unknown leaf variance under the `baseline+leaf_var` variant.
+- We rerun `stochtree` with the `baseline` settings _and_ the warm-start under the `baseline+gfr` engine.
+- We rerun `stochtree` with the `baseline` settings _and_ the an unknown leaf variance under the `baseline+leaf_var` engine.
 - `BART::wbart` has no `default` row. The defaults for this engine are already identical to this benchmark's `baseline`.
 
 The following engines' defaults differ from `baseline` as:
@@ -270,34 +267,6 @@ res$agreement %>%
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
-
-### MCMC mixing (fitted-value effective sample size)
-
-Two engines can have equally sensible priors and equally unbiased posterior means, yet still disagree on prediction accuracy if one's chain is more autocorrelated: the same nominal number of post-burn-in draws then buys less information, so the posterior mean is noisier - a sampler-efficiency gap rather than a modelling one (this is exactly what turned out to explain a persistent RMSE gap between engines in `benchmark-prediction-rfx.qmd`'s own random-effects models, once the tree and variance priors were checked and ruled out).
-
-Rather than tracking a specific named parameter (`sigma`, which differs in name and availability by engine and is fixed at 1 outright for a binary outcome under every engine here), the metric tracked is the effective sample size (ESS) of each observation's own fitted-value draws - the same draws behind every RMSE/coverage/CRPS number above, and so the most directly relevant mixing check available, for either outcome and every engine without exception. It's summarised per fit as the *median* ESS across observations, since per-observation ESS varies with how easy or confounded that point's local fit is.
-
-```{r ess-table}
-res$metrics %>%
-  group_by(outcome, engine, variant, n) %>%
-  summarise(median_fitted_ess = median(fitted_ess), .groups = "drop") %>%
-  arrange(outcome, n, engine, variant) %>%
-  knitr::kable(digits = 0, format = "html") %>%
-  kableExtra::collapse_rows(columns = 1:3, valign = "top")
-```
-
-```{r ess-plot}
-#| fig-height: 5
-res$metrics %>%
-  ggplot(aes(x = paste(engine, variant), y = fitted_ess, colour = factor(n))) +
-  geom_boxplot(outlier.alpha = 0.5) +
-  facet_wrap(~outcome) +
-  coord_flip() +
-  labs(x = NULL, y = "Median fitted-value effective sample size", colour = "n") +
-  theme_bw()
-```
-
-A low or engine-specific ESS here is a flag to interpret RMSE/coverage differences with some caution - a noisier posterior mean widens the gap between engines without either one's model or prior actually being worse.
 
 ### Runtime {#sec-runtime}
 
@@ -547,3 +516,4 @@ check_equivalent("stochtree::bart (default, binary)", user_call, operative)
 ```{r session-info-end}
 sessioninfo::session_info()
 ```
+

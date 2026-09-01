@@ -5,11 +5,14 @@ format:
   html:
     toc: true
     code-fold: true
+    html-math-method: katex
+bibliography: refs.bib
 params:
   fast_mode: true
   n_values: [250, 1000]
   n_reps: 20
   seed: 1
+  y_sd: 1               # SD of the noise added to the continuous outcome
 ---
 
 ```{r setup}
@@ -32,48 +35,69 @@ source("R/propensity.R")
 source("R/fit-engines-causal.R")
 source("R/run-benchmark-causal.R")
 
-sessioninfo::session_info()
 ```
 
 ## Scope
 
-This document runs 13 engine/variant/propensity-recipe rows in total (see
-`R/run-benchmark-causal.R` for the full list). Three families of causal
-engine are compared: `BART` and `stochtree::bart` fit as a two-step
-procedure (variable selection, then propensity, then the treatment-effect
-model - matching the two-step workflow shown in the package's own BART and
-stochtree vignettes), `bartCause::bartc`, which has native causal machinery
-including its own internal propensity estimation, and `stochtree::bcf`,
-which likewise estimates `tau`/`cate` natively with its own internal
-propensity estimation. `stan4bart` is excluded as a standalone causal engine
-for the same architectural reason it is excluded from
-`benchmark-prediction.qmd`, and `bartMachine` is excluded throughout.
+This document compares causal-effect estimation across three families of
+engine:
 
-Every "DIY" propensity row - meaning every row where the propensity score is
-estimated outside the causal engine itself, rather than natively - is fit
-with the same `fit_diy_propensity()` function, shared across all engines
-that use it so that the causal engine is the only thing that varies between
-rows. Each of these rows is compared under two recipes: `two_stage`, where
-variable selection is run first and the propensity model is fit only on the
-selected variables (matching the vignettes exactly), and `ps_all`, where the
-propensity model instead uses every confounder directly, with no selection
-step.
+- `BART`/`stochtree::bart` fit as a two-step procedure - variable selection,
+  then propensity, then the treatment-effect model - matching each
+  package's own two-step vignette.
+- `bartCause::bartc`, with native causal machinery including its own
+  propensity estimation.
+- `stochtree::bcf`, which estimates `tau`/`cate` natively with its own
+  propensity estimation.
 
-The data-generating process is `simulate_su_hill_data()` (Hill & Su 2013),
-used here in a continuous version and in a binary version thresholded at the
-median. Each is run under two settings: `response_parallel = TRUE`, which
-gives a homogeneous true effect and so is a clean check on ATE recovery, and
-`response_parallel = FALSE`, which gives a heterogeneous true effect and so
-is where PEHE becomes a meaningful metric. Ground truth for the continuous
-outcome comes from `tidytreatment::su_hill_true_effects()`, an exact (not
-simulated) reconstruction of the DGP's potential outcomes, verified
-bit-for-bit against `simulate_su_hill_data()`'s own `mean_y` in the
-package's own test suite. Ground truth for the binary variant, on the
-probability scale, comes from this file's own `su_hill_truth_binary()`
-(`R/dgp.R`), which is in turn verified against `su_hill_true_effects()` by
-direct Monte Carlo.
+`stan4bart` is excluded here for the same architectural reason as in
+`benchmark-prediction.qmd`, and `bartMachine` is excluded throughout. Each
+engine also gets a `default` row, using its own out-of-the-box hyperprior
+settings instead of the matched `baseline` - see Package-default hyperprior
+variants below (see `R/run-benchmark-causal.R` for the full row list, which
+now differs slightly by outcome).
+
+Every "DIY" propensity row - where the propensity score is estimated outside
+the causal engine itself - is fit with the same `fit_diy_propensity()`
+function, so the causal engine is the only thing that varies between rows.
+Each such row is compared under two recipes:
+
+- `two_stage`: variable selection first, propensity fit only on the
+  selected variables (matching the vignettes).
+- `ps_all`: propensity fit on every confounder directly, with no selection
+  step.
+
+## Data generating process
+
+The data-generating process is `simulate_su_hill_data()` [@hillsu2013],
+used in a continuous version and a binary version thresholded at the
+median. Each runs under two settings: `response_parallel = TRUE`
+(homogeneous true effect, a clean ATE check) and `response_parallel =
+FALSE` (heterogeneous true effect, where PEHE becomes meaningful). Ground
+truth for the continuous outcome comes from
+`tidytreatment::su_hill_true_effects()`, verified bit-for-bit against the
+package's own test suite. Ground truth for the binary variant comes from
+this file's own `su_hill_truth_binary()` (`R/dgp.R`), verified against
+`su_hill_true_effects()` by direct Monte Carlo.
+
+For the continuous outcome, independent $N(0, \sigma^2)$ noise is added on top of `simulate_su_hill_data()`'s own mean response^[By default $\sigma = 1$ but this quarto file contains the `y_sd` document parameter to vary this.].
+
+### Estimated signal-to-noise ratio (continuous case)
+
+```{r snr-demo}
+set.seed(1)
+n_snr <- 5000
+sim_snr_par <- simulate_su_hill_data(n = n_snr, tau = 4, response_parallel = TRUE, y_sd = params$y_sd)
+sim_snr_het <- simulate_su_hill_data(n = n_snr, tau = 4, response_parallel = FALSE, y_sd = params$y_sd)
+snr_par <- var(sim_snr_par$mean_y) / params$y_sd^2
+snr_het <- var(sim_snr_het$mean_y) / params$y_sd^2
+```
+
+The global variance is $\sigma^2 = `r params$y_sd^2`$, and the variance ratio^[The variance of the mean response, relative to $\sigma^2$.] is estimated to be `r round(snr_par, 2)` for the homogeneous-effect setting and `r round(snr_het, 2)` for the heterogeneous-effect setting, or **`r round(sqrt(snr_par), 2)`**/**`r round(sqrt(snr_het), 2)`** on the standardised scale (square root).
 
 ## Hyperparameters
+
+The main hyperparameters are specified below.
 
 ```{r hyperparams}
 hp <- baseline_hyperparams()
@@ -82,8 +106,115 @@ if (isTRUE(params$fast_mode)) {
   hp$draws <- 30
   hp$n_trees <- 20
 }
-str(hp)
+hp_vals <- unlist(hp)
+hp_display <- ifelse(hp_vals == round(hp_vals), sprintf("%.0f", hp_vals), as.character(hp_vals))
+names(hp_display) <- sprintf("`%s`", names(hp))
+knitr::kable(t(hp_display), align = "c", row.names = FALSE)
 ```
+
+For the `baseline` variant, most of the hyperprior parameter specification
+is trivial to match across packages. However, some hyperpriors are chosen
+based on the data itself (more or less an empirical Bayes decision) - see
+`R/hyperparams.R` for the exact translation used by each engine, including
+`stochtree::bcf`'s separate prognostic/treatment-effect forests.
+
+### Tree-structure prior
+
+Naming conventions for the prior on trees differ across packages: `alpha` =
+`base` and `beta`=`power`.
+
+These control the prior probability that a node at depth $d$ splits
+further: $$P(\text{split at depth } d) = \alpha (1+d)^{-\beta}.$$
+These are constants, passed unchanged to whichever argument name each
+package uses.
+
+### Leaf-shrinkage prior
+
+Each leaf's contribution gets a $N(0, \tau^2)$ prior, with $\tau$ set from
+`k` (the number of prior standard deviations a leaf is expected to sit from
+the boundary of $y$'s range) and the number of trees:
+
+$$
+\tau = \begin{cases}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} & \text{continuous outcome - uses the data's own range} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} & \text{binary outcome - calibrated to the probit latent's } \pm 3 \text{ range instead}
+\end{cases}
+$$
+
+Some differences between packages:
+
+- `BART`/`dbarts`-style engines (including `bartCause`, which shares
+  `dbarts::bart2`'s argument set) take $\tau$ via `k` directly.
+- `stochtree` standardizes a continuous outcome internally, so it needs the
+  *variance* $\tau^2$ on that standardized scale instead. This is $\tau^2 /
+  \text{var}(y)$ for a continuous outcome, or plain $\tau^2$ for binary (the
+  probit latent isn't rescaled). `stochtree::bcf` applies this to both its
+  prognostic and treatment-effect forests.
+
+More generally, `BART::wbart` and `stochtree` (both `bart` and `bcf`) centre the response before fitting for a continuous outcome (`stochtree` also rescales it, per the standardisation above), while `dbarts::bart2` - and so `bartCause`, which shares it - works on the raw scale throughout. Neither centering concept applies to the binary outcome, fit directly on the 0/1 response under a probit link in every package here.
+
+### Global error-variance prior
+
+:::{.callout-note}
+The following applies to the real-valued response only.
+:::
+
+The residual variance $\sigma^2$ has an inverse-gamma prior,
+$$\sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta),$$
+with shape $\alpha = \nu / 2$ set from $\nu =$ `sigdf` degrees of freedom.
+
+An intermediate quantity $\lambda$ is calibrated from the data so that the
+prior places `sigquant` probability below a rough, data-driven estimate of
+$\sigma$ itself, giving the scale $\beta$:
+
+$$
+\beta = \frac{\nu \lambda}{2}, \qquad
+\lambda = \hat\sigma^2 \cdot \frac{\chi^2_{\nu,\,1 - \texttt{sigquant}}}{\nu}, \qquad
+\hat\sigma =  \begin{cases}
+  \hat\sigma_\text{LM-MLE} & \text{if}~n > p,\\
+  \hat\sigma_y & \text{otherwise},
+\end{cases}
+$$
+where $\chi^2_{\nu,\,p}$ is the $p$-quantile of a $\chi^2_\nu$ distribution, where $\hat\sigma_\text{LM-MLE}$ is the residual SD of a linear fit regressing the response against the covariates, and where $\hat\sigma_y$ is the standard deviation of the data $y$.
+
+`BART`/`dbarts`-style engines compute $\hat\sigma$, $\lambda$, and this
+inverse-gamma prior internally when `sigest` is left at its default.
+`stochtree` has no equivalent auto-calibration of its own - matching it
+means passing `stochtree`'s own `shape`/`scale` arguments directly, on its
+internally-standardized scale:
+
+$$
+\text{shape} = \alpha = \frac{\nu}{2}, \qquad \text{scale} = \beta_{\text{std}} = \frac{\nu \lambda}{2 \text{var}(y)}.
+$$
+
+## Package-default hyperprior variants
+
+Every engine also gets a `default` row, using its own out-of-the-box
+hyperprior settings instead, while burn-in, posterior draws, number of
+chains, and `stochtree`'s warm-start/adaptive-coding settings stay fixed at
+`baseline`'s values - those are separate axes already varied by other means
+(`+auto_k`, `+gfr_adaptive_coding`), not hyperprior settings.
+
+- **`BART` two-step**: no `default` row for the continuous outcome -
+  `BART::wbart`'s own defaults already equal `baseline` (see
+  `benchmark-prediction.qmd`). The binary outcome uses `BART::pbart`, whose
+  `ntree` default (50 vs 200) does differ.
+- **`stochtree::bart` two-step**: same as `stochtree::bart`'s `default` row
+  in `benchmark-prediction.qmd` - leaf variance reverts to a sampled,
+  package-default value, and (continuous outcome only) the global
+  error-variance prior reverts to the improper `shape = scale = 0`.
+- **`bartc`**: its response/treatment models are genuine `dbarts::bart2()`
+  calls (see Global error-variance prior above), so `default` here is the
+  same `dbarts::bart2()` package defaults as `benchmark-prediction.qmd`'s
+  `dbarts::bart2` `default` row - `n.trees = 75` (vs 200) and `k = NULL`
+  (auto-tuned, vs fixed at 2) for both the response and treatment model.
+- **`stochtree::bcf`**: a bigger deviation than `stochtree::bart` - `bcf()`'s
+  own `num_trees`/`alpha`/`beta` defaults are asymmetric between its two
+  forests (250/0.95/2 prognostic, 100/0.25/3 treatment-effect), where
+  `baseline` explicitly overrides both to the same shared values (see
+  `R/hyperparams.R`). `default` reverts both forests to their own separate
+  defaults, on top of the same leaf-variance and global-error-variance
+  reversions as `stochtree::bart`.
 
 ## Run
 
@@ -93,10 +224,11 @@ str(hp)
 ```{r run-benchmark}
 n_values <- if (isTRUE(params$fast_mode)) c(40, 60) else params$n_values
 n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
+n_for_examples <- max(n_values)
 
 cache_file <- file.path("cache", sprintf("causal_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
 res <- cached_run(cache_file, function() {
-  run_benchmark_causal(n_values = n_values, B = n_reps, hp = hp, seed = params$seed)
+  run_benchmark_causal(n_values = n_values, B = n_reps, hp = hp, seed = params$seed, y_sd = params$y_sd)
 })
 ```
 
@@ -106,27 +238,31 @@ res <- cached_run(cache_file, function() {
 
 ### Summary metrics
 
+`fit_time_sec` is reported as a median, not a mean - a handful of runs (see
+@sec-runtime) are extreme outliers.
+
 ```{r summary-table}
 res$metrics %>%
   group_by(outcome, response_parallel, engine, variant, propensity_recipe, n) %>%
   summarise(
-    across(c(ate_bias, ate_covered, att_bias, att_covered, pehe, fit_time_sec), ~ mean(.x, na.rm = TRUE)),
+    across(c(ate_bias, ate_covered, att_bias, att_covered, pehe), ~ mean(.x, na.rm = TRUE)),
+    fit_time_sec = median(fit_time_sec, na.rm = TRUE),
     .groups = "drop"
   ) %>%
+  select(outcome, response_parallel, n, engine, variant, propensity_recipe,
+         ate_bias, ate_covered, att_bias, att_covered, pehe, fit_time_sec) %>%
   arrange(outcome, response_parallel, n, engine, variant) %>%
-  knitr::kable(digits = 3)
+  knitr::kable(digits = 3, format = "html") %>%
+  kableExtra::collapse_rows(columns = 1:3, valign = "top")
 ```
 
 ### CATE-hat vs. true CATE
 
-These plots show one representative replication, the one with the largest
-`n`, and only the heterogeneous-truth DGP setting (`response_parallel =
-FALSE`) - the homogeneous setting (`TRUE`) has a constant true effect, so
-there is no relationship to show. As with the equivalent plot in
-`benchmark-prediction.qmd`, the continuous and binary outcomes get two
-separate plots rather than one faceted by outcome, so that axes stay shared
-within an outcome instead of floating freely per panel, keeping the engines
-visually comparable.
+These plots show one representative replication for `` n = `r n_for_examples` ``
+(the largest value tested), heterogeneous-truth setting only
+(`response_parallel = FALSE`) - the homogeneous setting has a constant true
+effect, so there's nothing to plot. Continuous and binary outcomes get
+separate plots so axes stay shared within each outcome.
 
 ```{r cate-scatter-continuous}
 #| fig-height: 7
@@ -214,18 +350,23 @@ res$agreement %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-### Runtime
+### Runtime {#sec-runtime}
 
-```{r runtime-plot}
-#| fig-height: 6
+The box plot below shows the full per-replication fit-time distribution on a
+log scale, which is where the outliers actually show up - as individual
+points well above the whiskers, rather than as a shift in a single summary
+number.
+
+```{r runtime-boxplot}
+#| fig-height: 8
 res$metrics %>%
   mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
-  group_by(outcome, row_label) %>%
-  summarise(fit_time_sec = mean(fit_time_sec), .groups = "drop") %>%
-  ggplot(aes(x = row_label, y = fit_time_sec, fill = outcome)) +
-  geom_col(position = "dodge") +
+  ggplot(aes(x = row_label, y = fit_time_sec, colour = factor(n))) +
+  geom_boxplot(outlier.alpha = 0.5) +
+  facet_wrap(~outcome) +
   coord_flip() +
-  labs(x = NULL, y = "Mean fit time (s)") +
+  scale_y_log10() +
+  labs(x = NULL, y = "Fit time (s, log scale)", colour = "n") +
   theme_bw()
 ```
 

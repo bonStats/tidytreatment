@@ -60,14 +60,55 @@ hp_to_stochtree_leaf_var <- function(hp, y = NULL, outcome = c("continuous", "bi
 # before conversion, matching hp_to_stochtree_leaf_var()'s own scale
 # conversion. Not applicable to a binary/probit outcome - sigma2 there is
 # fixed at 1, not sampled.
-hp_to_stochtree_sigma2_prior <- function(hp, X, y) {
+
+# BART/dbarts's own sigest rule: residual SD of lm(y ~ X) when there are
+# enough degrees of freedom, else sd(y).
+#
+# `group` is for the random-effects benchmarks. Without it the group
+# intercepts are left in the residual, so sigest absorbs sigma_G^2 on top of
+# sigma^2 and substantially overstates the noise - which then propagates
+# into every prior calibrated from it.
+#
+# The groups are removed with a random-intercept REML fit, lmer(y ~ X +
+# (1|group)), rather than fixed-effect dummies. This matches the model the
+# engines themselves fit (both treat the groups as random, partially pooled),
+# estimates sigma^2 and sigma_G^2 as separate variance components instead of
+# conditioning on n_G - 1 estimated group means, and costs no residual
+# degrees of freedom - so it stays well behaved when n / n_G is small. In
+# practice the two agree closely at the group sizes used here, but the REML
+# fit is the one that corresponds to the model being calibrated.
+#
+# This only partially fixes the overestimate either way: a linear fit cannot
+# represent Friedman's function, so its curvature stays in the residual.
+#
+# Falls back to fixed-effect dummies if lme4 is unavailable or the fit fails,
+# and to sd(y) when there are too few degrees of freedom for any fit.
+compute_sigest <- function(X, y, group = NULL) {
   n <- length(y)
   p <- ncol(X)
-  sigest <- if (n > p + 1) {
-    stats::sigma(stats::lm(y ~ ., data = cbind(y = y, X)))
-  } else {
-    stats::sd(y)
+  dat <- cbind(y = y, X)
+
+  if (is.null(group)) {
+    return(if (n > p + 1) stats::sigma(stats::lm(y ~ ., data = dat)) else stats::sd(y))
   }
+
+  dat$.group <- factor(group)
+  if (n <= p + 1) return(stats::sd(y))
+
+  if (requireNamespace("lme4", quietly = TRUE)) {
+    fml <- stats::as.formula(paste("y ~", paste(colnames(X), collapse = " + "), "+ (1 | .group)"))
+    fit <- try(suppressMessages(suppressWarnings(lme4::lmer(fml, data = dat))), silent = TRUE)
+    if (!inherits(fit, "try-error")) return(stats::sigma(fit))
+  }
+
+  # Fallback: absorb the groups as fixed effects, counting the dummies in the
+  # degrees-of-freedom guard.
+  p_fe <- p + nlevels(dat$.group) - 1
+  if (n > p_fe + 1) stats::sigma(stats::lm(y ~ ., data = dat)) else stats::sd(y)
+}
+
+hp_to_stochtree_sigma2_prior <- function(hp, X, y, group = NULL) {
+  sigest <- compute_sigest(X, y, group = group)
   y_var <- stats::var(y)
   lambda <- sigest^2 * stats::qchisq(1 - hp$sigquant, df = hp$sigdf) / hp$sigdf
   lambda_std <- lambda / y_var
@@ -113,16 +154,83 @@ hp_to_dbarts <- function(hp, auto_k = FALSE) {
   )
 }
 
+# stan4bart's bart_args only reaches dbartsControl (n.trees, n.burn, ...) and
+# a hand-picked subset of prior args (k, power, base, split.probs) - traced
+# through stan4bart:::stan4bart_fit's source. sigdf/sigquant/sigest are never
+# read from bart_args at all: stan4bart hardcodes dbarts's own internal
+# resid.prior to fixed(1) and instead governs sigma^2 for the whole joint
+# mixed-model-plus-BART fit through Stan's own `prior_aux` argument (default
+# exponential(autoscale = TRUE) - confirmed empirically, wildly different
+# sigdf/sigquant/sigest passed via bart_args produced bit-identical sigma
+# draws under a fixed seed).
+#
+# rstanarm-style priors have no inverse-gamma option for prior_aux, but a
+# Student-t IS available, and stan4bart's <lower=0> constraint on this
+# parameter turns any two-sided family into a genuine *truncation* at 0 for
+# any location (confirmed empirically - a location=100, scale=1 prior_aux
+# produced sigma draws clustered at ~100, not folded back near 0). That
+# truncated-t is calibrated here to approximate stochtree's own inverse-gamma
+# target as closely as this family allows, matching three separate features
+# rather than just one quantile:
+#   - df is set to sigdf (nu): both distributions descend from the same
+#     chi-squared-with-nu-df construction, so this ties the truncated-t's
+#     tail weight to the same degrees of freedom rather than leaving it a
+#     disconnected free parameter.
+#   - location is set to the *mode* of sigma implied by the inverse-gamma
+#     target on sigma^2 (not just sqrt(mode of sigma^2) - mode does not
+#     commute with a nonlinear transform). This matters for shape, not just
+#     for having a number: a location=0 truncated-t can only decay
+#     monotonically from the boundary, while the inverse-gamma-implied
+#     sigma density has an interior peak - giving the truncated-t a nonzero
+#     location is what lets it develop that peak at all.
+#   - scale is solved numerically (no closed form) so the truncated-t's
+#     sigquant-quantile lands exactly on sigest, the same calibration
+#     principle used for every other engine's global error-variance prior.
+# The list below is built by hand rather than via stan4bart:::student_t()
+# (unexported) - its structure is confirmed to match by inspecting that
+# function's own source.
+hp_to_stan4bart_sigma_prior <- function(hp, X, y, group = NULL) {
+  sigest <- compute_sigest(X, y, group = group)
+  nu <- hp$sigdf
+  lambda <- sigest^2 * stats::qchisq(1 - hp$sigquant, df = nu) / nu
+  alpha <- nu / 2
+  beta <- nu * lambda / 2
+
+  # Target on the sigma scale: if sigma^2 ~ IG(alpha, beta) then sigma follows
+  # a generalized inverse gamma (the c = 2 case; equivalently a scaled
+  # inverse-chi with 2*alpha df), with density
+  #   p(sigma) = 2 beta^alpha / Gamma(alpha) * sigma^(-2 alpha - 1) exp(-beta / sigma^2),
+  # closed-form mode sqrt(2 beta / (2 alpha + 1)), CDF
+  # pgamma(1/s^2, alpha, rate = beta, lower.tail = FALSE), and a
+  # sigma^-(nu+1) tail matching a t_nu's. This is the right scale to match on
+  # because stan4bart's prior_aux is a prior on sigma, not sigma^2.
+  location <- sqrt(2 * beta / (2 * alpha + 1))
+  trunc_cdf <- function(x, mu, s, df) {
+    (stats::pt((x - mu) / s, df = df) - stats::pt(-mu / s, df = df)) / (1 - stats::pt(-mu / s, df = df))
+  }
+  # uniroot's default tol (~1e-4) leaves visible error in the matched
+  # quantile, so tighten it - the solve is cheap.
+  scale <- stats::uniroot(
+    function(s) trunc_cdf(sigest, location, s, nu) - hp$sigquant,
+    interval = sigest * c(1e-6, 1e6),
+    tol = .Machine$double.eps^0.5
+  )$root
+
+  list(
+    prior_aux = list(dist = "t", df = nu, location = location, scale = scale, autoscale = FALSE)
+  )
+}
+
 # ---- stochtree::bart() -------------------------------------------------
 
-hp_to_stochtree_bart <- function(hp, X, y = NULL, outcome = c("continuous", "binary"), num_gfr = 0, sample_leaf_var = FALSE) {
+hp_to_stochtree_bart <- function(hp, X, y = NULL, outcome = c("continuous", "binary"), num_gfr = 0, sample_leaf_var = FALSE, group = NULL) {
   outcome <- match.arg(outcome)
 
   general_params <- list()
   if (outcome == "binary") {
     general_params$outcome_model <- stochtree::OutcomeModel(outcome = "binary", link = "probit")
   } else {
-    general_params <- c(general_params, hp_to_stochtree_sigma2_prior(hp, X, y))
+    general_params <- c(general_params, hp_to_stochtree_sigma2_prior(hp, X, y, group = group))
   }
 
   list(
@@ -251,5 +359,30 @@ hp_to_stochtree_bart_default <- function(hp, outcome = c("continuous", "binary")
     num_mcmc = hp$draws,
     general_params = general_params,
     mean_forest_params = list()
+  )
+}
+
+# stochtree::bcf()'s own defaults are a much bigger deviation from baseline
+# than stochtree::bart()'s: num_trees/alpha/beta are asymmetric between its
+# two forests (250/0.95/2 prognostic, 100/0.25/3 treatment-effect), where
+# baseline explicitly overrides both to the same shared values (see
+# hp_to_stochtree_bcf()'s own header comment). Leaving both forests' params
+# entirely empty here reverts every hyperprior - tree structure, leaf
+# variance sampling/init, and (continuous outcome only) the global
+# error-variance prior - to bcf()'s own defaults, the same "leave it empty"
+# pattern as hp_to_stochtree_bart_default().
+hp_to_stochtree_bcf_default <- function(hp, outcome = c("continuous", "binary")) {
+  outcome <- match.arg(outcome)
+  general_params <- list()
+  if (outcome == "binary") {
+    general_params$outcome_model <- stochtree::OutcomeModel(outcome = "binary", link = "probit")
+  }
+  list(
+    num_gfr = 0,
+    num_burnin = hp$burn,
+    num_mcmc = hp$draws,
+    general_params = general_params,
+    prognostic_forest_params = list(),
+    treatment_effect_forest_params = list()
   )
 }

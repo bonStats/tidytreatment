@@ -54,6 +54,26 @@ crps_from_draws <- function(draws, value_col, truth) {
 
 has_installed_package <- function(pkg) requireNamespace(pkg, quietly = TRUE)
 
+ess_safe <- function(draws) {
+  if (is.null(draws) || length(draws) < 2 || stats::sd(draws) == 0) return(NA_real_)
+  as.numeric(coda::effectiveSize(draws))
+}
+
+# MCMC mixing diagnostic available for *any* engine/outcome, unlike a named
+# internal parameter's (sigma, sigma_G, k, ...): the effective sample size of
+# each observation's own fitted-value draws, summarised by the median across
+# observations (per-observation ESS varies with how easy/confounded that
+# point's local fit is; the median gives one representative number per fit
+# without a handful of extreme points dominating it). This is also the most
+# directly relevant mixing check of all of them, since it's the noise in
+# exactly these draws that becomes the reported RMSE's Monte Carlo error.
+fitted_value_ess <- function(draws, value_col) {
+  ess_by_row <- draws %>%
+    dplyr::group_by(.data$.row) %>%
+    dplyr::summarise(.ess = ess_safe(.data[[value_col]]), .groups = "drop")
+  stats::median(ess_by_row$.ess, na.rm = TRUE)
+}
+
 # Pairwise agreement between engines' posterior-mean fitted values on the
 # *same* simulated dataset - the "does implementation X disagree with the
 # pack" check. `fitted_by_engine`: named list of numeric vectors

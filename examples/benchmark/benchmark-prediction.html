@@ -310,8 +310,8 @@ window.Quarto = {
 </span></p>
 <p>Some differences between packages:</p>
 <ul>
-<li><code>BART</code>/<code>dbarts</code> take <span class="math inline">\tau</span> via <code>k</code> directly.</li>
-<li><code>stochtree</code> standardizes a continuous outcome internally, so it needs the <em>variance</em> <span class="math inline">\tau^2</span> on that standardized scale instead. This is <span class="math inline">\tau^2 / \text{var}(y)</span> for a continuous outcome, or plain <span class="math inline">\tau^2</span> for binary (the probit latent isn’t rescaled).</li>
+<li><code>BART</code>/<code>dbarts</code> calculate <span class="math inline">\tau</span> internally from the user-specified <code>k</code> argument.</li>
+<li><code>stochtree</code> requires the specification of <span class="math inline">\tau</span> directly. It also standardizes continuous outcomes internally, so it requires the <span class="math inline">\tau^2</span> to be specified on this standardized scale instead — we calculate the standardisation manually with <span class="math inline">\tau^2 / \text{var}(y)</span>.</li>
 </ul>
 </section>
 <section id="global-error-variance-prior" class="level3">

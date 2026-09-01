@@ -1,0 +1,2254 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Benchmark: Prediction With Random Effects</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="benchmark-prediction-rfx_files/libs/clipboard/clipboard.min.js"></script>
+<script src="benchmark-prediction-rfx_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="benchmark-prediction-rfx_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="benchmark-prediction-rfx_files/libs/quarto-html/popper.min.js"></script>
+<script src="benchmark-prediction-rfx_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="benchmark-prediction-rfx_files/libs/quarto-html/anchor.min.js"></script>
+<link href="benchmark-prediction-rfx_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="benchmark-prediction-rfx_files/libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="benchmark-prediction-rfx_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="benchmark-prediction-rfx_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="benchmark-prediction-rfx_files/libs/bootstrap/bootstrap-138a6193a3bd40baf1e627da441a4734.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="benchmark-prediction-rfx_files/libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="benchmark-prediction-rfx_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@latest/dist/katex.min.css">
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#scope" id="toc-scope" class="nav-link active" data-scroll-target="#scope">Scope</a></li>
+  <li><a href="#data-generating-process" id="toc-data-generating-process" class="nav-link" data-scroll-target="#data-generating-process">Data generating process</a>
+  <ul class="collapse">
+  <li><a href="#signal-to-noise-metrics-continuous-case" id="toc-signal-to-noise-metrics-continuous-case" class="nav-link" data-scroll-target="#signal-to-noise-metrics-continuous-case">Signal-to-noise metrics (continuous case)</a></li>
+  </ul></li>
+  <li><a href="#hyperparameters" id="toc-hyperparameters" class="nav-link" data-scroll-target="#hyperparameters">Hyperparameters</a>
+  <ul class="collapse">
+  <li><a href="#tree-structure-prior" id="toc-tree-structure-prior" class="nav-link" data-scroll-target="#tree-structure-prior">Tree-structure prior</a></li>
+  <li><a href="#leaf-shrinkage-prior" id="toc-leaf-shrinkage-prior" class="nav-link" data-scroll-target="#leaf-shrinkage-prior">Leaf-shrinkage prior</a></li>
+  <li><a href="#sec-prior-global-var" id="toc-sec-prior-global-var" class="nav-link" data-scroll-target="#sec-prior-global-var">Global error-variance prior</a></li>
+  </ul></li>
+  <li><a href="#run" id="toc-run" class="nav-link" data-scroll-target="#run">Run</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a>
+  <ul class="collapse">
+  <li><a href="#prediction-accuracy" id="toc-prediction-accuracy" class="nav-link" data-scroll-target="#prediction-accuracy">Prediction accuracy</a></li>
+  <li><a href="#predicted-vs.-true" id="toc-predicted-vs.-true" class="nav-link" data-scroll-target="#predicted-vs.-true">Predicted vs.&nbsp;true</a></li>
+  <li><a href="#group-effect-recovery" id="toc-group-effect-recovery" class="nav-link" data-scroll-target="#group-effect-recovery">Group-effect recovery</a></li>
+  <li><a href="#cross-engine-agreement-baseline-rows" id="toc-cross-engine-agreement-baseline-rows" class="nav-link" data-scroll-target="#cross-engine-agreement-baseline-rows">Cross-engine agreement (baseline rows)</a></li>
+  <li><a href="#sec-mcmc-mixing" id="toc-sec-mcmc-mixing" class="nav-link" data-scroll-target="#sec-mcmc-mixing">MCMC mixing</a></li>
+  <li><a href="#coverage-nominal-vs.-empirical" id="toc-coverage-nominal-vs.-empirical" class="nav-link" data-scroll-target="#coverage-nominal-vs.-empirical">Coverage: nominal vs.&nbsp;empirical</a></li>
+  <li><a href="#sec-runtime" id="toc-sec-runtime" class="nav-link" data-scroll-target="#sec-runtime">Runtime</a></li>
+  <li><a href="#flags" id="toc-flags" class="nav-link" data-scroll-target="#flags">Flags</a></li>
+  </ul></li>
+  <li><a href="#session-info" id="toc-session-info" class="nav-link" data-scroll-target="#session-info">Session info</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Benchmark: Prediction With Random Effects</h1>
+<p class="subtitle lead">Cross-package comparison of BART-family posterior predictive accuracy</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidytreatment)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidybayes)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stan4bart)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(stochtree)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dbarts)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(coda)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(GGally)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/cache.R"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/hyperparams.R"</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/dgp.R"</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metrics.R"</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/fit-engines-rfx.R"</span>)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/metrics-rfx.R"</span>)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"R/run-benchmark-rfx.R"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="scope" class="level2">
+<h2 class="anchored" data-anchor-id="scope">Scope</h2>
+<p>This document compares predictions from two Bayesian Additive Regression Tree (BART) packages in R that can handle the addition of group-specific random effects. The packages tested are <code>stan4bart</code> and <code>stochtree</code>.</p>
+<p>A <code>baseline</code> variant is implemented for engines <code>stan4bart::stan4bart</code> and <code>stochtree::bart</code>. These attempt to match hyperprior specification across the methods, for a fair comparison. Both engines also get a <code>default</code> variant, using their own out-of-the-box priors instead. Note that the global variance term for <code>stan4bart</code> does not have an inverse gamma prior available, unlike most other BART packages, but does have several other choices (see <a href="#sec-prior-global-var" class="quarto-xref">Section&nbsp;3.3</a> for more details).</p>
+<p>The method <code>stochtree::bart</code> additionally gets a <code>baseline+gfr</code> variant, which uses its own warm-start default layered on top of the matched <code>baseline</code> priors, and - continuous outcome only, since it targets <span class="math inline">\sigma^2</span> mixing specifically and <span class="math inline">\sigma^2</span> is fixed at 1 for binary - a <code>baseline+thin</code> variant, which extends burn-in by 5x and thins the retained chain by 10x (see <a href="#sec-mcmc-mixing" class="quarto-xref">Section&nbsp;5.5</a> for mixing comparison). The final number of retained draws is <code>T=1000</code> in all cases.</p>
+</section>
+<section id="data-generating-process" class="level2">
+<h2 class="anchored" data-anchor-id="data-generating-process">Data generating process</h2>
+<p>The benchmarking is performed using Friedman’s function <span class="citation" data-cites="friedman1991multivariate">(<a href="#ref-friedman1991multivariate" role="doc-biblioref">Friedman 1991</a>)</span> as data-generating process. Friedman’s function is augmented with additive group-specific random intercepts with <code>simulate_friedman_rfx()</code>/<code>simulate_friedman_rfx_binary()</code> (<code>R/dgp.R</code>). The random-intercepts are generated with <span class="math inline">\sigma^2_G = 9</span> for continuous case, and <span class="math inline">\sigma^2_G = 0.25</span> in the binary case.</p>
+<p>For the continuous outcome, independent <span class="math inline">N(0, \sigma^2)</span> noise is added on top of Friedman’s function plus the group intercepts<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>.</p>
+<section id="signal-to-noise-metrics-continuous-case" class="level3">
+<h3 class="anchored" data-anchor-id="signal-to-noise-metrics-continuous-case">Signal-to-noise metrics (continuous case)</h3>
+<p>Two separate identifiability questions (problem difficulty) are relevant to this benchmark: how recoverable is Friedman’s function itself, and how recoverable are the group intercepts? A signal-to-noise ratio approach is used for both, as explained next.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>n_snr <span class="ot">&lt;-</span> <span class="dv">5000</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>X_snr <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">matrix</span>(<span class="fu">runif</span>(n_snr <span class="sc">*</span> <span class="dv">10</span>), <span class="at">ncol =</span> <span class="dv">10</span>))</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(X_snr) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">"x"</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>var_friedman <span class="ot">&lt;-</span> <span class="fu">var</span>(<span class="fu">friedman_f</span>(X_snr))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<section id="mean-recovery" class="level4">
+<h4 class="anchored" data-anchor-id="mean-recovery">Mean recovery</h4>
+<p>This treats both the observation noise and the group intercepts as nuisance variance adding difficulty to recovering <span class="math inline">f(X)</span>. The numerator measures Friedman’s function’s variation across simulated covariates. <span class="math display">\text{SNR}_\text{mean} = \frac{\text{Var}(f(X))}{\sigma^2 + \sigma_G^2}.</span> This does not account for <span class="math inline">n\in \{250, 1000\}</span>. Smaller <span class="math inline">n</span> will also increase the problem difficulty.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>snr_mean <span class="ot">&lt;-</span> var_friedman <span class="sc">/</span> (params<span class="sc">$</span>y_sd<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> params<span class="sc">$</span>sd_group_continuous<span class="sc">^</span><span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>The estimated variance of Friedman’s function is 24.07, against a combined nuisance variance of <span class="math inline">\sigma^2 + \sigma_G^2 = 10</span>, giving a mean-recovery ratio of 2.41, or <strong>1.55</strong> on the standardised scale (square root).</p>
+</section>
+<section id="intercept-recovery" class="level4">
+<h4 class="anchored" data-anchor-id="intercept-recovery">Intercept recovery</h4>
+<p>This treats both the observation noise and Friedman’s function’s variation across covariates as nuisance variance. <span class="math display">\text{SNR}_\text{intercept} = \frac{\sigma_G^2}{\text{Var}(f(X)) + \sigma^2}.</span></p>
+<p>This does not account for <span class="math inline">\bar{n} = \frac{n}{n_G} \in \{ 10, 40\}</span>. Smaller <span class="math inline">\bar{n}</span> will also increase the problem difficulty.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>snr_intercept <span class="ot">&lt;-</span> params<span class="sc">$</span>sd_group_continuous<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (var_friedman <span class="sc">+</span> params<span class="sc">$</span>y_sd<span class="sc">^</span><span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>The group-intercept variance is <span class="math inline">\sigma_G^2 = 9</span>, against a combined nuisance variance of <span class="math inline">\text{Var}(f(X)) + \sigma^2 = 25.07</span>, giving an intercept-recovery ratio of 0.36, or <strong>0.6</strong> on the standardised scale (square root).</p>
+</section>
+</section>
+</section>
+<section id="hyperparameters" class="level2">
+<h2 class="anchored" data-anchor-id="hyperparameters">Hyperparameters</h2>
+<p>The main hyperparameters are specified below.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>hp <span class="ot">&lt;-</span> <span class="fu">baseline_hyperparams</span>()</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>hp<span class="sc">$</span>draws <span class="ot">&lt;-</span> params<span class="sc">$</span>n_mcmc_draws</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) {</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  hp<span class="sc">$</span>burn <span class="ot">&lt;-</span> <span class="dv">20</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  hp<span class="sc">$</span>draws <span class="ot">&lt;-</span> <span class="dv">30</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  hp<span class="sc">$</span>n_trees <span class="ot">&lt;-</span> <span class="dv">20</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>hp_vals <span class="ot">&lt;-</span> <span class="fu">unlist</span>(hp)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>hp_display <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(hp_vals <span class="sc">==</span> <span class="fu">round</span>(hp_vals), <span class="fu">sprintf</span>(<span class="st">"%.0f"</span>, hp_vals), <span class="fu">as.character</span>(hp_vals))</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(hp_display) <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">"`%s`"</span>, <span class="fu">names</span>(hp))</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="fu">t</span>(hp_display), <span class="at">align =</span> <span class="st">"c"</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 13%">
+<col style="width: 11%">
+<col style="width: 9%">
+<col style="width: 6%">
+<col style="width: 11%">
+<col style="width: 14%">
+<col style="width: 9%">
+<col style="width: 11%">
+<col style="width: 12%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;"><code>n_trees</code></th>
+<th style="text-align: center;"><code>alpha</code></th>
+<th style="text-align: center;"><code>beta</code></th>
+<th style="text-align: center;"><code>k</code></th>
+<th style="text-align: center;"><code>sigdf</code></th>
+<th style="text-align: center;"><code>sigquant</code></th>
+<th style="text-align: center;"><code>burn</code></th>
+<th style="text-align: center;"><code>draws</code></th>
+<th style="text-align: center;"><code>chains</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">20</td>
+<td style="text-align: center;">0.95</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">0.9</td>
+<td style="text-align: center;">20</td>
+<td style="text-align: center;">30</td>
+<td style="text-align: center;">1</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>For the <code>baseline</code> variant, most of the hyperprior parameter specification is trivial to match across packages. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).</p>
+<p>Note that <code>baseline+thin</code> for <code>stochtree</code> (continuous outcome only) extends burn-in by 5x and thins the retained chain by 10x.</p>
+<section id="tree-structure-prior" class="level3">
+<h3 class="anchored" data-anchor-id="tree-structure-prior">Tree-structure prior</h3>
+<p>Naming conventions for the prior on trees differ across packages: <code>alpha</code> = <code>base</code> and <code>beta</code>=<code>power</code>.</p>
+<p>These control the prior probability that a node at depth <span class="math inline">d</span> splits further: <span class="math display">P(\text{split at depth } d) = \alpha (1+d)^{-\beta}.</span> These are constants, passed unchanged to the correct argument for each package.</p>
+</section>
+<section id="leaf-shrinkage-prior" class="level3">
+<h3 class="anchored" data-anchor-id="leaf-shrinkage-prior">Leaf-shrinkage prior</h3>
+<p>Each leaf’s contribution gets a <span class="math inline">N(0, \tau^2)</span> prior, with <span class="math inline">\tau</span> set from <code>k</code> (the number of prior standard deviations a leaf is expected to sit from the boundary of <span class="math inline">y</span>’s range) and the number of trees:</p>
+<p><span class="math display">
+\tau = \begin{cases}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} &amp; \text{continuous outcome - uses the data's own range} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} &amp; \text{binary outcome - calibrated to the probit latent's } \pm 3 \text{ range instead}
+\end{cases}
+</span></p>
+<p>Some differences between packages:</p>
+<ul>
+<li><code>stan4bart</code> calculates <span class="math inline">\tau</span> internally from the user-specified <code>k</code> argument (as with <code>dbarts::bart2</code>).</li>
+<li><code>stochtree</code> requires the specification of <span class="math inline">\tau</span> directly. It also standardizes continuous outcomes internally, so it requires the <span class="math inline">\tau^2</span> to be specified on this standardized scale instead — we calculate the standardisation manually with <span class="math inline">\tau^2 / \text{var}(y)</span>.</li>
+</ul>
+<p>More generally, <code>stochtree</code> centres continuous responses before fitting (<code>stochtree</code> also rescales it, per the standardisation above), while <code>stan4bart</code> work on the raw scale throughout.</p>
+</section>
+<section id="sec-prior-global-var" class="level3">
+<h3 class="anchored" data-anchor-id="sec-prior-global-var">Global error-variance prior</h3>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The following applies to the real-valued response only.</p>
+</div>
+</div>
+<p>Unlike <code>BART</code>/<code>dbarts</code> there is no empirical-Bayes style calibration of the prior for the global noise variance in <code>stochtree</code> or <code>stan4bart</code>. Since we observed such a data-calibrated prior to work well in the vanilla prediction benchmark, we construct this calibrated prior for the <code>baseline</code> variant.</p>
+<p>For the <code>baseline</code> variant, the <code>stochtree</code> package supports inverse-gamma priors for the global variance so we can match the <code>BART</code>/<code>dbarts</code> data-calibrated prior exactly. Whereas we develop a special matching procedure for <code>stan4bart</code> using truncated student-t distributions. The details are given below.</p>
+<section id="inverse-gamma-prior-for-stochtree" class="level4">
+<h4 class="anchored" data-anchor-id="inverse-gamma-prior-for-stochtree">Inverse-gamma prior for <code>stochtree</code></h4>
+<p>Similar to the vanilla prediction <code>baseline</code> variant for <code>stochtree</code>, we construct the data-calibrated prior of the variance as follows. A crude estimate of the variance is estimated by fitting a linear model against covariates and group-specific random effects (using <code>lme4::lmer</code> if it is available). We denote the residual variance estimate from this model as <span class="math inline">\hat\sigma^2</span>.</p>
+<p>For <code>stochtree</code> the prior needs to be set on the internally-standardized scale it expects for a continuous outcome, and it is specified by with <code>shape</code>/<code>scale</code> arguments. Overall, this specification is</p>
+<p><span class="math display">
+\lambda = \hat\sigma^2 \cdot \frac{\chi^2_{\nu,\,1-\texttt{sigquant}}}{\nu},
+\qquad \nu = \texttt{sigdf}, \qquad
+\text{shape} = \frac{\nu}{2}, \qquad \text{scale} = \frac{\nu\lambda}{2\,\text{var}(y)},
+</span> where <span class="math inline">\chi^2_{\nu,\,p}</span> is the <span class="math inline">p</span>-quantile of a <span class="math inline">\chi^2_\nu</span> distribution.</p>
+</section>
+<section id="truncated-student-t-prior-for-stan4bart" class="level4">
+<h4 class="anchored" data-anchor-id="truncated-student-t-prior-for-stan4bart">Truncated student-t prior for <code>stan4bart</code></h4>
+<p>The <code>stan4bart</code> package specifies the global <strong>standard deviation</strong> prior via <code>prior_aux</code>, a convenience wrapper that can choose from a fixed set of priors (<code>normal</code>, <code>student_t</code>/<code>cauchy</code>, <code>exponential</code>, <code>hs</code>, <code>hs_plus</code>, <code>laplace</code>, <code>lasso</code>). Given the limited choices it is not possible to match the inverse-gamma distribution (on the variance) exactly.</p>
+<p>If <span class="math inline">\sigma^2 \sim \text{IG}(\alpha, \beta)</span>, then <span class="math inline">\sigma</span> follows a <strong>generalised inverse gamma</strong> distribution (<span class="math inline">c = 2</span> case) with probability density and cumulative density functions</p>
+<p><span class="math display">
+p(\sigma) = \frac{2\beta^{\alpha}}{\Gamma(\alpha)}\, \sigma^{-2\alpha-1} \exp\!\left(-\frac{\beta}{\sigma^{2}}\right),
+\qquad
+F(\sigma \le s) = Q\!\left(\alpha,\, \frac{\beta}{s^{2}}\right),
+</span> where <span class="math inline">Q</span> is the regularised upper incomplete gamma function. This is the target we will approximate for the <code>stan4bart</code> <code>baseline</code> variant. The mode and tail behaviour of the generalised inverse gamma are:</p>
+<p><span class="math display">
+\text{mode} = \sqrt{\frac{2\beta}{2\alpha+1}},
+\qquad
+p(\sigma) \propto \sigma^{-(\nu+1)} \text{ as } \sigma \to \infty,
+</span></p>
+<p>with <span class="math inline">\alpha = \nu/2</span> and <span class="math inline">\beta = \nu\lambda/2</span>. We use these features to match against for the truncated Student-<span class="math inline">t</span> approximation.</p>
+<p>The Student-t distribution has three free parameters which we choose as follows.</p>
+<ul>
+<li>The degrees of freedom is set to <span class="math inline">\nu</span>. A <span class="math inline">t_\nu</span> density decays as <span class="math inline">\sigma^{-(\nu+1)}</span> which matches the generalised inverse gamma tail.</li>
+<li>The mean of the Student-t is set to <span class="math inline">\mu = \sqrt{2\beta/(2\alpha+1)}</span>. This matches the mode of the approximation to the target generalised inverse gamma.</li>
+<li>The scale of the Student-t is chosen so that the one-sided 90% quantile of each target and approximate distribution match.</li>
+</ul>
+<p>Note that the truncation to of the Student-t distribution to <span class="math inline">(0,\infty)</span> is applied automatically by Stan.</p>
+</section>
+<section id="comparison-of-priors" class="level4">
+<h4 class="anchored" data-anchor-id="comparison-of-priors">Comparison of priors</h4>
+<p>The <code>default</code> variant, which uses each package’s own out-of-the-box choice:</p>
+<ul>
+<li>data-calibrated exponential prior for <code>stan4bart</code> on the standard deviation, and</li>
+<li><code>stochtree</code>’s default inverse-gamma is a <span class="math inline">\text{IG}(0,0)</span> distribution (an improper Jeffery’s prior) on the variance.</li>
+</ul>
+<p>The <code>stan4bart</code> default is</p>
+<p><span class="math display">
+\sigma \sim \text{Exponential}\!\left(\text{rate} = 1/\text{sd}(y)\right),
+</span></p>
+<p>whilst <code>stochtree</code>’s default is an improper prior with density <span class="math inline">p(\sigma^2) \propto \frac{1}{\sigma^2}</span> on the variance, or equivalently</p>
+<p><span class="math display">
+p(\sigma) \propto \frac{1}{\sigma},
+</span></p>
+<p>on the standard deviation.</p>
+<p>The following comparison plots these an example of these priors (minus the improper prior) on the standard deviation scale. The data-calibrated priors are constructed by simulating <span class="math inline">n = 250</span> samples and using equivalent settings to the simulation to be performed.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>sigma_gig_density <span class="ot">&lt;-</span> <span class="cf">function</span>(y, alpha, beta) {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="dv">2</span> <span class="sc">*</span> beta<span class="sc">^</span>alpha <span class="sc">/</span> <span class="fu">gamma</span>(alpha) <span class="sc">*</span> y<span class="sc">^</span>(<span class="sc">-</span><span class="dv">2</span> <span class="sc">*</span> alpha <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> <span class="fu">exp</span>(<span class="sc">-</span>beta <span class="sc">/</span> y<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>sigma_trunc_t_density <span class="ot">&lt;-</span> <span class="cf">function</span>(x, df, location, scale) {</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ifelse</span>(x <span class="sc">&lt;=</span> <span class="dv">0</span>, <span class="dv">0</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">dt</span>((x <span class="sc">-</span> location) <span class="sc">/</span> scale, <span class="at">df =</span> df) <span class="sc">/</span> scale <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> <span class="fu">pt</span>(<span class="sc">-</span>location <span class="sc">/</span> scale, <span class="at">df =</span> df))</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co"># One dataset, same DGP settings and same n as the benchmark's smallest run.</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(params<span class="sc">$</span>seed)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>sim_prior <span class="ot">&lt;-</span> <span class="fu">simulate_friedman_rfx</span>(</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">n =</span> <span class="fu">min</span>(params<span class="sc">$</span>n_values), <span class="at">n_groups =</span> params<span class="sc">$</span>n_groups,</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">sd_group =</span> params<span class="sc">$</span>sd_group_continuous, <span class="at">y_sd =</span> params<span class="sc">$</span>y_sd</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>X_prior <span class="ot">&lt;-</span> sim_prior<span class="sc">$</span>data[, <span class="fu">setdiff</span>(<span class="fu">names</span>(sim_prior<span class="sc">$</span>data), <span class="fu">c</span>(<span class="st">"y"</span>, <span class="st">"group"</span>))]</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>y_prior <span class="ot">&lt;-</span> sim_prior<span class="sc">$</span>data<span class="sc">$</span>y</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>group_prior <span class="ot">&lt;-</span> sim_prior<span class="sc">$</span>data<span class="sc">$</span>group</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co"># sigest via the engines' own helper, group included so the intercepts are not</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co"># absorbed into the residual; then the inverse-gamma target it implies.</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>sigest_demo <span class="ot">&lt;-</span> <span class="fu">compute_sigest</span>(X_prior, y_prior, <span class="at">group =</span> group_prior)</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>sigest_nogroup_demo <span class="ot">&lt;-</span> <span class="fu">compute_sigest</span>(X_prior, y_prior)</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>nu <span class="ot">&lt;-</span> hp<span class="sc">$</span>sigdf</span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>lambda_demo <span class="ot">&lt;-</span> sigest_demo<span class="sc">^</span><span class="dv">2</span> <span class="sc">*</span> <span class="fu">qchisq</span>(<span class="dv">1</span> <span class="sc">-</span> hp<span class="sc">$</span>sigquant, <span class="at">df =</span> nu) <span class="sc">/</span> nu</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>alpha_demo <span class="ot">&lt;-</span> nu <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>beta_demo <span class="ot">&lt;-</span> nu <span class="sc">*</span> lambda_demo <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co"># The truncated-t actually passed to stan4bart, taken from the engine's own helper.</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>prior_aux_demo <span class="ot">&lt;-</span> <span class="fu">hp_to_stan4bart_sigma_prior</span>(hp, X_prior, y_prior, <span class="at">group =</span> group_prior)<span class="sc">$</span>prior_aux</span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="co"># stan4bart's default: exponential(rate = 1, autoscale = TRUE) -&gt; rate = 1/sd(y).</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>exp_rate_demo <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="sc">/</span> <span class="fu">sd</span>(y_prior)</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>sigma_grid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="fl">1e-4</span>, <span class="dv">3</span> <span class="sc">*</span> sigest_demo, <span class="at">length.out =</span> <span class="dv">600</span>)</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="co"># stochtree's own default is omitted: it is the improper Jeffreys prior</span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="co"># (see the note below the plot), which has no density to draw.</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>prior_curves <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">x =</span> sigma_grid, <span class="at">density =</span> <span class="fu">sigma_gig_density</span>(sigma_grid, alpha_demo, beta_demo),</span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>         <span class="at">prior =</span> <span class="st">"stochtree baseline (generalised inverse gamma)"</span>),</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">x =</span> sigma_grid, <span class="at">density =</span> <span class="fu">sigma_trunc_t_density</span>(sigma_grid, prior_aux_demo<span class="sc">$</span>df,</span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>                                                          prior_aux_demo<span class="sc">$</span>location, prior_aux_demo<span class="sc">$</span>scale),</span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>         <span class="at">prior =</span> <span class="st">"stan4bart baseline (truncated-t)"</span>),</span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">x =</span> sigma_grid, <span class="at">density =</span> <span class="fu">dexp</span>(sigma_grid, <span class="at">rate =</span> exp_rate_demo),</span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>         <span class="at">prior =</span> <span class="st">"stan4bart default (exponential)"</span>)</span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>prior_curves <span class="sc">%&gt;%</span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> x, <span class="at">y =</span> density, <span class="at">colour =</span> prior)) <span class="sc">+</span></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> sigest_demo, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">colour =</span> <span class="st">"grey50"</span>) <span class="sc">+</span></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> params<span class="sc">$</span>y_sd, <span class="at">linetype =</span> <span class="st">"dotted"</span>, <span class="at">colour =</span> <span class="st">"grey30"</span>) <span class="sc">+</span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="fu">expression</span>(sigma), <span class="at">y =</span> <span class="st">"Density"</span>, <span class="at">colour =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>) <span class="sc">+</span></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">colour =</span> <span class="fu">guide_legend</span>(<span class="at">ncol =</span> <span class="dv">1</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/prior-compare-plot-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Priors on sigma from a single simulated dataset at the smallest n: stochtree’s generalised-inverse-gamma target and the calibrated truncated-t matched to it for stan4bart (both baseline variants), against stan4bart’s own auto-scaled exponential (default variant). stochtree’s default is improper and so cannot be shown. The dashed line marks sigest, the dotted line the true sigma.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>At <span class="math inline">n = 250</span> this gives <span class="math inline">\hat\sigma = 2.48</span> against a true <span class="math inline">\sigma = 1</span>.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Future work
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>For <span class="math inline">n=250</span> (at least), even with <span class="math inline">\hat\sigma^2</span> overestimated, the bulk of the IG prior mass lines up suspiciously well with the truth. Prior sensitivity should be tested in a future benchmark.</p>
+</div>
+</div>
+<p>The two <code>baseline</code> priors mostly agree well, the main difference being the probability assigned around zero. The <code>default</code> <code>stan4bart</code> is much more diffuse.</p>
+</section>
+</section>
+</section>
+<section id="run" class="level2">
+<h2 class="anchored" data-anchor-id="run">Run</h2>
+<details>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>n_values <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) <span class="fu">c</span>(<span class="dv">60</span>, <span class="dv">100</span>) <span class="cf">else</span> params<span class="sc">$</span>n_values</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>n_reps <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) <span class="dv">2</span> <span class="cf">else</span> params<span class="sc">$</span>n_reps</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>n_for_examples <span class="ot">&lt;-</span> <span class="fu">max</span>(n_values)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>cache_file <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="st">"cache"</span>, <span class="fu">sprintf</span>(<span class="st">"rfx_%s.rds"</span>, <span class="cf">if</span> (<span class="fu">isTRUE</span>(params<span class="sc">$</span>fast_mode)) <span class="st">"fast"</span> <span class="cf">else</span> <span class="st">"full"</span>))</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">cached_run</span>(cache_file, <span class="cf">function</span>() {</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">run_benchmark_rfx</span>(<span class="at">n_values =</span> n_values, <span class="at">B =</span> n_reps, <span class="at">hp =</span> hp, <span class="at">seed =</span> params<span class="sc">$</span>seed, <span class="at">y_sd =</span> params<span class="sc">$</span>y_sd,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>                     <span class="at">sd_group_continuous =</span> params<span class="sc">$</span>sd_group_continuous, <span class="at">sd_group_binary =</span> params<span class="sc">$</span>sd_group_binary,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>                     <span class="at">n_groups =</span> params<span class="sc">$</span>n_groups, <span class="at">stochtree_thin =</span> params<span class="sc">$</span>stochtree_thin,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>                     <span class="at">stochtree_burnin_multiplier =</span> params<span class="sc">$</span>stochtree_burnin_multiplier,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>                     <span class="at">mcmc_seed =</span> params<span class="sc">$</span>mcmc_seed)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in (function (X_train, y_train, leaf_basis_train = NULL,
+rfx_group_ids_train = NULL, : Global error variance will not be sampled with a
+probit link as it is fixed at 1</code></pre>
+</div>
+</div>
+</details>
+</section>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<section id="prediction-accuracy" class="level3">
+<h3 class="anchored" data-anchor-id="prediction-accuracy">Prediction accuracy</h3>
+<p><code>fit_time_sec</code> is reported as a median, not a mean - a handful of runs (see <a href="#sec-runtime" class="quarto-xref">Section&nbsp;5.7</a>) are extreme outliers.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine, variant, n) <span class="sc">%&gt;%</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">across</span>(<span class="fu">c</span>(rmse, mae, coverage95, crps), mean),</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">fit_time_sec =</span> <span class="fu">median</span>(fit_time_sec),</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(outcome, n, engine, variant, rmse, mae, coverage95, crps, fit_time_sec) <span class="sc">%&gt;%</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(outcome, n, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>, <span class="at">format =</span> <span class="st">"html"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">collapse_rows</span>(<span class="at">columns =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">valign =</span> <span class="st">"top"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th">outcome</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">n</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">engine</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">variant</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">rmse</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">mae</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">coverage95</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">crps</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">fit_time_sec</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td rowspan="10" style="text-align: left; vertical-align: top !important;">binary</td>
+<td rowspan="5" style="text-align: right; vertical-align: top !important;">60</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.218</td>
+<td style="text-align: right;">0.168</td>
+<td style="text-align: right;">0.892</td>
+<td style="text-align: right;">0.121</td>
+<td style="text-align: right;">0.030</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.235</td>
+<td style="text-align: right;">0.176</td>
+<td style="text-align: right;">0.850</td>
+<td style="text-align: right;">0.135</td>
+<td style="text-align: right;">0.024</td>
+</tr>
+<tr class="odd">
+<td rowspan="3" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.222</td>
+<td style="text-align: right;">0.168</td>
+<td style="text-align: right;">0.892</td>
+<td style="text-align: right;">0.125</td>
+<td style="text-align: right;">0.008</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.231</td>
+<td style="text-align: right;">0.184</td>
+<td style="text-align: right;">0.850</td>
+<td style="text-align: right;">0.132</td>
+<td style="text-align: right;">0.014</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.201</td>
+<td style="text-align: right;">0.164</td>
+<td style="text-align: right;">0.933</td>
+<td style="text-align: right;">0.113</td>
+<td style="text-align: right;">0.025</td>
+</tr>
+<tr class="even">
+<td rowspan="5" style="text-align: right; vertical-align: top !important;">100</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.217</td>
+<td style="text-align: right;">0.170</td>
+<td style="text-align: right;">0.830</td>
+<td style="text-align: right;">0.124</td>
+<td style="text-align: right;">0.030</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.206</td>
+<td style="text-align: right;">0.159</td>
+<td style="text-align: right;">0.900</td>
+<td style="text-align: right;">0.116</td>
+<td style="text-align: right;">0.027</td>
+</tr>
+<tr class="even">
+<td rowspan="3" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.208</td>
+<td style="text-align: right;">0.167</td>
+<td style="text-align: right;">0.885</td>
+<td style="text-align: right;">0.116</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.227</td>
+<td style="text-align: right;">0.180</td>
+<td style="text-align: right;">0.845</td>
+<td style="text-align: right;">0.129</td>
+<td style="text-align: right;">0.016</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.215</td>
+<td style="text-align: right;">0.172</td>
+<td style="text-align: right;">0.855</td>
+<td style="text-align: right;">0.119</td>
+<td style="text-align: right;">0.031</td>
+</tr>
+<tr class="odd">
+<td rowspan="12" style="text-align: left; vertical-align: top !important;">continuous</td>
+<td rowspan="6" style="text-align: right; vertical-align: top !important;">60</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">1.276</td>
+<td style="text-align: right;">1.030</td>
+<td style="text-align: right;">0.925</td>
+<td style="text-align: right;">0.739</td>
+<td style="text-align: right;">0.027</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.979</td>
+<td style="text-align: right;">0.789</td>
+<td style="text-align: right;">0.975</td>
+<td style="text-align: right;">0.591</td>
+<td style="text-align: right;">0.025</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">1.272</td>
+<td style="text-align: right;">1.014</td>
+<td style="text-align: right;">0.933</td>
+<td style="text-align: right;">0.741</td>
+<td style="text-align: right;">0.021</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">1.216</td>
+<td style="text-align: right;">0.999</td>
+<td style="text-align: right;">0.900</td>
+<td style="text-align: right;">0.700</td>
+<td style="text-align: right;">0.021</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">1.007</td>
+<td style="text-align: right;">0.801</td>
+<td style="text-align: right;">0.942</td>
+<td style="text-align: right;">0.584</td>
+<td style="text-align: right;">0.051</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.879</td>
+<td style="text-align: right;">0.703</td>
+<td style="text-align: right;">0.967</td>
+<td style="text-align: right;">0.506</td>
+<td style="text-align: right;">0.021</td>
+</tr>
+<tr class="odd">
+<td rowspan="6" style="text-align: right; vertical-align: top !important;">100</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">1.380</td>
+<td style="text-align: right;">1.095</td>
+<td style="text-align: right;">0.850</td>
+<td style="text-align: right;">0.801</td>
+<td style="text-align: right;">0.023</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.965</td>
+<td style="text-align: right;">0.766</td>
+<td style="text-align: right;">0.930</td>
+<td style="text-align: right;">0.556</td>
+<td style="text-align: right;">0.024</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">1.484</td>
+<td style="text-align: right;">1.210</td>
+<td style="text-align: right;">0.820</td>
+<td style="text-align: right;">0.861</td>
+<td style="text-align: right;">0.013</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">1.387</td>
+<td style="text-align: right;">1.089</td>
+<td style="text-align: right;">0.840</td>
+<td style="text-align: right;">0.801</td>
+<td style="text-align: right;">0.020</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">1.123</td>
+<td style="text-align: right;">0.918</td>
+<td style="text-align: right;">0.910</td>
+<td style="text-align: right;">0.645</td>
+<td style="text-align: right;">0.088</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.898</td>
+<td style="text-align: right;">0.728</td>
+<td style="text-align: right;">0.860</td>
+<td style="text-align: right;">0.520</td>
+<td style="text-align: right;">0.024</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="predicted-vs.-true" class="level3">
+<h3 class="anchored" data-anchor-id="predicted-vs.-true">Predicted vs.&nbsp;true</h3>
+<p>These plots show one representative replication for <code>n = 100</code> (the largest value tested).</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>examples <span class="sc">%&gt;%</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"continuous"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> truth, <span class="at">y =</span> fitted)) <span class="sc">+</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey60"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste</span>(engine, variant), <span class="at">nrow =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Continuous outcome"</span>, <span class="at">x =</span> <span class="st">"True value (f(x) + group effect)"</span>, <span class="at">y =</span> <span class="st">"Posterior mean fitted value"</span>) <span class="sc">+</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/pred-scatter-continuous-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>examples <span class="sc">%&gt;%</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"binary"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> truth, <span class="at">y =</span> fitted)) <span class="sc">+</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey60"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.4</span>, <span class="at">size =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste</span>(engine, variant), <span class="at">nrow =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_equal</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>), <span class="at">ylim =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Binary outcome (probability scale)"</span>, <span class="at">x =</span> <span class="st">"True probability"</span>, <span class="at">y =</span> <span class="st">"Posterior mean fitted probability"</span>) <span class="sc">+</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/pred-scatter-binary-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="group-effect-recovery" class="level3">
+<h3 class="anchored" data-anchor-id="group-effect-recovery">Group-effect recovery</h3>
+<p>Here we look at the recovery of the group-specific intercepts. A BART’s trees can absorb part of the overall baseline level that would otherwise be captured in the random intercepts. That is, the group mean can be split between “trees” and “random intercepts” differently, causing . A raw bias or RMSE would penalise that arbitrary split rather than genuine recovery failure, so both metrics below first remove each side’s own mean, <span class="math inline">\bar{\hat u} = \frac{1}{n_G}\sum_g \hat u_g</span> and <span class="math inline">\bar u = \frac{1}{n_G}\sum_g u_g</span>, before comparing:</p>
+<p><span class="math display">
+\texttt{group\_effect\_cor} = \frac{\sum_g (\hat u_g - \bar{\hat u})(u_g - \bar u)}{\sqrt{\sum_g (\hat u_g - \bar{\hat u})^2} \, \sqrt{\sum_g (u_g - \bar u)^2}}
+</span></p>
+<p>the ordinary Pearson correlation across groups - shift- and scale-invariant by construction, so it checks only whether groups with a larger true effect also get a larger estimated one, in the right order - and</p>
+<p><span class="math display">
+\texttt{group\_effect\_centered\_rmse} = \sqrt{\frac{1}{n_G} \sum_g \Big[(\hat u_g - \bar{\hat u}) - (u_g - \bar u)\Big]^2}
+</span></p>
+<p>the RMSE between the two <em>centred</em> sequences. This is the stricter of the two: it also penalises wrong relative spacing between groups, not just wrong ranking, while remaining blind to any shift shared by every group - exactly the one degree of freedom that isn’t identifiable in the first place.</p>
+<p>A third, uncentred version is reported alongside them for reference:</p>
+<p><span class="math display">
+\texttt{group\_effect\_raw\_rmse} = \sqrt{\frac{1}{n_G} \sum_g \big(\hat u_g - u_g\big)^2}
+</span></p>
+<p>the plain RMSE, with no shift removed. This is the “pure recovery” number in the most literal sense - it is what you’d report if the shift <em>were</em> identifiable - but for exactly the reason above, a gap between this and the centred RMSE is expected here and is not, by itself, evidence of worse estimation: it also reflects however much of the baseline level a given engine’s trees happened to absorb. Read it alongside the centred RMSE, not as a replacement for it.</p>
+<p><code>stan4bart</code>’s underlying Stan program does support a genuine fixed global intercept (gated by a <code>has_intercept</code> flag), currently unused here since the fitted formula leaves no fixed-effects term for it to attach to - enabling it is a natural variant to explore in future work.</p>
+<p>A synthetic check makes the distinction concrete: take a set of true group effects, then simulate “estimates” that are a known constant shift away from the truth plus a little noise - the kind of gap a real engine could produce by parking part of the baseline in its trees rather than the random intercepts.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>demo_true <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(<span class="dv">20</span>, <span class="at">sd =</span> <span class="dv">3</span>)</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>demo_shift <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>demo_hat <span class="ot">&lt;-</span> demo_true <span class="sc">+</span> demo_shift <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">20</span>, <span class="at">sd =</span> <span class="fl">0.5</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>demo_metrics <span class="ot">&lt;-</span> <span class="fu">group_effect_recovery</span>(demo_hat, demo_true)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<p>With a shift of 5 and noise SD <code>0.5</code> on top of it, <code>group_effect_cor</code> = 0.987 (essentially unaffected by the shift - it only sees the noise), <code>group_effect_centered_rmse</code> = 0.425 (recovers that same noise level once the shift is removed), and <code>group_effect_raw_rmse</code> = 5.015 (dominated by the shift itself, close to 5) - exactly the pattern described above.</p>
+<p>The scatter plots below are centred the same way as the centred RMSE (see the axis labels) - which has the added benefit of making them comparable in scale across engines within the same outcome, so each outcome gets a single plot with shared, not free, axes across its engine panels. Giving the engine dimension its own free scale via <code>facet_grid(..., scales = "free")</code> would let each panel float on its own axis range independently, which would be misleading for exactly this side-by-side comparison - the same issue that is diagnosed in more detail for the predicted-vs-true plot in <code>benchmark-prediction.qmd</code>.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>group_metrics <span class="sc">%&gt;%</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine, variant, n) <span class="sc">%&gt;%</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(<span class="fu">c</span>(group_effect_cor, group_effect_centered_rmse, group_effect_raw_rmse), mean), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(outcome, n, engine, variant, group_effect_cor, group_effect_centered_rmse, group_effect_raw_rmse) <span class="sc">%&gt;%</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(outcome, n, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>, <span class="at">format =</span> <span class="st">"html"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">collapse_rows</span>(<span class="at">columns =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">valign =</span> <span class="st">"top"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th">outcome</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">n</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">engine</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">variant</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">group_effect_cor</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">group_effect_centered_rmse</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">group_effect_raw_rmse</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td rowspan="10" style="text-align: left; vertical-align: top !important;">binary</td>
+<td rowspan="5" style="text-align: right; vertical-align: top !important;">60</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.377</td>
+<td style="text-align: right;">0.758</td>
+<td style="text-align: right;">0.760</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.451</td>
+<td style="text-align: right;">0.823</td>
+<td style="text-align: right;">0.824</td>
+</tr>
+<tr class="odd">
+<td rowspan="3" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.435</td>
+<td style="text-align: right;">0.827</td>
+<td style="text-align: right;">0.838</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.457</td>
+<td style="text-align: right;">0.679</td>
+<td style="text-align: right;">0.682</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.443</td>
+<td style="text-align: right;">0.563</td>
+<td style="text-align: right;">0.577</td>
+</tr>
+<tr class="even">
+<td rowspan="5" style="text-align: right; vertical-align: top !important;">100</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.467</td>
+<td style="text-align: right;">0.471</td>
+<td style="text-align: right;">0.476</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.420</td>
+<td style="text-align: right;">0.453</td>
+<td style="text-align: right;">0.468</td>
+</tr>
+<tr class="even">
+<td rowspan="3" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.465</td>
+<td style="text-align: right;">0.430</td>
+<td style="text-align: right;">0.435</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.461</td>
+<td style="text-align: right;">0.448</td>
+<td style="text-align: right;">0.459</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.450</td>
+<td style="text-align: right;">0.459</td>
+<td style="text-align: right;">0.463</td>
+</tr>
+<tr class="odd">
+<td rowspan="12" style="text-align: left; vertical-align: top !important;">continuous</td>
+<td rowspan="6" style="text-align: right; vertical-align: top !important;">60</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.773</td>
+<td style="text-align: right;">2.215</td>
+<td style="text-align: right;">2.423</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.867</td>
+<td style="text-align: right;">1.731</td>
+<td style="text-align: right;">1.832</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.861</td>
+<td style="text-align: right;">1.855</td>
+<td style="text-align: right;">2.194</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.730</td>
+<td style="text-align: right;">2.344</td>
+<td style="text-align: right;">2.455</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">0.802</td>
+<td style="text-align: right;">2.103</td>
+<td style="text-align: right;">2.217</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.868</td>
+<td style="text-align: right;">1.829</td>
+<td style="text-align: right;">1.938</td>
+</tr>
+<tr class="odd">
+<td rowspan="6" style="text-align: right; vertical-align: top !important;">100</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.833</td>
+<td style="text-align: right;">1.492</td>
+<td style="text-align: right;">1.510</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.869</td>
+<td style="text-align: right;">1.320</td>
+<td style="text-align: right;">1.410</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">0.914</td>
+<td style="text-align: right;">1.182</td>
+<td style="text-align: right;">1.319</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">0.910</td>
+<td style="text-align: right;">1.220</td>
+<td style="text-align: right;">1.366</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">0.903</td>
+<td style="text-align: right;">1.200</td>
+<td style="text-align: right;">1.305</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">0.904</td>
+<td style="text-align: right;">1.164</td>
+<td style="text-align: right;">1.540</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Centred, matching group_effect_recovery()'s own metric definition: the</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="co"># shared level between BART's trees and the random intercept isn't</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="co"># identified, so only the *relative* effects are comparable.</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>group_examples_centred <span class="ot">&lt;-</span> res<span class="sc">$</span>group_examples <span class="sc">%&gt;%</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">true_centred =</span> true_group_effect <span class="sc">-</span> <span class="fu">mean</span>(true_group_effect),</span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">hat_centred =</span> group_effect_hat <span class="sc">-</span> <span class="fu">mean</span>(group_effect_hat)</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>group_examples_centred <span class="sc">%&gt;%</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"continuous"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> true_centred, <span class="at">y =</span> hat_centred)) <span class="sc">+</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey60"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste</span>(engine, variant), <span class="at">nrow =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Continuous outcome"</span>, <span class="at">x =</span> <span class="st">"True group effect (centred)"</span>, <span class="at">y =</span> <span class="st">"Posterior mean group effect estimate (centred)"</span>) <span class="sc">+</span></span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/group-effect-scatter-continuous-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>group_examples_centred <span class="sc">%&gt;%</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"binary"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> true_centred, <span class="at">y =</span> hat_centred)) <span class="sc">+</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">slope =</span> <span class="dv">1</span>, <span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey60"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste</span>(engine, variant), <span class="at">nrow =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Binary outcome (probit latent scale)"</span>, <span class="at">x =</span> <span class="st">"True group effect (centred)"</span>, <span class="at">y =</span> <span class="st">"Posterior mean group effect estimate (centred)"</span>) <span class="sc">+</span></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/group-effect-scatter-binary-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="cross-engine-agreement-baseline-rows" class="level3">
+<h3 class="anchored" data-anchor-id="cross-engine-agreement-baseline-rows">Cross-engine agreement (baseline rows)</h3>
+<p>Do <code>stan4bart</code> and <code>stochtree::bart</code> agree with each other on the same simulated dataset, independent of the truth? Only <code>baseline</code> rows are compared, for the same reason as <code>benchmark-prediction.qmd</code>’s equivalent section: <code>default</code> and <code>baseline+gfr</code> use different priors or warm-start settings, which would muddy a same-prior comparison.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>agreement <span class="sc">%&gt;%</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine_a, engine_b) <span class="sc">%&gt;%</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mean_correlation =</span> <span class="fu">mean</span>(correlation), <span class="at">mean_rmse =</span> <span class="fu">mean</span>(rmse), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">outcome</th>
+<th style="text-align: left;">engine_a</th>
+<th style="text-align: left;">engine_b</th>
+<th style="text-align: right;">mean_correlation</th>
+<th style="text-align: right;">mean_rmse</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">binary</td>
+<td style="text-align: left;">stan4bart</td>
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: right;">0.887</td>
+<td style="text-align: right;">0.128</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">continuous</td>
+<td style="text-align: left;">stan4bart</td>
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: right;">0.968</td>
+<td style="text-align: right;">1.281</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>agreement <span class="sc">%&gt;%</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine_a, engine_b) <span class="sc">%&gt;%</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mean_correlation =</span> <span class="fu">mean</span>(correlation), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> engine_a, <span class="at">y =</span> engine_b, <span class="at">fill =</span> mean_correlation)) <span class="sc">+</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>() <span class="sc">+</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label =</span> <span class="fu">sprintf</span>(<span class="st">"%.2f"</span>, mean_correlation)), <span class="at">size =</span> <span class="dv">3</span>) <span class="sc">+</span></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>outcome) <span class="sc">+</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_distiller</span>(<span class="at">palette =</span> <span class="st">"RdYlBu"</span>, <span class="at">direction =</span> <span class="dv">1</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">fill =</span> <span class="st">"correlation"</span>) <span class="sc">+</span></span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/agreement-heatmap-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>With only two engines carrying a <code>baseline</code> row here, this is necessarily a single pairwise comparison per outcome rather than the fuller grid in <code>benchmark-prediction.qmd</code> - still useful as a check that the two aren’t silently diverging on the same data, independent of how close either is to the truth.</p>
+</section>
+<section id="sec-mcmc-mixing" class="level3">
+<h3 class="anchored" data-anchor-id="sec-mcmc-mixing">MCMC mixing</h3>
+<p>Two engines can have equally sensible priors and equally unbiased posterior means, yet still disagree on prediction accuracy if one’s chain is more autocorrelated: the same nominal number of post-burn-in draws then buys less information, so the posterior mean is noisier - a sampler-efficiency gap rather than a modelling one. This was investigated directly because <code>stan4bart</code>’s <code>baseline</code> variant consistently outperformed <code>stochtree::bart</code>’s on continuous-outcome prediction RMSE, at a gap that did not shrink between the smallest and largest <code>n</code> tested - the tree and random-effects priors were checked first and ruled out (both engines recover <span class="math inline">\sigma_G</span> and Friedman’s function equally well on average), before this diagnostic surfaced a real, persistent difference in effective sample size (ESS) for the same nominal draw count.</p>
+<p>Two parameters are tracked, since a single global one won’t cover both outcomes:</p>
+<ul>
+<li><span class="math inline">\sigma</span>, the global residual SD - continuous outcome only, since it’s fixed at 1 under both engines’ probit link for a binary outcome (confirmed empirically: neither engine even exposes the parameter for a binary fit). Tracked on the SD scale for both engines rather than each package’s own native parameterization: <code>stan4bart</code>’s <code>aux</code> is already on this scale, but <code>stochtree</code>’s own <code>sigma2_global_samples</code> is the variance - comparing them as-is was a real bug (confirmed empirically: <code>stan4bart</code>’s raw draws track <code>sqrt()</code> of <code>stochtree</code>’s, not <code>stochtree</code>’s raw draws), silently comparing an SD against a variance rather than the same quantity.</li>
+<li><span class="math inline">\sigma_G</span>, the random-intercept SD - sampled for both outcomes, and so the substitute diagnostic for the binary case specifically.</li>
+</ul>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine, variant, n) <span class="sc">%&gt;%</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(<span class="fu">c</span>(sigma_global_ess, sigma_group_ess), <span class="sc">~</span><span class="cf">if</span> (<span class="fu">all</span>(<span class="fu">is.na</span>(.x))) <span class="cn">NA_real_</span> <span class="cf">else</span> <span class="fu">mean</span>(.x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(outcome, n, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">0</span>, <span class="at">format =</span> <span class="st">"html"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">collapse_rows</span>(<span class="at">columns =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">valign =</span> <span class="st">"top"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th">outcome</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">engine</th>
+<th style="text-align: left;" data-quarto-table-cell-role="th">variant</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">n</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">sigma_global_ess</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">sigma_group_ess</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td rowspan="10" style="text-align: left; vertical-align: top !important;">binary</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">16</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">14</td>
+</tr>
+<tr class="odd">
+<td rowspan="3" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">8</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">7</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">4</td>
+</tr>
+<tr class="even">
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">9</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">5</td>
+</tr>
+<tr class="even">
+<td rowspan="3" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">7</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">7</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr class="odd">
+<td rowspan="12" style="text-align: left; vertical-align: top !important;">continuous</td>
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">17</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">9</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">14</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr class="odd">
+<td rowspan="2" style="text-align: left; vertical-align: top !important;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">12</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr class="odd">
+<td rowspan="4" style="text-align: left; vertical-align: top !important;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">13</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">30</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">11</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">5</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(outcome, engine, variant, n, sigma_global_ess, sigma_group_ess) <span class="sc">%&gt;%</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="fu">c</span>(sigma_global_ess, sigma_group_ess), <span class="at">names_to =</span> <span class="st">"parameter"</span>, <span class="at">values_to =</span> <span class="st">"ess"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(ess)) <span class="sc">%&gt;%</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">parameter =</span> <span class="fu">recode</span>(parameter, <span class="at">sigma_global_ess =</span> <span class="st">"sigma (global)"</span>, <span class="at">sigma_group_ess =</span> <span class="st">"sigma_G (random intercept)"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">paste</span>(engine, variant), <span class="at">y =</span> ess, <span class="at">colour =</span> <span class="fu">factor</span>(n))) <span class="sc">+</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_grid</span>(outcome <span class="sc">~</span> parameter) <span class="sc">+</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">"Effective sample size"</span>, <span class="at">colour =</span> <span class="st">"n"</span>) <span class="sc">+</span></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/ess-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>A low or engine-specific ESS here is a flag to interpret RMSE/coverage differences with some caution - a noisier posterior mean widens the gap between engines without either one’s model or prior actually being worse.</p>
+<section id="why-baselinethin-only-partly-helped" class="level4">
+<h4 class="anchored" data-anchor-id="why-baselinethin-only-partly-helped">Why <code>baseline+thin</code> only partly helped</h4>
+<p><code>baseline+thin</code> (see Scope; continuous outcome only) was added specifically to test whether more raw sweeps per retained draw would recover the ESS gap above. The direct comparison, from this same cached run:</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"continuous"</span>, engine <span class="sc">==</span> <span class="st">"stochtree::bart"</span>, variant <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">"baseline"</span>, <span class="st">"baseline+thin"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(variant, n) <span class="sc">%&gt;%</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mean_sigma_global_ess =</span> <span class="fu">mean</span>(sigma_global_ess, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">mean_rmse =</span> <span class="fu">mean</span>(rmse), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(n, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">3</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">variant</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">mean_sigma_global_ess</th>
+<th style="text-align: right;">mean_rmse</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">17.9</td>
+<td style="text-align: right;">1.272</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">7.8</td>
+<td style="text-align: right;">1.007</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">5.5</td>
+<td style="text-align: right;">1.484</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">100</td>
+<td style="text-align: right;">13.3</td>
+<td style="text-align: right;">1.123</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>acf_global <span class="sc">%&gt;%</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"continuous"</span>, lag <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(engine, variant, n, lag) <span class="sc">%&gt;%</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">acf =</span> <span class="fu">mean</span>(acf), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> lag, <span class="at">y =</span> acf, <span class="at">colour =</span> <span class="fu">factor</span>(n))) <span class="sc">+</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey70"</span>) <span class="sc">+</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> <span class="fu">paste</span>(engine, variant)) <span class="sc">+</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Lag (raw MCMC sweeps)"</span>, <span class="at">y =</span> <span class="fu">expression</span>(<span class="fu">paste</span>(<span class="st">"Autocorrelation of "</span>, sigma)), <span class="at">colour =</span> <span class="st">"n"</span>) <span class="sc">+</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/acf-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="do-the-trees-mix-at-the-same-rate" class="level4">
+<h4 class="anchored" data-anchor-id="do-the-trees-mix-at-the-same-rate">Do the trees mix at the same rate?</h4>
+<p>Both engines update their residual-variance parameter conditional on the <em>current</em> tree ensemble every sweep - confirmed by reading both packages’ own sampling loops, this is blocked-Gibbs alternation on both sides regardless of whether the non-tree update is a Stan HMC step or a conjugate Gibbs draw. That makes the tree ensemble’s own mixing rate a shared candidate bottleneck, which sigma alone can’t distinguish from a problem specific to sigma’s own update. Tracked here via five quantiles (0.05, 0.2, 0.5, 0.8, 0.95) of the fitted values across observations, computed per retained draw - five extra per-draw time series alongside sigma, using the same draws already extracted for RMSE/coverage/CRPS.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>fitted_quantile_acf <span class="sc">%&gt;%</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(lag <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">quantile =</span> <span class="fu">factor</span>(quantile, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"q5"</span>, <span class="st">"q20"</span>, <span class="st">"q50"</span>, <span class="st">"q80"</span>, <span class="st">"q95"</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(engine, variant, n, quantile, lag) <span class="sc">%&gt;%</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">acf =</span> <span class="fu">mean</span>(acf), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> lag, <span class="at">y =</span> acf, <span class="at">colour =</span> <span class="fu">paste</span>(engine, variant))) <span class="sc">+</span></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">colour =</span> <span class="st">"grey70"</span>) <span class="sc">+</span></span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_grid</span>(quantile <span class="sc">~</span> n, <span class="at">labeller =</span> label_both) <span class="sc">+</span></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Lag (raw MCMC sweeps)"</span>, <span class="at">y =</span> <span class="st">"Autocorrelation of fitted-value quantile"</span>, <span class="at">colour =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">"bottom"</span>) <span class="sc">+</span></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">colour =</span> <span class="fu">guide_legend</span>(<span class="at">ncol =</span> <span class="dv">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/fitted-quantile-acf-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>If the fitted-value quantiles decorrelate at a similar rate to sigma within each engine, that points to the trees themselves as the shared bottleneck; if they decorrelate faster than sigma does, that points instead to something specific to how each engine updates sigma given a fixed tree state.</p>
+<p>A related question: are the tails of the fitted-value distribution actually driven by the same quantities as the variance parameters, iteration by iteration? For the representative replication (largest <code>n</code>, first repetition), the pairwise correlation between the 5th/95th fitted-value quantiles and sigma/sigma_G (both on the SD scale), draw by draw:</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>fitted_quantile_joint <span class="sc">%&gt;%</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"continuous"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">cor(q95, sigma)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">cor</span>(q95, sigma),</span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">cor(q95, sigma_G)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">cor</span>(q95, sigma_G),</span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">cor(sigma, sigma_G)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">cor</span>(sigma, sigma_G),</span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 19%">
+<col style="width: 16%">
+<col style="width: 19%">
+<col style="width: 21%">
+<col style="width: 23%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">engine</th>
+<th style="text-align: left;">variant</th>
+<th style="text-align: right;">cor(q95, sigma)</th>
+<th style="text-align: right;">cor(q95, sigma_G)</th>
+<th style="text-align: right;">cor(sigma, sigma_G)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">stan4bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">-0.25</td>
+<td style="text-align: right;">0.61</td>
+<td style="text-align: right;">-0.05</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">stan4bart</td>
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">-0.12</td>
+<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">-0.26</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: left;">baseline</td>
+<td style="text-align: right;">-0.17</td>
+<td style="text-align: right;">0.22</td>
+<td style="text-align: right;">-0.39</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: left;">baseline+gfr</td>
+<td style="text-align: right;">-0.21</td>
+<td style="text-align: right;">0.07</td>
+<td style="text-align: right;">-0.34</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: left;">baseline+thin</td>
+<td style="text-align: right;">-0.04</td>
+<td style="text-align: right;">-0.07</td>
+<td style="text-align: right;">-0.45</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">stochtree::bart</td>
+<td style="text-align: left;">default</td>
+<td style="text-align: right;">-0.03</td>
+<td style="text-align: right;">0.36</td>
+<td style="text-align: right;">0.52</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Pairs plots of the four draw-by-draw quantities - <span class="math inline">\sigma_G</span>, <span class="math inline">\sigma</span>, <span class="math inline">q_5</span>, <span class="math inline">q_{95}</span>, both variance parameters on the SD scale (see above) - for one representative engine/variant each: scatter on the lower triangle, marginal density on the diagonal (as in <a href="https://mc-stan.org/bayesplot/reference/MCMC-scatterplots.html">bayesplot’s <code>mcmc_pairs()</code></a>). <code>stan4bart baseline</code> is the well-mixing case; <code>stochtree::bart baseline</code> and <code>baseline+thin</code> let the un-thinned and thinned cases be compared directly against it. All three use the same single representative fit as the <code>examples</code>/<code>group_examples</code> plots elsewhere in this document: the largest <code>n</code> tested, first repetition only - not averaged or pooled across replications.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>pairs_data <span class="ot">&lt;-</span> <span class="cf">function</span>(engine_name, variant_name) {</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>  res<span class="sc">$</span>fitted_quantile_joint <span class="sc">%&gt;%</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(outcome <span class="sc">==</span> <span class="st">"continuous"</span>, engine <span class="sc">==</span> engine_name, variant <span class="sc">==</span> variant_name) <span class="sc">%&gt;%</span></span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">transmute</span>(<span class="at">sigma_G =</span> sigma_G, <span class="at">sigma =</span> sigma, <span class="at">q5 =</span> q5, <span class="at">q95 =</span> q95)</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a>pairs_plot <span class="ot">&lt;-</span> <span class="cf">function</span>(df, title) {</span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>  GGally<span class="sc">::</span><span class="fu">ggpairs</span>(</span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>    df,</span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">lower =</span> <span class="fu">list</span>(<span class="at">continuous =</span> GGally<span class="sc">::</span><span class="fu">wrap</span>(<span class="st">"points"</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>, <span class="at">size =</span> <span class="dv">1</span>)),</span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">diag =</span> <span class="fu">list</span>(<span class="at">continuous =</span> <span class="st">"densityDiag"</span>),</span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">upper =</span> <span class="fu">list</span>(<span class="at">continuous =</span> <span class="st">"blank"</span>),</span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> title</span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">theme_bw</span>()</span>
+<span id="cb36-15"><a href="#cb36-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">pairs_plot</span>(<span class="fu">pairs_data</span>(<span class="st">"stan4bart"</span>, <span class="st">"baseline"</span>), <span class="st">"stan4bart (baseline)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/fitted-quantile-pairs-stan4bart-1.png" class="img-fluid figure-img" width="576"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">pairs_plot</span>(<span class="fu">pairs_data</span>(<span class="st">"stochtree::bart"</span>, <span class="st">"baseline"</span>), <span class="st">"stochtree::bart (baseline)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/fitted-quantile-pairs-stochtree-baseline-1.png" class="img-fluid figure-img" width="576"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">pairs_plot</span>(<span class="fu">pairs_data</span>(<span class="st">"stochtree::bart"</span>, <span class="st">"baseline+thin"</span>), <span class="st">"stochtree::bart (baseline+thin)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/fitted-quantile-pairs-stochtree-1.png" class="img-fluid figure-img" width="576"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="coverage-nominal-vs.-empirical" class="level3">
+<h3 class="anchored" data-anchor-id="coverage-nominal-vs.-empirical">Coverage: nominal vs.&nbsp;empirical</h3>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, engine, variant, n) <span class="sc">%&gt;%</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">coverage95 =</span> <span class="fu">mean</span>(coverage95), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">paste</span>(engine, variant), <span class="at">y =</span> coverage95, <span class="at">colour =</span> <span class="fu">factor</span>(n))) <span class="sc">+</span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fl">0.95</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>, <span class="at">colour =</span> <span class="st">"grey50"</span>) <span class="sc">+</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">position =</span> <span class="fu">position_dodge</span>(<span class="at">width =</span> <span class="fl">0.4</span>), <span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>outcome) <span class="sc">+</span></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">"Empirical 95% interval coverage"</span>, <span class="at">colour =</span> <span class="st">"n"</span>) <span class="sc">+</span></span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/coverage-plot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-runtime" class="level3">
+<h3 class="anchored" data-anchor-id="sec-runtime">Runtime</h3>
+<p>The box plot below shows the full per-replication fit-time distribution on a log scale, which is where the outliers actually show up - as individual points well above the whiskers, rather than as a shift in a single summary number.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">paste</span>(engine, variant), <span class="at">y =</span> fit_time_sec, <span class="at">colour =</span> <span class="fu">factor</span>(n))) <span class="sc">+</span></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_boxplot</span>(<span class="at">outlier.alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>outcome) <span class="sc">+</span></span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_log10</span>() <span class="sc">+</span></span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>, <span class="at">y =</span> <span class="st">"Fit time (s, log scale)"</span>, <span class="at">colour =</span> <span class="st">"n"</span>) <span class="sc">+</span></span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="benchmark-prediction-rfx_files/figure-html/runtime-boxplot-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="flags" class="level3">
+<h3 class="anchored" data-anchor-id="flags">Flags</h3>
+<p>This section lists rows whose RMSE (for prediction) or centred group-effect RMSE (for recovery) is a statistical outlier (|z| &gt; 2) within its own outcome/<code>n</code> setting. See <code>flag_outliers()</code> in <code>R/metrics.R</code> for the caveat about small-group z-scores - with only four rows per group here, this flagging is necessarily a coarse screen, not a precise test.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>flagged_rmse <span class="ot">&lt;-</span> res<span class="sc">$</span>metrics <span class="sc">%&gt;%</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, n, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">rmse =</span> <span class="fu">mean</span>(rmse), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flag_outliers</span>(<span class="st">"rmse"</span>, <span class="fu">c</span>(<span class="st">"outcome"</span>, <span class="st">"n"</span>))</span>
+<span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-6"><a href="#cb42-6" aria-hidden="true" tabindex="-1"></a>flagged_group <span class="ot">&lt;-</span> res<span class="sc">$</span>group_metrics <span class="sc">%&gt;%</span></span>
+<span id="cb42-7"><a href="#cb42-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(outcome, n, engine, variant) <span class="sc">%&gt;%</span></span>
+<span id="cb42-8"><a href="#cb42-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">group_effect_centered_rmse =</span> <span class="fu">mean</span>(group_effect_centered_rmse), <span class="at">.groups =</span> <span class="st">"drop"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb42-9"><a href="#cb42-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">flag_outliers</span>(<span class="st">"group_effect_centered_rmse"</span>, <span class="fu">c</span>(<span class="st">"outcome"</span>, <span class="st">"n"</span>))</span>
+<span id="cb42-10"><a href="#cb42-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb42-11"><a href="#cb42-11" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">nrow</span>(flagged_rmse) <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb42-12"><a href="#cb42-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">"No prediction RMSE outliers flagged.</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb42-13"><a href="#cb42-13" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb42-14"><a href="#cb42-14" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(flagged_rmse, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">caption =</span> <span class="st">"Prediction RMSE outliers"</span>)</span>
+<span id="cb42-15"><a href="#cb42-15" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>No prediction RMSE outliers flagged.</code></pre>
+</div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">nrow</span>(flagged_group) <span class="sc">==</span> <span class="dv">0</span>) {</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">"No group-effect-recovery outliers flagged.</span><span class="sc">\n</span><span class="st">"</span>)</span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(flagged_group, <span class="at">digits =</span> <span class="dv">3</span>, <span class="at">caption =</span> <span class="st">"Group-effect recovery outliers"</span>)</span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>No group-effect-recovery outliers flagged.</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="session-info" class="level2">
+<h2 class="anchored" data-anchor-id="session-info">Session info</h2>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a>sessioninfo<span class="sc">::</span><span class="fu">session_info</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>─ Session info ───────────────────────────────────────────────────────────────
+ setting  value
+ version  R version 4.6.1 (2026-06-24)
+ os       macOS Tahoe 26.5.2
+ system   aarch64, darwin23
+ ui       X11
+ language (EN)
+ collate  en_US.UTF-8
+ ctype    en_US.UTF-8
+ tz       Australia/Adelaide
+ date     2026-09-01
+ pandoc   3.8.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.9.38 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+
+─ Packages ───────────────────────────────────────────────────────────────────
+ package        * version    date (UTC) lib source
+ abind            1.4-8      2024-09-12 [1] CRAN (R 4.6.0)
+ arrayhelpers     1.1-1      2026-07-05 [1] CRAN (R 4.6.1)
+ backports        1.5.1      2026-04-03 [1] CRAN (R 4.6.0)
+ boot             1.3-32     2025-08-29 [1] CRAN (R 4.6.1)
+ checkmate        2.3.4      2026-02-03 [1] CRAN (R 4.6.0)
+ cli              3.6.6      2026-04-09 [1] CRAN (R 4.6.0)
+ coda           * 0.19-4.1   2024-01-31 [1] CRAN (R 4.6.0)
+ dbarts         * 0.9-33     2026-03-20 [1] CRAN (R 4.6.0)
+ digest           0.6.39     2025-11-19 [1] CRAN (R 4.6.0)
+ distributional   0.8.1      2026-06-27 [1] CRAN (R 4.6.1)
+ dplyr          * 1.2.1      2026-04-03 [1] CRAN (R 4.6.0)
+ evaluate         1.0.5      2025-08-27 [1] CRAN (R 4.6.0)
+ farver           2.1.2      2024-05-13 [1] CRAN (R 4.6.0)
+ fastmap          1.2.0      2024-05-15 [1] CRAN (R 4.6.0)
+ generics         0.1.4      2025-05-09 [1] CRAN (R 4.6.0)
+ GGally         * 2.4.0      2025-08-23 [1] CRAN (R 4.6.0)
+ ggdist           3.3.3      2025-04-23 [1] CRAN (R 4.6.0)
+ ggplot2        * 4.0.3      2026-04-22 [1] CRAN (R 4.6.0)
+ ggstats          0.13.0     2026-03-06 [1] CRAN (R 4.6.0)
+ glue             1.8.1      2026-04-17 [1] CRAN (R 4.6.0)
+ gtable           0.3.6      2024-10-25 [1] CRAN (R 4.6.0)
+ htmltools        0.5.9      2025-12-04 [1] CRAN (R 4.6.0)
+ htmlwidgets      1.6.4      2023-12-06 [1] CRAN (R 4.6.0)
+ jsonlite         2.0.0      2025-03-27 [1] CRAN (R 4.6.0)
+ kableExtra       1.4.1      2026-07-08 [1] CRAN (R 4.6.1)
+ knitr            1.51       2025-12-20 [1] CRAN (R 4.6.0)
+ labeling         0.4.3      2023-08-29 [1] CRAN (R 4.6.0)
+ lattice          0.22-9     2026-02-09 [1] CRAN (R 4.6.1)
+ lifecycle        1.0.5      2026-01-08 [1] CRAN (R 4.6.0)
+ lme4             2.0-6      2026-07-16 [1] CRAN (R 4.6.1)
+ magrittr         2.0.5      2026-04-04 [1] CRAN (R 4.6.0)
+ MASS             7.3-65     2025-02-28 [1] CRAN (R 4.6.1)
+ Matrix           1.7-5      2026-03-21 [1] CRAN (R 4.6.1)
+ minqa            1.2.8      2024-08-17 [1] CRAN (R 4.6.0)
+ nlme             3.1-169    2026-03-27 [1] CRAN (R 4.6.1)
+ nloptr           2.2.1      2025-03-17 [1] CRAN (R 4.6.0)
+ otel             0.2.0      2025-08-29 [1] CRAN (R 4.6.0)
+ pillar           1.11.1     2025-09-17 [1] CRAN (R 4.6.0)
+ pkgconfig        2.0.3      2019-09-22 [1] CRAN (R 4.6.0)
+ posterior        1.7.0      2026-04-01 [1] CRAN (R 4.6.0)
+ purrr            1.2.2      2026-04-10 [1] CRAN (R 4.6.0)
+ R6               2.6.1      2025-02-15 [1] CRAN (R 4.6.0)
+ rbibutils        2.4.1      2026-01-21 [1] CRAN (R 4.6.0)
+ RColorBrewer     1.1-3      2022-04-03 [1] CRAN (R 4.6.0)
+ Rcpp             1.1.2      2026-07-05 [1] CRAN (R 4.6.1)
+ RcppParallel     5.1.11-2   2026-03-05 [1] CRAN (R 4.6.0)
+ Rdpack           2.6.6      2026-02-08 [1] CRAN (R 4.6.0)
+ reformulas       0.4.4      2026-02-02 [1] CRAN (R 4.6.0)
+ rlang            1.3.0      2026-07-05 [1] CRAN (R 4.6.1)
+ rmarkdown        2.31       2026-03-26 [1] CRAN (R 4.6.0)
+ rstudioapi       0.19.0     2026-06-11 [1] CRAN (R 4.6.0)
+ S7               0.2.2      2026-04-22 [1] CRAN (R 4.6.0)
+ scales           1.4.0      2025-04-24 [1] CRAN (R 4.6.0)
+ scoringRules     1.1.3      2024-09-18 [1] CRAN (R 4.6.0)
+ sessioninfo      1.2.4      2026-06-04 [1] CRAN (R 4.6.0)
+ stan4bart      * 0.0-12     2026-03-19 [1] CRAN (R 4.6.0)
+ stochtree      * 0.4.5      2026-06-30 [1] CRAN (R 4.6.1)
+ stringi          1.8.7      2025-03-27 [1] CRAN (R 4.6.0)
+ stringr          1.6.0      2025-11-04 [1] CRAN (R 4.6.0)
+ svglite          2.2.2      2025-10-21 [1] CRAN (R 4.6.0)
+ svUnit           1.0.8      2025-08-26 [1] CRAN (R 4.6.0)
+ systemfonts      1.3.2      2026-03-05 [1] CRAN (R 4.6.0)
+ tensorA          0.36.2.1   2023-12-13 [1] CRAN (R 4.6.0)
+ textshaping      1.0.5      2026-03-06 [1] CRAN (R 4.6.0)
+ tibble           3.3.1      2026-01-11 [1] CRAN (R 4.6.0)
+ tidybayes      * 3.0.7      2024-09-15 [1] CRAN (R 4.6.0)
+ tidyr          * 1.3.2      2025-12-19 [1] CRAN (R 4.6.0)
+ tidyselect       1.2.1      2024-03-11 [1] CRAN (R 4.6.0)
+ tidytreatment  * 0.3.2.9000 2026-08-17 [1] local
+ vctrs            0.7.3      2026-04-11 [1] CRAN (R 4.6.0)
+ viridisLite      0.4.3      2026-02-04 [1] CRAN (R 4.6.0)
+ withr            3.0.3      2026-06-19 [1] CRAN (R 4.6.0)
+ xfun             0.60       2026-07-09 [1] CRAN (R 4.6.1)
+ xml2             1.6.0      2026-06-22 [1] CRAN (R 4.6.1)
+ yaml             2.3.12     2025-12-10 [1] CRAN (R 4.6.0)
+
+ [1] /Library/Frameworks/R.framework/Versions/4.6/Resources/library
+ * ── Packages attached to the search path.
+
+──────────────────────────────────────────────────────────────────────────────</code></pre>
+</div>
+</div>
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-friedman1991multivariate" class="csl-entry" role="listitem">
+Friedman, Jerome H. 1991. <span>“Multivariate Adaptive Regression Splines.”</span> <em>The Annals of Statistics</em> 19 (1): 1–67.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+
+<ol>
+<li id="fn1"><p>By default <span class="math inline">\sigma = 1</span> but this quarto file contains the <code>y_sd</code> document parameter to vary this.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

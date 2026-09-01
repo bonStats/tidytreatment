@@ -21,11 +21,22 @@ causal_row_specs <- function(outcome = c("continuous", "binary")) {
     function(X, y, z, hp) list(kind = "native", fit = do.call(fit_fn, c(list(X = X, y = y, z = z, hp = hp), dots)))
   }
 
-  list(
+  # BART::wbart's own defaults already equal baseline (see hyperparams.R) -
+  # no default row for the continuous outcome, matching benchmark-prediction.qmd.
+  # BART::pbart's ntree default (50 vs 200) differs, so binary gets one.
+  bart_default_rows <- if (outcome == "binary") {
+    list(list(engine = "BART two-step", variant = "default", propensity_recipe = "two_stage",
+         fit = twostep(fit_pbart_twostep, propensity_recipe = "two_stage", variant = "default")))
+  } else {
+    list()
+  }
+
+  c(list(
     list(engine = "BART two-step", variant = "baseline", propensity_recipe = "two_stage",
          fit = twostep(bart_twostep_fit, propensity_recipe = "two_stage")),
     list(engine = "BART two-step", variant = "baseline", propensity_recipe = "ps_all",
-         fit = twostep(bart_twostep_fit, propensity_recipe = "ps_all")),
+         fit = twostep(bart_twostep_fit, propensity_recipe = "ps_all"))
+  ), bart_default_rows, list(
 
     list(engine = "stochtree::bart two-step", variant = "baseline", propensity_recipe = "two_stage",
          fit = twostep(fit_stochtree_bart_twostep, propensity_recipe = "two_stage", outcome = outcome, num_gfr = 0)),
@@ -33,6 +44,8 @@ causal_row_specs <- function(outcome = c("continuous", "binary")) {
          fit = twostep(fit_stochtree_bart_twostep, propensity_recipe = "ps_all", outcome = outcome, num_gfr = 0)),
     list(engine = "stochtree::bart two-step", variant = "baseline+gfr", propensity_recipe = "two_stage",
          fit = twostep(fit_stochtree_bart_twostep, propensity_recipe = "two_stage", outcome = outcome, num_gfr = 5)),
+    list(engine = "stochtree::bart two-step", variant = "default", propensity_recipe = "two_stage",
+         fit = twostep(fit_stochtree_bart_twostep, propensity_recipe = "two_stage", outcome = outcome, variant = "default")),
 
     list(engine = "bartc", variant = "baseline", propensity_recipe = "two_stage",
          fit = native(fit_bartc, propensity_mode = "diy_two_stage")),
@@ -42,6 +55,8 @@ causal_row_specs <- function(outcome = c("continuous", "binary")) {
          fit = native(fit_bartc, propensity_mode = "builtin")),
     list(engine = "bartc", variant = "+auto_k", propensity_recipe = "two_stage",
          fit = native(fit_bartc, propensity_mode = "diy_two_stage", auto_k = TRUE)),
+    list(engine = "bartc", variant = "default", propensity_recipe = "two_stage",
+         fit = native(fit_bartc, propensity_mode = "diy_two_stage", variant = "default")),
 
     list(engine = "stochtree::bcf", variant = "baseline", propensity_recipe = "two_stage",
          fit = native(fit_bcf, propensity_mode = "diy_two_stage", outcome = outcome)),
@@ -50,8 +65,10 @@ causal_row_specs <- function(outcome = c("continuous", "binary")) {
     list(engine = "stochtree::bcf", variant = "builtin_propensity", propensity_recipe = NA,
          fit = native(fit_bcf, propensity_mode = "builtin", outcome = outcome)),
     list(engine = "stochtree::bcf", variant = "+gfr_adaptive_coding", propensity_recipe = "two_stage",
-         fit = native(fit_bcf, propensity_mode = "diy_two_stage", outcome = outcome, num_gfr = 5, adaptive_coding = TRUE))
-  )
+         fit = native(fit_bcf, propensity_mode = "diy_two_stage", outcome = outcome, num_gfr = 5, adaptive_coding = TRUE)),
+    list(engine = "stochtree::bcf", variant = "default", propensity_recipe = "two_stage",
+         fit = native(fit_bcf, propensity_mode = "diy_two_stage", outcome = outcome, variant = "default"))
+  ))
 }
 
 extract_cte_draws <- function(row_result) {
@@ -63,10 +80,12 @@ extract_cte_draws <- function(row_result) {
 }
 
 # Orchestration: DGP settings (outcome x response_parallel) x n x replication
-# x the 13 rows from causal_row_specs(). response_parallel = TRUE gives a
-# homogeneous truth (clean ATE recovery check), FALSE gives heterogeneous
-# truth (PEHE becomes meaningful). The binary-outcome variant thresholds y at
-# its own median and uses su_hill_truth_binary() for probability-scale truth.
+# x the rows from causal_row_specs() (see that function for the current
+# count - it now differs slightly by outcome). response_parallel = TRUE
+# gives a homogeneous truth (clean ATE recovery check), FALSE gives
+# heterogeneous truth (PEHE becomes meaningful). The binary-outcome variant
+# thresholds y at its own median and uses su_hill_truth_binary() for
+# probability-scale truth.
 run_benchmark_causal <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L, tau = 4, y_sd = 1) {
   metrics <- list()
   agreement <- list()
@@ -74,8 +93,12 @@ run_benchmark_causal <- function(n_values, B, hp = baseline_hyperparams(), seed 
   examples <- list()
   n_for_examples <- max(n_values)
 
-  n_rows <- length(causal_row_specs("continuous"))
-  total_fits <- 2 * 2 * length(n_values) * B * n_rows
+  # Continuous and binary no longer have the same row count now that a
+  # "default" row exists for BART two-step only in the binary case (see
+  # causal_row_specs()) - sum each outcome separately rather than assuming
+  # symmetry, same fix as run-benchmark-prediction.R's total_fits.
+  n_rows <- length(causal_row_specs("continuous")) + length(causal_row_specs("binary"))
+  total_fits <- 2 * length(n_values) * B * n_rows
   fit_i <- 0
 
   for (outcome in c("continuous", "binary")) {
