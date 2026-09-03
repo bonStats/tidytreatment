@@ -50,88 +50,112 @@ prediction_rows <- function(outcome = c("continuous", "binary")) {
   }
 }
 
-# epred_draws() is called with no explicit `scale`: every engine's default
-# resolves to the response scale on its own (continuous -> "linear"/no-op,
-# binary -> "probability"), so no outcome-specific branching is needed here.
-run_benchmark_prediction <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L, y_sd = 1) {
+# One replication's worth of work: simulate one dataset, fit every row
+# (engine/variant) against it, and return this cell's contribution to each
+# accumulator as a single named list - the unit of parallelism (see
+# R/parallel-driver.R). No per-row seed is needed here (unlike rfx's
+# fit_seed): fit-engines-prediction.R's fit_*() functions take no seed
+# argument at all, relying entirely on the ambient RNG stream established by
+# `set.seed(rep_seed)` below, consumed sequentially across the row loop -
+# which is exactly why parallelism here is at the `rep` grain, keeping that
+# whole sequential row loop inside one worker.
+run_prediction_cell <- function(outcome, n, rep, B, rows, hp, seed, y_sd, n_for_examples) {
   metrics <- list()
-  agreement <- list()
   examples <- list()
-  n_for_examples <- max(n_values)
 
-  # Continuous and binary no longer have the same row count now that
-  # default rows exist per-outcome (e.g. BART::pbart's is binary-only,
-  # since wbart has no default row at all) - sum each outcome separately
-  # rather than assuming symmetry.
-  n_rows <- length(prediction_rows("continuous")) + length(prediction_rows("binary"))
-  total_fits <- length(n_values) * B * n_rows
-  fit_i <- 0
+  rep_seed <- seed * 1e6 + n * 1e3 + rep
+  set.seed(rep_seed)
 
-  for (outcome in c("continuous", "binary")) {
-    rows <- prediction_rows(outcome)
+  dgp <- if (outcome == "continuous") simulate_friedman(n, y_sd = y_sd) else simulate_friedman_binary(n)
+  X <- dplyr::select(dgp$data, dplyr::starts_with("x"))
+  y <- dgp$data$y
+  truth <- if (outcome == "continuous") dgp$f_true else dgp$prob_true
 
-    for (n in n_values) {
-      for (rep in seq_len(B)) {
-        rep_seed <- seed * 1e6 + n * 1e3 + rep
-        set.seed(rep_seed)
+  fitted_means <- list()
+  keep_example <- (n == n_for_examples) && (rep == 1)
 
-        dgp <- if (outcome == "continuous") simulate_friedman(n, y_sd = y_sd) else simulate_friedman_binary(n)
-        X <- dplyr::select(dgp$data, dplyr::starts_with("x"))
-        y <- dgp$data$y
-        truth <- if (outcome == "continuous") dgp$f_true else dgp$prob_true
+  for (row in rows) {
+    t0 <- Sys.time()
+    fit <- row$fit(X, y, hp)
+    fit_time_sec <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
 
-        fitted_means <- list()
-        keep_example <- (n == n_for_examples) && (rep == 1)
+    draws <- tidybayes::epred_draws(fit, newdata = X, include_newdata = FALSE, value = "fit")
+    pm <- posterior_mean_by_row(draws, "fit")
+    # Cross-engine agreement is a comparison of matched-prior fits only -
+    # "default" and "baseline+gfr" rows use different priors/warm-start
+    # settings and would muddy the comparison, so only "baseline" rows
+    # are collected here.
+    if (identical(row$variant, "baseline")) {
+      fitted_means[[row$engine]] <- pm
+    }
 
-        for (row in rows) {
-          fit_i <- fit_i + 1
-          progress_note(fit_i, total_fits, "outcome =", outcome, "n =", n, "rep =", paste0(rep, "/", B), "engine =", row$engine, row$variant)
+    metrics[[length(metrics) + 1]] <- dplyr::tibble(
+      outcome = outcome, n = n, rep = rep,
+      engine = row$engine, variant = row$variant,
+      rmse = rmse(pm, truth),
+      mae = mae(pm, truth),
+      coverage95 = coverage(draws, "fit", truth, level = 0.95),
+      crps = crps_from_draws(draws, "fit", truth),
+      fit_time_sec = fit_time_sec,
+      fitted_ess = fitted_value_ess(draws, "fit")
+    )
 
-          t0 <- Sys.time()
-          fit <- row$fit(X, y, hp)
-          fit_time_sec <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-
-          draws <- tidybayes::epred_draws(fit, newdata = X, include_newdata = FALSE, value = "fit")
-          pm <- posterior_mean_by_row(draws, "fit")
-          # Cross-engine agreement is a comparison of matched-prior fits only -
-          # "default" and "baseline+gfr" rows use different priors/warm-start
-          # settings and would muddy the comparison, so only "baseline" rows
-          # are collected here.
-          if (identical(row$variant, "baseline")) {
-            fitted_means[[row$engine]] <- pm
-          }
-
-          metrics[[length(metrics) + 1]] <- dplyr::tibble(
-            outcome = outcome, n = n, rep = rep,
-            engine = row$engine, variant = row$variant,
-            rmse = rmse(pm, truth),
-            mae = mae(pm, truth),
-            coverage95 = coverage(draws, "fit", truth, level = 0.95),
-            crps = crps_from_draws(draws, "fit", truth),
-            fit_time_sec = fit_time_sec,
-            fitted_ess = fitted_value_ess(draws, "fit")
-          )
-
-          if (keep_example) {
-            examples[[length(examples) + 1]] <- dplyr::tibble(
-              outcome = outcome, engine = row$engine, variant = row$variant,
-              .row = seq_along(pm), truth = truth, fitted = pm
-            )
-          }
-        }
-
-        agr <- cross_engine_agreement(fitted_means)
-        agr$outcome <- outcome
-        agr$n <- n
-        agr$rep <- rep
-        agreement[[length(agreement) + 1]] <- agr
-      }
+    if (keep_example) {
+      examples[[length(examples) + 1]] <- dplyr::tibble(
+        outcome = outcome, engine = row$engine, variant = row$variant,
+        .row = seq_along(pm), truth = truth, fitted = pm
+      )
     }
   }
 
+  agr <- cross_engine_agreement(fitted_means)
+  agr$outcome <- outcome
+  agr$n <- n
+  agr$rep <- rep
+
   list(
     metrics = dplyr::bind_rows(metrics),
-    agreement = dplyr::bind_rows(agreement),
+    agreement = agr,
     examples = dplyr::bind_rows(examples)
+  )
+}
+
+# Attached/sourced by every worker before its first cell - mirrors
+# benchmark-prediction.qmd's own setup chunk. See
+# R/parallel-driver.R:with_worker_setup() for why this runs unconditionally
+# on every call rather than being gated to run once per worker.
+prediction_worker_setup <- function(benchmark_dir) {
+  library(dplyr); library(tidyr); library(tidytreatment); library(tidybayes)
+  library(BART); library(dbarts); library(stochtree)
+  for (f in c("cache.R", "hyperparams.R", "dgp.R", "metrics.R",
+              "fit-engines-prediction.R", "run-benchmark-prediction.R")) {
+    source(file.path(benchmark_dir, "R", f))
+  }
+}
+
+# epred_draws() is called with no explicit `scale`: every engine's default
+# resolves to the response scale on its own (continuous -> "linear"/no-op,
+# binary -> "probability"), so no outcome-specific branching is needed here.
+run_benchmark_prediction <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L, y_sd = 1,
+                                      benchmark_dir = getwd()) {
+  n_for_examples <- max(n_values)
+  outcomes <- c("continuous", "binary")
+  grid <- build_benchmark_grid(outcomes, n_values, B)
+
+  cell_fn <- with_worker_setup(
+    setup_fn = function() prediction_worker_setup(benchmark_dir),
+    cell_fn = function(cell) {
+      rows <- prediction_rows(cell$outcome)
+      run_prediction_cell(cell$outcome, cell$n, cell$rep, B, rows, hp, seed, y_sd, n_for_examples)
+    }
+  )
+  label_fn <- function(cell) paste("outcome =", cell$outcome, "n =", cell$n, "rep =", paste0(cell$rep, "/", B))
+
+  results <- run_cells_parallel(grid, cell_fn, label_fn)
+
+  list(
+    metrics = dplyr::bind_rows(lapply(results, `[[`, "metrics")),
+    agreement = dplyr::bind_rows(lapply(results, `[[`, "agreement")),
+    examples = dplyr::bind_rows(lapply(results, `[[`, "examples"))
   )
 }

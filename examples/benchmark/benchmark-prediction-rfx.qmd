@@ -8,7 +8,7 @@ format:
     html-math-method: katex
 bibliography: refs.bib
 params:
-  fast_mode: true
+  fast_mode: false
   n_values: [250, 1000]
   n_reps: 20
   seed: 1
@@ -16,10 +16,9 @@ params:
   sd_group_continuous: 3 # SD of the random group intercepts, continuous outcome
   sd_group_binary: 0.5   # SD of the random group intercepts, binary outcome (probit latent scale)
   n_groups: 25            # number of random-effect groups
-  n_mcmc_draws: 1000                # number of MCMC draws retained per chain, post burn-in/pre-thinning
+  n_mcmc_draws: 2000                # number of MCMC draws retained per chain, post burn-in/pre-thinning
   mcmc_seed: 17                      # random seed for the samplers (stan4bart/stochtree), distinct from `seed` (the DGP's own)
-  stochtree_thin: 10               # chain-thinning factor for the stochtree::bart "baseline+thin" variant (continuous outcome only)
-  stochtree_burnin_multiplier: 5   # burn-in multiplier for the same variant
+  parallel_workers: null           # number of parallel workers for replications; null -> availableCores() - 1, 1 disables parallelism
 ---
 
 ```{r setup}
@@ -34,6 +33,7 @@ library(stochtree)
 library(dbarts)
 library(coda)
 library(GGally)
+library(future)
 
 source("R/cache.R")
 source("R/hyperparams.R")
@@ -41,7 +41,10 @@ source("R/dgp.R")
 source("R/metrics.R")
 source("R/fit-engines-rfx.R")
 source("R/metrics-rfx.R")
+source("R/parallel-driver.R")
 source("R/run-benchmark-rfx.R")
+
+benchmark_dir <- normalizePath(".")
 
 ```
 
@@ -51,7 +54,15 @@ This document compares predictions from two Bayesian Additive Regression Tree (B
 
 A `baseline` variant is implemented for engines `stan4bart::stan4bart` and `stochtree::bart`. These attempt to match hyperprior specification across the methods, for a fair comparison. Both engines also get a `default` variant, using their own out-of-the-box priors instead. Note that the global variance term for `stan4bart` does not have an inverse gamma prior available, unlike most other BART packages, but does have several other choices (see @sec-prior-global-var for more details).
 
-The method `stochtree::bart` additionally gets a `baseline+gfr` variant, which uses its own warm-start default layered on top of the matched `baseline` priors, and - continuous outcome only, since it targets $\sigma^2$ mixing specifically and $\sigma^2$ is fixed at 1 for binary - a `baseline+thin` variant, which extends burn-in by `r params$stochtree_burnin_multiplier`x and thins the retained chain by `r params$stochtree_thin`x (see @sec-mcmc-mixing for mixing comparison). The final number of retained draws is `T=`r params$n_mcmc_draws`` in all cases.
+The method `stochtree::bart` gets one additional variant:
+
+- `baseline+gfr`: using its own warm-start default and otherwise identical to `baseline`.
+
+`stan4bart::stan4bart` gets one additional variant:
+
+- `default+sigest`: (for continuous only) keeps `default`'s prior *family* but calibrates its rate from a potentially more indicative variance estimate (see @sec-prior-global-var for details).
+
+The final number of retained draws is `T=`r params$n_mcmc_draws`` in all cases.
 
 ## Data generating process
 
@@ -61,7 +72,7 @@ For the continuous outcome, independent $N(0, \sigma^2)$ noise is added on top o
 
 ### Signal-to-noise metrics (continuous case)
 
-Two separate identifiability questions (problem difficulty) are relevant to this benchmark: how recoverable is Friedman's function itself, and how recoverable are the group intercepts? A signal-to-noise ratio approach is used for both, as explained next.
+We consider the identifiability of the mean function and group intercepts. Below we document a signal-to-noise ratio to document the problem difficulty.
 
 ```{r snr-demo}
 set.seed(1)
@@ -102,6 +113,7 @@ The main hyperparameters are specified below.
 
 ```{r hyperparams}
 hp <- baseline_hyperparams()
+hp$burn <- hp$burn
 hp$draws <- params$n_mcmc_draws
 if (isTRUE(params$fast_mode)) {
   hp$burn <- 20
@@ -115,8 +127,6 @@ knitr::kable(t(hp_display), align = "c", row.names = FALSE)
 ```
 
 For the `baseline` variant, most of the hyperprior parameter specification is trivial to match across packages. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).
-
-Note that `baseline+thin` for `stochtree` (continuous outcome only) extends burn-in by `r params$stochtree_burnin_multiplier`x and thins the retained chain by `r params$stochtree_thin`x.
 
 ### Tree-structure prior
 
@@ -149,9 +159,7 @@ More generally, `stochtree` centres continuous responses before fitting (`stocht
 The following applies to the real-valued response only.
 :::
 
-Unlike `BART`/`dbarts` there is no empirical-Bayes style calibration of the prior for the global noise variance in `stochtree` or `stan4bart`. Since we observed such a data-calibrated prior to work well in the vanilla prediction benchmark, we construct this calibrated prior for the `baseline` variant.
-
-For the `baseline` variant, the `stochtree` package supports inverse-gamma priors for the global variance so we can match the `BART`/`dbarts` data-calibrated prior exactly. Whereas we develop a special matching procedure for `stan4bart` using truncated student-t distributions. The details are given below.
+Unlike `BART`/`dbarts` there is no empirical-Bayes style calibration of the prior for the global noise variance in `stochtree` or `stan4bart`. Since we observed such a data-calibrated prior to work well in the vanilla prediction benchmark, we manually construct this calibrated prior for the `baseline` variants. However, only `stochtree` package supports inverse-gamma priors for the global variance. We develop a special matching procedure for `stan4bart` using truncated student-t distributions. The details are given below.
 
 
 #### Inverse-gamma prior for `stochtree`
@@ -167,7 +175,7 @@ $$
 $$
 where $\chi^2_{\nu,\,p}$ is the $p$-quantile of a $\chi^2_\nu$ distribution.
 
-#### Truncated student-t prior for `stan4bart`
+#### Half-Student-t prior for `stan4bart`
 
 The `stan4bart` package specifies the global **standard deviation** prior via `prior_aux`, a convenience wrapper that can choose from a fixed set of priors (`normal`, `student_t`/`cauchy`, `exponential`, `hs`, `hs_plus`, `laplace`, `lasso`). Given the limited choices it is not possible to match the inverse-gamma distribution (on the variance) exactly.
 
@@ -186,15 +194,28 @@ $$
 p(\sigma) \propto \sigma^{-(\nu+1)} \text{ as } \sigma \to \infty,
 $$
 
-with $\alpha = \nu/2$ and $\beta = \nu\lambda/2$. We use these features to match against for the truncated Student-$t$ approximation.
+with $\alpha = \nu/2$ and $\beta = \nu\lambda/2$. This is the target we would like the `stan4bart` approximation to match as closely as possible.
 
-The Student-t distribution has three free parameters which we choose as follows.
+:::{.callout-note}
+## Location of half Student-t
 
-- The degrees of freedom is set to $\nu$. A $t_\nu$ density decays as $\sigma^{-(\nu+1)}$ which matches the generalised inverse gamma tail.
-- The mean of the Student-t is set to $\mu = \sqrt{2\beta/(2\alpha+1)}$. This matches the mode of the approximation to the target generalised inverse gamma.
-- The scale of the Student-t is chosen so that the one-sided 90% quantile of each target and approximate distribution match.
+We use a half Student-t prior centered at zero for the `baseline` variant of `stan4bart`. Ideally, we would vary the location parameter of the Student-t and truncate at zero, but it does not seem possible to truncate a Student-t prior that is not centered at zero in  `stan4bart`.
 
-Note that the truncation to of the Student-t distribution to $(0,\infty)$ is applied automatically by Stan.
+Exploring fixes of this is left for future work.
+
+:::
+
+We calibrate the Student-t distribution (centered at zero) on the remaining two free parameters:
+
+- Degrees of freedom is set to $\nu$, the same value used by every other engine's prior - a $t_\nu$ density decays as $\sigma^{-(\nu+1)}$, matching the generalised inverse gamma tail.
+- Scale is chosen so the `sigquant`-quantile of $|T_\nu(0, \texttt{scale})|$ lands exactly on $\hat\sigma$, matching the same calibration principle used for every other engine's global error-variance prior. This has a closed form: for $\sigma = |T|$, $P(\sigma < x) = 2F_\nu(x/\texttt{scale}) - 1$ where $F_\nu$ is the $t_\nu$ CDF, so
+$$
+\texttt{sigquant} = 2F_\nu\!\left(\hat\sigma/\texttt{scale}\right) - 1
+\;\Longrightarrow\;
+\texttt{scale} = \frac{\hat\sigma}{F_\nu^{-1}\!\left(\dfrac{1+\texttt{sigquant}}{2}\right)}.
+$$
+
+As the mode is fixed at $0$ rather than matched to the target, this prior cannot reproduce the generalised inverse gamma's *shape* (interior peak) - only its tail weight ($\nu$) and one quantile ($\hat\sigma$) carry over. The comparison plot below makes the resulting shape difference visible directly.
 
 #### Comparison of priors
 
@@ -203,13 +224,21 @@ The `default` variant, which uses each package's own out-of-the-box choice:
 - data-calibrated exponential prior for `stan4bart` on the standard deviation, and 
 - `stochtree`'s default inverse-gamma is a $\text{IG}(0,0)$ distribution (an improper Jeffery's prior) on the variance.
 
-The `stan4bart` default is 
+The `stan4bart` default is
 
 $$
 \sigma \sim \text{Exponential}\!\left(\text{rate} = 1/\text{sd}(y)\right),
 $$
 
-whilst `stochtree`'s default is an improper prior with density $p(\sigma^2) \propto \frac{1}{\sigma^2}$ on the variance, or equivalently
+and the `default+sigest` variant keeps this same exponential family but recalibrates the rate from $\hat\sigma$ instead of the raw $\text{sd}(y)$,
+
+$$
+\sigma \sim \text{Exponential}\!\left(\text{rate} = 1/\hat\sigma\right),
+$$
+
+accounting for the presence of subject-specific intercepts.
+
+`stochtree`'s default is an improper prior with density $p(\sigma^2) \propto \frac{1}{\sigma^2}$ on the variance, or equivalently
 
 $$
 p(\sigma) \propto \frac{1}{\sigma},
@@ -221,7 +250,7 @@ The following comparison plots these an example of these priors (minus the impro
 
 ```{r prior-compare-plot}
 #| fig-height: 4
-#| fig-cap: "Priors on sigma from a single simulated dataset at the smallest n: stochtree's generalised-inverse-gamma target and the calibrated truncated-t matched to it for stan4bart (both baseline variants), against stan4bart's own auto-scaled exponential (default variant). stochtree's default is improper and so cannot be shown. The dashed line marks sigest, the dotted line the true sigma."
+#| fig-cap: "Priors on $\\sigma$ (using from a single simulated dataset for calibration at the smallest n). stochtree's default is improper and is not shown. The dashed line marks `sigest`, the dotted line the true $\\sigma$."
 sigma_gig_density <- function(y, alpha, beta) {
   2 * beta^alpha / gamma(alpha) * y^(-2 * alpha - 1) * exp(-beta / y^2)
 }
@@ -250,10 +279,12 @@ lambda_demo <- sigest_demo^2 * qchisq(1 - hp$sigquant, df = nu) / nu
 alpha_demo <- nu / 2
 beta_demo <- nu * lambda_demo / 2
 
-# The truncated-t actually passed to stan4bart, taken from the engine's own helper.
+# The half-Student-t actually passed to stan4bart, taken from the engine's own helper.
 prior_aux_demo <- hp_to_stan4bart_sigma_prior(hp, X_prior, y_prior, group = group_prior)$prior_aux
 # stan4bart's default: exponential(rate = 1, autoscale = TRUE) -> rate = 1/sd(y).
 exp_rate_demo <- 1 / sd(y_prior)
+# default+sigest: same exponential family, rate = 1/sigest instead of 1/sd(y).
+exp_sigest_demo <- hp_to_stan4bart_sigma_prior_exp_sigest(hp, X_prior, y_prior, group = group_prior)$prior_aux
 
 sigma_grid <- seq(1e-4, 3 * sigest_demo, length.out = 600)
 
@@ -264,9 +295,11 @@ prior_curves <- bind_rows(
          prior = "stochtree baseline (generalised inverse gamma)"),
   tibble(x = sigma_grid, density = sigma_trunc_t_density(sigma_grid, prior_aux_demo$df,
                                                           prior_aux_demo$location, prior_aux_demo$scale),
-         prior = "stan4bart baseline (truncated-t)"),
+         prior = "stan4bart baseline (half-Student-t)"),
   tibble(x = sigma_grid, density = dexp(sigma_grid, rate = exp_rate_demo),
-         prior = "stan4bart default (exponential)")
+         prior = "stan4bart default (exponential)"),
+  tibble(x = sigma_grid, density = dexp(sigma_grid, rate = 1 / exp_sigest_demo$scale),
+         prior = "stan4bart default+sigest (exponential)")
 )
 
 prior_curves %>%
@@ -288,7 +321,7 @@ At $n = `r min(params$n_values)`$ this gives $\hat\sigma = `r round(sigest_demo,
 For $n=250$ (at least), even with $\hat\sigma^2$ overestimated, the bulk of the IG prior mass lines up suspiciously well with the truth. Prior sensitivity should be tested in a future benchmark.
 :::
 
-The two `baseline` priors mostly agree well, the main difference being the probability assigned around zero. The `default` `stan4bart` is much more diffuse.
+It doesn't seem possible with `stan4bart`'s existing priors to replicate the internal peak of the calibrated inverse-gamma used by `stochtree`.  
 
 ## Run
 
@@ -301,11 +334,12 @@ n_for_examples <- max(n_values)
 
 cache_file <- file.path("cache", sprintf("rfx_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
 res <- cached_run(cache_file, function() {
+  old_plan <- future::plan(future::multisession, workers = benchmark_worker_count(params$parallel_workers))
+  on.exit(future::plan(old_plan), add = TRUE)
   run_benchmark_rfx(n_values = n_values, B = n_reps, hp = hp, seed = params$seed, y_sd = params$y_sd,
                      sd_group_continuous = params$sd_group_continuous, sd_group_binary = params$sd_group_binary,
-                     n_groups = params$n_groups, stochtree_thin = params$stochtree_thin,
-                     stochtree_burnin_multiplier = params$stochtree_burnin_multiplier,
-                     mcmc_seed = params$mcmc_seed)
+                     n_groups = params$n_groups,
+                     mcmc_seed = params$mcmc_seed, benchmark_dir = benchmark_dir)
 })
 ```
 
@@ -315,8 +349,7 @@ res <- cached_run(cache_file, function() {
 
 ### Prediction accuracy
 
-`fit_time_sec` is reported as a median, not a mean - a handful of runs (see
-@sec-runtime) are extreme outliers.
+`fit_time_sec` is reported as a median, not a mean, to prevent (potential) extreme outliers affecting the result (check @sec-runtime) .
 
 ```{r summary-table}
 res$metrics %>%
@@ -332,7 +365,7 @@ res$metrics %>%
   kableExtra::collapse_rows(columns = 1:3, valign = "top")
 ```
 
-### Predicted vs. true
+### Predicted vs true
 
 These plots show one representative replication for `` n = `r n_for_examples` `` (the largest value tested).
 
@@ -363,48 +396,27 @@ res$examples %>%
 
 ### Group-effect recovery
 
-Here we look at the recovery of the group-specific intercepts. A BART's trees can absorb part of the overall baseline level that would otherwise be captured in the random intercepts. That is, the group mean can be split between "trees" and "random intercepts" differently, causing . A raw bias or RMSE would penalise that arbitrary split rather than genuine recovery failure, so both metrics below first remove each side's own mean, $\bar{\hat u} = \frac{1}{n_G}\sum_g \hat u_g$ and $\bar u = \frac{1}{n_G}\sum_g u_g$, before comparing:
+Here we look at the recovery of the group-specific intercepts. The trees in a BART model can absorb part of the overall baseline level that would otherwise be captured in the random intercepts. That is, the group mean can be split between "trees" and "random intercepts", so the raw random intercepts may not exactly match the true random intercepts. 
+
+To account for this we demean the intercept estimates and true values before we compare. Define $\bar{\hat u} = \frac{1}{n_G}\sum_g \hat u_g$ and $\bar u = \frac{1}{n_G}\sum_g u_g$, we consider the correlation:
 
 $$
 \texttt{group\_effect\_cor} = \frac{\sum_g (\hat u_g - \bar{\hat u})(u_g - \bar u)}{\sqrt{\sum_g (\hat u_g - \bar{\hat u})^2} \, \sqrt{\sum_g (u_g - \bar u)^2}}
 $$
 
-the ordinary Pearson correlation across groups - shift- and scale-invariant by construction, so it checks only whether groups with a larger true effect also get a larger estimated one, in the right order - and
+which is the ordinary Pearson correlation across groups (shift- and scale-invariant). It checks whether groups with a larger true effect also get a larger estimated one, in the right order. We also consider the centered RMSE:
 
 $$
 \texttt{group\_effect\_centered\_rmse} = \sqrt{\frac{1}{n_G} \sum_g \Big[(\hat u_g - \bar{\hat u}) - (u_g - \bar u)\Big]^2}
 $$
 
-the RMSE between the two *centred* sequences. This is the stricter of the two: it also penalises wrong relative spacing between groups, not just wrong ranking, while remaining blind to any shift shared by every group - exactly the one degree of freedom that isn't identifiable in the first place.
-
-A third, uncentred version is reported alongside them for reference:
+which represents an actual recovery test (excluding the shift). A third, uncentred version is reported alongside them for reference:
 
 $$
 \texttt{group\_effect\_raw\_rmse} = \sqrt{\frac{1}{n_G} \sum_g \big(\hat u_g - u_g\big)^2}
 $$
 
-the plain RMSE, with no shift removed. This is the "pure recovery" number in the most literal sense - it is what you'd report if the shift *were* identifiable - but for exactly the reason above, a gap between this and the centred RMSE is expected here and is not, by itself, evidence of worse estimation: it also reflects however much of the baseline level a given engine's trees happened to absorb. Read it alongside the centred RMSE, not as a replacement for it.
-
-`stan4bart`'s underlying Stan program does support a genuine fixed global intercept (gated by a `has_intercept` flag), currently unused here since the fitted formula leaves no fixed-effects term for it to attach to - enabling it is a natural variant to explore in future work.
-
-A synthetic check makes the distinction concrete: take a set of true group effects, then simulate "estimates" that are a known constant shift away from the truth plus a little noise - the kind of gap a real engine could produce by parking part of the baseline in its trees rather than the random intercepts.
-
-```{r group-effect-metric-demo}
-set.seed(1)
-demo_true <- rnorm(20, sd = 3)
-demo_shift <- 5
-demo_hat <- demo_true + demo_shift + rnorm(20, sd = 0.5)
-demo_metrics <- group_effect_recovery(demo_hat, demo_true)
-```
-
-With a shift of `r demo_shift` and noise SD `0.5` on top of it, `group_effect_cor` = `r round(demo_metrics$group_effect_cor, 3)` (essentially unaffected by the shift - it only sees the noise), `group_effect_centered_rmse` = `r round(demo_metrics$group_effect_centered_rmse, 3)` (recovers that same noise level once the shift is removed), and `group_effect_raw_rmse` = `r round(demo_metrics$group_effect_raw_rmse, 3)` (dominated by the shift itself, close to `r demo_shift`) - exactly the pattern described above.
-
-The scatter plots below are centred the same way as the centred RMSE (see the axis labels) - which has the added benefit of making them comparable in scale across engines within the same outcome, so each outcome gets a single plot with shared, not free, axes across its engine panels.
-Giving the engine dimension its own free scale via `facet_grid(..., scales =
-"free")` would let each panel float on its own axis range independently,
-which would be misleading for exactly this side-by-side comparison - the
-same issue that is diagnosed in more detail for the predicted-vs-true plot
-in `benchmark-prediction.qmd`.
+but isn't meaningful if used in isolation.
 
 ```{r group-effect-table}
 res$group_metrics %>%
@@ -415,6 +427,9 @@ res$group_metrics %>%
   knitr::kable(digits = 3, format = "html") %>%
   kableExtra::collapse_rows(columns = 1:3, valign = "top")
 ```
+
+
+The scatter plots below are centred the same way as the centred RMSE (see the axis labels).
 
 ```{r group-effect-scatter-prep}
 # Centred, matching group_effect_recovery()'s own metric definition: the
@@ -464,31 +479,25 @@ res$agreement %>%
   knitr::kable(digits = 3)
 ```
 
-```{r agreement-heatmap}
-#| fig-height: 4
-res$agreement %>%
-  group_by(outcome, engine_a, engine_b) %>%
-  summarise(mean_correlation = mean(correlation), .groups = "drop") %>%
-  ggplot(aes(x = engine_a, y = engine_b, fill = mean_correlation)) +
-  geom_tile() +
-  geom_text(aes(label = sprintf("%.2f", mean_correlation)), size = 3) +
-  facet_wrap(~outcome) +
-  scale_fill_distiller(palette = "RdYlBu", direction = 1, limits = c(-1, 1)) +
-  labs(x = NULL, y = NULL, fill = "correlation") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
+### Coverage: nominal vs empirical
 
-With only two engines carrying a `baseline` row here, this is necessarily a single pairwise comparison per outcome rather than the fuller grid in `benchmark-prediction.qmd` - still useful as a check that the two aren't silently diverging on the same data, independent of how close either is to the truth.
+```{r coverage-plot}
+#| fig-height: 4
+res$metrics %>%
+  group_by(outcome, engine, variant, n) %>%
+  summarise(coverage95 = mean(coverage95), .groups = "drop") %>%
+  ggplot(aes(x = paste(engine, variant), y = coverage95, colour = factor(n))) +
+  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey50") +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  facet_wrap(~outcome) +
+  coord_flip() +
+  labs(x = NULL, y = "Empirical 95% interval coverage", colour = "n") +
+  theme_bw()
+```
 
 ### MCMC mixing {#sec-mcmc-mixing}
 
-Two engines can have equally sensible priors and equally unbiased posterior means, yet still disagree on prediction accuracy if one's chain is more autocorrelated: the same nominal number of post-burn-in draws then buys less information, so the posterior mean is noisier - a sampler-efficiency gap rather than a modelling one. This was investigated directly because `stan4bart`'s `baseline` variant consistently outperformed `stochtree::bart`'s on continuous-outcome prediction RMSE, at a gap that did not shrink between the smallest and largest `n` tested - the tree and random-effects priors were checked first and ruled out (both engines recover $\sigma_G$ and Friedman's function equally well on average), before this diagnostic surfaced a real, persistent difference in effective sample size (ESS) for the same nominal draw count.
-
-Two parameters are tracked, since a single global one won't cover both outcomes:
-
-- $\sigma$, the global residual SD - continuous outcome only, since it's fixed at 1 under both engines' probit link for a binary outcome (confirmed empirically: neither engine even exposes the parameter for a binary fit). Tracked on the SD scale for both engines rather than each package's own native parameterization: `stan4bart`'s `aux` is already on this scale, but `stochtree`'s own `sigma2_global_samples` is the variance - comparing them as-is was a real bug (confirmed empirically: `stan4bart`'s raw draws track `sqrt()` of `stochtree`'s, not `stochtree`'s raw draws), silently comparing an SD against a variance rather than the same quantity.
-- $\sigma_G$, the random-intercept SD - sampled for both outcomes, and so the substitute diagnostic for the binary case specifically.
+Here we take a look at ESS of $\sigma$ (global standard deviation) and $\sigma_G$ (random effect standard deviation) across the engines, variants, and settings. Then the autocorrelation plots. Later we look at the quantiles of the estiamted fit.
 
 ```{r ess-table}
 res$metrics %>%
@@ -516,18 +525,7 @@ res$metrics %>%
 
 A low or engine-specific ESS here is a flag to interpret RMSE/coverage differences with some caution - a noisier posterior mean widens the gap between engines without either one's model or prior actually being worse.
 
-#### Why `baseline+thin` only partly helped
-
-`baseline+thin` (see Scope; continuous outcome only) was added specifically to test whether more raw sweeps per retained draw would recover the ESS gap above. The direct comparison, from this same cached run:
-
-```{r thin-effect-table}
-res$metrics %>%
-  filter(outcome == "continuous", engine == "stochtree::bart", variant %in% c("baseline", "baseline+thin")) %>%
-  group_by(variant, n) %>%
-  summarise(mean_sigma_global_ess = mean(sigma_global_ess, na.rm = TRUE), mean_rmse = mean(rmse), .groups = "drop") %>%
-  arrange(n, variant) %>%
-  knitr::kable(digits = c(0, 0, 1, 3))
-```
+#### Autocorrelation of $\sigma$
 
 ```{r acf-plot}
 #| fig-height: 6
@@ -545,7 +543,7 @@ res$acf_global %>%
 
 #### Do the trees mix at the same rate?
 
-Both engines update their residual-variance parameter conditional on the *current* tree ensemble every sweep - confirmed by reading both packages' own sampling loops, this is blocked-Gibbs alternation on both sides regardless of whether the non-tree update is a Stan HMC step or a conjugate Gibbs draw. That makes the tree ensemble's own mixing rate a shared candidate bottleneck, which sigma alone can't distinguish from a problem specific to sigma's own update. Tracked here via five quantiles (0.05, 0.2, 0.5, 0.8, 0.95) of the fitted values across observations, computed per retained draw - five extra per-draw time series alongside sigma, using the same draws already extracted for RMSE/coverage/CRPS.
+Both engines update their residual-variance parameter conditional on the *current* tree ensemble every sweep. `stochtree` updates the random effects and variance terms each in conditional/conjugate Gibbs steps, whilst `stan4bart` uses a Stan HMC step for all non-Bart parameters. Here five quantiles $(0.05, 0.2, 0.5, 0.8, 0.95)$ of the fitted values across observations are tracked, computed per retained draw.
 
 ```{r fitted-quantile-acf-plot}
 #| fig-height: 8
@@ -564,9 +562,6 @@ res$fitted_quantile_acf %>%
   guides(colour = guide_legend(ncol = 2))
 ```
 
-If the fitted-value quantiles decorrelate at a similar rate to sigma within each engine, that points to the trees themselves as the shared bottleneck; if they decorrelate faster than sigma does, that points instead to something specific to how each engine updates sigma given a fixed tree state.
-
-A related question: are the tails of the fitted-value distribution actually driven by the same quantities as the variance parameters, iteration by iteration? For the representative replication (largest `n`, first repetition), the pairwise correlation between the 5th/95th fitted-value quantiles and sigma/sigma_G (both on the SD scale), draw by draw:
 
 ```{r fitted-quantile-correlation-table}
 res$fitted_quantile_joint %>%
@@ -581,7 +576,6 @@ res$fitted_quantile_joint %>%
   knitr::kable(digits = 2)
 ```
 
-Pairs plots of the four draw-by-draw quantities - $\sigma_G$, $\sigma$, $q_5$, $q_{95}$, both variance parameters on the SD scale (see above) - for one representative engine/variant each: scatter on the lower triangle, marginal density on the diagonal (as in [bayesplot's `mcmc_pairs()`](https://mc-stan.org/bayesplot/reference/MCMC-scatterplots.html)). `stan4bart baseline` is the well-mixing case; `stochtree::bart baseline` and `baseline+thin` let the un-thinned and thinned cases be compared directly against it. All three use the same single representative fit as the `examples`/`group_examples` plots elsewhere in this document: the largest `n` tested, first repetition only - not averaged or pooled across replications.
 
 ```{r fitted-quantile-pairs-setup}
 pairs_data <- function(engine_name, variant_name) {
@@ -611,28 +605,6 @@ pairs_plot(pairs_data("stan4bart", "baseline"), "stan4bart (baseline)")
 #| fig-height: 6
 #| fig-width: 6
 pairs_plot(pairs_data("stochtree::bart", "baseline"), "stochtree::bart (baseline)")
-```
-
-```{r fitted-quantile-pairs-stochtree}
-#| fig-height: 6
-#| fig-width: 6
-pairs_plot(pairs_data("stochtree::bart", "baseline+thin"), "stochtree::bart (baseline+thin)")
-```
-
-### Coverage: nominal vs. empirical
-
-```{r coverage-plot}
-#| fig-height: 4
-res$metrics %>%
-  group_by(outcome, engine, variant, n) %>%
-  summarise(coverage95 = mean(coverage95), .groups = "drop") %>%
-  ggplot(aes(x = paste(engine, variant), y = coverage95, colour = factor(n))) +
-  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey50") +
-  geom_point(position = position_dodge(width = 0.4), size = 2) +
-  facet_wrap(~outcome) +
-  coord_flip() +
-  labs(x = NULL, y = "Empirical 95% interval coverage", colour = "n") +
-  theme_bw()
 ```
 
 ### Runtime {#sec-runtime}

@@ -79,6 +79,116 @@ extract_cte_draws <- function(row_result) {
   }
 }
 
+# One replication's worth of work: simulate one dataset, fit every row
+# (engine/variant/propensity_recipe) against it, and return this cell's
+# contribution to each accumulator as a named list - the unit of parallelism
+# (see R/parallel-driver.R). `agreement` is NULL when fewer than two
+# baseline rows produced a cte estimate (mirrors the original's conditional
+# append) - dplyr::bind_rows() over the collected results silently drops
+# NULL entries, so no special-casing is needed at the bind step.
+run_causal_cell <- function(outcome, response_parallel, n, rep, B, rows, hp, seed, tau, y_sd, n_for_examples) {
+  metrics <- list()
+  common_support <- list()
+  examples <- list()
+
+  rep_seed <- seed * 1e6 + n * 1e3 + rep * 10 + response_parallel
+  set.seed(rep_seed)
+
+  sim <- simulate_su_hill_data(n = n, tau = tau, response_parallel = response_parallel, y_sd = y_sd)
+  X <- dplyr::select(sim$data, dplyr::starts_with("x"))
+  z <- as.integer(sim$data$z)
+  y_cont <- sim$data$y
+
+  if (outcome == "continuous") {
+    y <- y_cont
+    true_ite <- su_hill_true_effects(sim)$ite
+    true_ate <- mean(true_ite)
+  } else {
+    threshold <- stats::median(y_cont)
+    y <- as.integer(y_cont > threshold)
+    truth_bin <- su_hill_truth_binary(sim, y_sd = y_sd, threshold = threshold)
+    true_ite <- truth_bin$ite
+    true_ate <- truth_bin$ate
+  }
+  heterogeneous <- stats::sd(true_ite) > 0
+  keep_example <- heterogeneous && (n == n_for_examples) && (rep == 1)
+
+  cte_by_row <- list()
+
+  for (row in rows) {
+    t0 <- Sys.time()
+    fitted <- row$fit(X, y, z, hp)
+    fit_time_sec <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+
+    te_draws <- extract_cte_draws(fitted)
+    pm <- posterior_mean_by_row(te_draws, "cte")
+
+    if (identical(row$variant, "baseline")) {
+      key <- paste(row$engine, row$propensity_recipe)
+      cte_by_row[[key]] <- pm
+    }
+
+    if (keep_example) {
+      examples[[length(examples) + 1]] <- dplyr::tibble(
+        outcome = outcome, engine = row$engine, variant = row$variant,
+        propensity_recipe = row$propensity_recipe %||% NA_character_,
+        .row = seq_along(pm), true_ite = true_ite, cte_hat = pm
+      )
+    }
+
+    ate <- ate_summary(te_draws, true_ate)
+    att <- att_summary(te_draws, z, true_ite)
+
+    metrics[[length(metrics) + 1]] <- dplyr::bind_cols(
+      dplyr::tibble(
+        outcome = outcome, response_parallel = response_parallel, n = n, rep = rep,
+        engine = row$engine, variant = row$variant, propensity_recipe = row$propensity_recipe %||% NA_character_,
+        pehe = if (heterogeneous) pehe(te_draws, true_ite) else NA_real_,
+        fit_time_sec = fit_time_sec
+      ),
+      ate, att
+    )
+
+    if (identical(row$engine, "bartc")) {
+      cs_rate <- bartc_common_support_agreement(fitted$fit)
+      common_support[[length(common_support) + 1]] <- dplyr::tibble(
+        outcome = outcome, response_parallel = response_parallel, n = n, rep = rep,
+        variant = row$variant, propensity_recipe = row$propensity_recipe %||% NA_character_,
+        agreement_rate = cs_rate
+      )
+    }
+  }
+
+  agr <- NULL
+  if (length(cte_by_row) >= 2) {
+    agr <- cross_engine_agreement(cte_by_row)
+    agr$outcome <- outcome
+    agr$response_parallel <- response_parallel
+    agr$n <- n
+    agr$rep <- rep
+  }
+
+  list(
+    metrics = dplyr::bind_rows(metrics),
+    agreement = agr,
+    common_support = dplyr::bind_rows(common_support),
+    examples = dplyr::bind_rows(examples)
+  )
+}
+
+# Attached/sourced by every worker before its first cell - mirrors
+# benchmark-causal.qmd's own setup chunk. See
+# R/parallel-driver.R:with_worker_setup() for why this runs unconditionally
+# on every call rather than being gated to run once per worker.
+causal_worker_setup <- function(benchmark_dir) {
+  library(dplyr); library(tidyr); library(tidytreatment); library(tidybayes)
+  library(bartCause); library(dbarts); library(stochtree); library(BART)
+  for (f in c("cache.R", "hyperparams.R", "dgp.R", "metrics.R", "metrics-causal.R",
+              "propensity.R", "fit-engines-causal.R", "run-benchmark-causal.R")) {
+    source(file.path(benchmark_dir, "R", f))
+  }
+}
+
 # Orchestration: DGP settings (outcome x response_parallel) x n x replication
 # x the rows from causal_row_specs() (see that function for the current
 # count - it now differs slightly by outcome). response_parallel = TRUE
@@ -86,116 +196,31 @@ extract_cte_draws <- function(row_result) {
 # heterogeneous truth (PEHE becomes meaningful). The binary-outcome variant
 # thresholds y at its own median and uses su_hill_truth_binary() for
 # probability-scale truth.
-run_benchmark_causal <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L, tau = 4, y_sd = 1) {
-  metrics <- list()
-  agreement <- list()
-  common_support <- list()
-  examples <- list()
+run_benchmark_causal <- function(n_values, B, hp = baseline_hyperparams(), seed = 1L, tau = 4, y_sd = 1,
+                                  benchmark_dir = getwd()) {
   n_for_examples <- max(n_values)
+  outcomes <- c("continuous", "binary")
+  grid <- build_benchmark_grid(outcomes, n_values, B, response_parallel_values = c(TRUE, FALSE))
 
-  # Continuous and binary no longer have the same row count now that a
-  # "default" row exists for BART two-step only in the binary case (see
-  # causal_row_specs()) - sum each outcome separately rather than assuming
-  # symmetry, same fix as run-benchmark-prediction.R's total_fits.
-  n_rows <- length(causal_row_specs("continuous")) + length(causal_row_specs("binary"))
-  total_fits <- 2 * length(n_values) * B * n_rows
-  fit_i <- 0
-
-  for (outcome in c("continuous", "binary")) {
-    for (response_parallel in c(TRUE, FALSE)) {
-      rows <- causal_row_specs(outcome)
-
-      for (n in n_values) {
-        for (rep in seq_len(B)) {
-          rep_seed <- seed * 1e6 + n * 1e3 + rep * 10 + response_parallel
-          set.seed(rep_seed)
-
-          sim <- simulate_su_hill_data(n = n, tau = tau, response_parallel = response_parallel, y_sd = y_sd)
-          X <- dplyr::select(sim$data, dplyr::starts_with("x"))
-          z <- as.integer(sim$data$z)
-          y_cont <- sim$data$y
-
-          if (outcome == "continuous") {
-            y <- y_cont
-            true_ite <- su_hill_true_effects(sim)$ite
-            true_ate <- mean(true_ite)
-          } else {
-            threshold <- stats::median(y_cont)
-            y <- as.integer(y_cont > threshold)
-            truth_bin <- su_hill_truth_binary(sim, y_sd = y_sd, threshold = threshold)
-            true_ite <- truth_bin$ite
-            true_ate <- truth_bin$ate
-          }
-          heterogeneous <- stats::sd(true_ite) > 0
-          keep_example <- heterogeneous && (n == n_for_examples) && (rep == 1)
-
-          cte_by_row <- list()
-
-          for (row in rows) {
-            fit_i <- fit_i + 1
-            progress_note(fit_i, total_fits, "outcome =", outcome, "response_parallel =", response_parallel, "n =", n, "rep =", paste0(rep, "/", B), "engine =", row$engine, row$variant, row$propensity_recipe %||% "")
-
-            t0 <- Sys.time()
-            fitted <- row$fit(X, y, z, hp)
-            fit_time_sec <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-
-            te_draws <- extract_cte_draws(fitted)
-            pm <- posterior_mean_by_row(te_draws, "cte")
-
-            if (identical(row$variant, "baseline")) {
-              key <- paste(row$engine, row$propensity_recipe)
-              cte_by_row[[key]] <- pm
-            }
-
-            if (keep_example) {
-              examples[[length(examples) + 1]] <- dplyr::tibble(
-                outcome = outcome, engine = row$engine, variant = row$variant,
-                propensity_recipe = row$propensity_recipe %||% NA_character_,
-                .row = seq_along(pm), true_ite = true_ite, cte_hat = pm
-              )
-            }
-
-            ate <- ate_summary(te_draws, true_ate)
-            att <- att_summary(te_draws, z, true_ite)
-
-            metrics[[length(metrics) + 1]] <- dplyr::bind_cols(
-              dplyr::tibble(
-                outcome = outcome, response_parallel = response_parallel, n = n, rep = rep,
-                engine = row$engine, variant = row$variant, propensity_recipe = row$propensity_recipe %||% NA_character_,
-                pehe = if (heterogeneous) pehe(te_draws, true_ite) else NA_real_,
-                fit_time_sec = fit_time_sec
-              ),
-              ate, att
-            )
-
-            if (identical(row$engine, "bartc")) {
-              cs_rate <- bartc_common_support_agreement(fitted$fit)
-              common_support[[length(common_support) + 1]] <- dplyr::tibble(
-                outcome = outcome, response_parallel = response_parallel, n = n, rep = rep,
-                variant = row$variant, propensity_recipe = row$propensity_recipe %||% NA_character_,
-                agreement_rate = cs_rate
-              )
-            }
-          }
-
-          if (length(cte_by_row) >= 2) {
-            agr <- cross_engine_agreement(cte_by_row)
-            agr$outcome <- outcome
-            agr$response_parallel <- response_parallel
-            agr$n <- n
-            agr$rep <- rep
-            agreement[[length(agreement) + 1]] <- agr
-          }
-        }
-      }
+  cell_fn <- with_worker_setup(
+    setup_fn = function() causal_worker_setup(benchmark_dir),
+    cell_fn = function(cell) {
+      rows <- causal_row_specs(cell$outcome)
+      run_causal_cell(cell$outcome, cell$response_parallel, cell$n, cell$rep, B, rows, hp, seed, tau, y_sd, n_for_examples)
     }
+  )
+  label_fn <- function(cell) {
+    paste("outcome =", cell$outcome, "response_parallel =", cell$response_parallel,
+          "n =", cell$n, "rep =", paste0(cell$rep, "/", B))
   }
 
+  results <- run_cells_parallel(grid, cell_fn, label_fn)
+
   list(
-    metrics = dplyr::bind_rows(metrics),
-    agreement = dplyr::bind_rows(agreement),
-    common_support = dplyr::bind_rows(common_support),
-    examples = dplyr::bind_rows(examples)
+    metrics = dplyr::bind_rows(lapply(results, `[[`, "metrics")),
+    agreement = dplyr::bind_rows(lapply(results, `[[`, "agreement")),
+    common_support = dplyr::bind_rows(lapply(results, `[[`, "common_support")),
+    examples = dplyr::bind_rows(lapply(results, `[[`, "examples"))
   )
 }
 

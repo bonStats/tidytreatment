@@ -13,6 +13,7 @@ params:
   n_reps: 20
   seed: 1
   y_sd: 1               # SD of the noise added to the continuous outcome
+  parallel_workers: null # number of parallel workers for replications; null -> availableCores() - 1, 1 disables parallelism
 ---
 
 ```{r setup}
@@ -26,13 +27,17 @@ library(BART)
 library(dbarts)
 library(stochtree)
 library(coda)
+library(future)
 
 source("R/cache.R")
 source("R/hyperparams.R")
 source("R/dgp.R")
 source("R/fit-engines-prediction.R")
 source("R/metrics.R")
+source("R/parallel-driver.R")
 source("R/run-benchmark-prediction.R")
+
+benchmark_dir <- normalizePath(".")
 
 ```
 
@@ -176,7 +181,10 @@ n_for_examples <- max(n_values)
 
 cache_file <- file.path("cache", sprintf("prediction_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
 res <- cached_run(cache_file, function() {
-  run_benchmark_prediction(n_values = n_values, B = n_reps, hp = hp, seed = params$seed, y_sd = params$y_sd)
+  old_plan <- future::plan(future::multisession, workers = benchmark_worker_count(params$parallel_workers))
+  on.exit(future::plan(old_plan), add = TRUE)
+  run_benchmark_prediction(n_values = n_values, B = n_reps, hp = hp, seed = params$seed, y_sd = params$y_sd,
+                            benchmark_dir = benchmark_dir)
 })
 ```
 

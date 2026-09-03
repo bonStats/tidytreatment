@@ -165,59 +165,66 @@ hp_to_dbarts <- function(hp, auto_k = FALSE) {
 # draws under a fixed seed).
 #
 # rstanarm-style priors have no inverse-gamma option for prior_aux, but a
-# Student-t IS available, and stan4bart's <lower=0> constraint on this
-# parameter turns any two-sided family into a genuine *truncation* at 0 for
-# any location (confirmed empirically - a location=100, scale=1 prior_aux
-# produced sigma draws clustered at ~100, not folded back near 0). That
-# truncated-t is calibrated here to approximate stochtree's own inverse-gamma
-# target as closely as this family allows, matching three separate features
-# rather than just one quantile:
-#   - df is set to sigdf (nu): both distributions descend from the same
-#     chi-squared-with-nu-df construction, so this ties the truncated-t's
-#     tail weight to the same degrees of freedom rather than leaving it a
-#     disconnected free parameter.
-#   - location is set to the *mode* of sigma implied by the inverse-gamma
-#     target on sigma^2 (not just sqrt(mode of sigma^2) - mode does not
-#     commute with a nonlinear transform). This matters for shape, not just
-#     for having a number: a location=0 truncated-t can only decay
-#     monotonically from the boundary, while the inverse-gamma-implied
-#     sigma density has an interior peak - giving the truncated-t a nonzero
-#     location is what lets it develop that peak at all.
-#   - scale is solved numerically (no closed form) so the truncated-t's
-#     sigquant-quantile lands exactly on sigest, the same calibration
-#     principle used for every other engine's global error-variance prior.
-# The list below is built by hand rather than via stan4bart:::student_t()
-# (unexported) - its structure is confirmed to match by inspecting that
-# function's own source.
+# Student-t IS available - however stan4bart does NOT implement a location-
+# scale Student-t truncated at 0 the way the rstanarm docs it points to would
+# suggest. Confirmed empirically (fit under a tiny, near-prior-dominated n
+# with several fixed `location` values): whenever `location > 0`, sampled
+# `aux` draws are essentially always >= location, with almost no density
+# below it - i.e. stan4bart actually draws `aux = location + halfT(df,
+# scale)` (a shift applied to a half-Student-t), not `aux ~ t(df, location,
+# scale)` truncated at 0. Only `location = 0` behaves as a textbook
+# truncated-t, because the shift-based and truncation-based readings
+# coincide exactly there. A previous version of this function assumed the
+# truncation reading and set a nonzero `location` to reproduce an
+# inverse-gamma-like interior peak; that instead created a hard, artificial
+# floor on sigma at the calibrated `location` value, which is what produced
+# the "sigma never goes below ~1" artifact seen in the rfx document's
+# `baseline` stan4bart fits.
+#
+# Given the real mechanism, an interior-peaked prior isn't achievable this
+# way without also creating a floor - any location > 0 IS the floor. So this
+# fixes location = 0 (removing the artificial floor entirely - the resulting
+# prior is a genuine half-Student-t with mode at 0, like a folded-Cauchy/t
+# residual-SD prior elsewhere in the BART literature) and calibrates only
+# `scale`, matching the same principle used for every other engine's global
+# error-variance prior: the sigquant-quantile of the induced sigma
+# distribution lands exactly on sigest. For aux = |T_nu(0, scale)|,
+# P(aux < x) = 2*pt(x/scale, df=nu) - 1, which inverts in closed form:
+#   sigquant = 2*pt(sigest/scale, df=nu) - 1
+#   => scale = sigest / qt((1 + sigquant)/2, df=nu)
+# df is still set to sigdf (nu), tying the half-t's tail weight to the same
+# degrees of freedom used by every other engine's prior.
 hp_to_stan4bart_sigma_prior <- function(hp, X, y, group = NULL) {
   sigest <- compute_sigest(X, y, group = group)
   nu <- hp$sigdf
-  lambda <- sigest^2 * stats::qchisq(1 - hp$sigquant, df = nu) / nu
-  alpha <- nu / 2
-  beta <- nu * lambda / 2
-
-  # Target on the sigma scale: if sigma^2 ~ IG(alpha, beta) then sigma follows
-  # a generalized inverse gamma (the c = 2 case; equivalently a scaled
-  # inverse-chi with 2*alpha df), with density
-  #   p(sigma) = 2 beta^alpha / Gamma(alpha) * sigma^(-2 alpha - 1) exp(-beta / sigma^2),
-  # closed-form mode sqrt(2 beta / (2 alpha + 1)), CDF
-  # pgamma(1/s^2, alpha, rate = beta, lower.tail = FALSE), and a
-  # sigma^-(nu+1) tail matching a t_nu's. This is the right scale to match on
-  # because stan4bart's prior_aux is a prior on sigma, not sigma^2.
-  location <- sqrt(2 * beta / (2 * alpha + 1))
-  trunc_cdf <- function(x, mu, s, df) {
-    (stats::pt((x - mu) / s, df = df) - stats::pt(-mu / s, df = df)) / (1 - stats::pt(-mu / s, df = df))
-  }
-  # uniroot's default tol (~1e-4) leaves visible error in the matched
-  # quantile, so tighten it - the solve is cheap.
-  scale <- stats::uniroot(
-    function(s) trunc_cdf(sigest, location, s, nu) - hp$sigquant,
-    interval = sigest * c(1e-6, 1e6),
-    tol = .Machine$double.eps^0.5
-  )$root
+  scale <- sigest / stats::qt((1 + hp$sigquant) / 2, df = nu)
 
   list(
-    prior_aux = list(dist = "t", df = nu, location = location, scale = scale, autoscale = FALSE)
+    prior_aux = list(dist = "t", df = nu, location = 0, scale = scale, autoscale = FALSE)
+  )
+}
+
+# stan4bart's own out-of-the-box prior_aux is exponential(autoscale = TRUE),
+# which resolves to Exponential(rate = 1/sd(y)) - calibrated from the raw,
+# unconditional spread of y, not from a regression-based estimate of the
+# residual SD net of X and the group intercepts. This variant keeps the same
+# *family* (stan4bart's own default choice) but recalibrates its rate from
+# `sigest` instead - the same regression/lme4-based residual-SD estimate
+# used to calibrate every `baseline` prior (see compute_sigest()'s header
+# comment) - to isolate how much of the difference between `default` and
+# `baseline` is attributable to the prior *family* (exponential vs the
+# half-Student-t above) versus just the calibration *input* (sd(y) vs
+# sigest). autoscale is set FALSE so stan4bart doesn't rescale this rate
+# again on top - `scale = 1/rate = sigest` directly, matching
+# stan4bart:::exponential()'s own internal list structure (dist,
+# df = NA, location = NA, scale = 1/rate, autoscale), built by hand for the
+# same reason as hp_to_stan4bart_sigma_prior() above (stan4bart:::exponential()
+# is unexported).
+hp_to_stan4bart_sigma_prior_exp_sigest <- function(hp, X, y, group = NULL) {
+  sigest <- compute_sigest(X, y, group = group)
+
+  list(
+    prior_aux = list(dist = "exponential", df = NA, location = NA, scale = sigest, autoscale = FALSE)
   )
 }
 
