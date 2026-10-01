@@ -364,7 +364,7 @@ variance_draws.bcfmodel <- function(model, value = ".sigma_sq", ...) {
 # correctly collapses a one-hot-expanded categorical's repeated name back
 # into a single combined importance score.
 #' @export
-covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_effect", "prognostic"), ...) {
+covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment", "prognostic"), ...) {
 
   stopifnot("X_train used to fit the model must be provided for stochtree package" = !missing(X_train))
 
@@ -372,7 +372,7 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
 
   base_vars <- colnames(X_train)[model$train_set_metadata$original_var_indices]
 
-  if (forest == "treatment_effect") {
+  if (forest == "treatment") {
     forest_obj <- model$forests_tau
     has_propensity <- model$model_params$propensity_covariate %in% c("treatment_effect", "both")
   } else {
