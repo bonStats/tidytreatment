@@ -312,6 +312,24 @@ tidy_draws.bcfmodel <- function(model, ...) {
   return(out)
 }
 
+#' @export
+variance_draws.bcfmodel <- function(model, value = ".sigma_sq", ...) {
+  if (!isTRUE(model$model_params$sample_sigma2_global)) {
+    stop("`variance_draws()` is not applicable to this model: its global error variance was not ",
+         "sampled (either an improper/fixed prior was used, or the outcome is binary/probit, ",
+         "where the error variance is fixed at 1, not estimated).")
+  }
+
+  # Already the variance, same convention as variance_draws.bartmodel() -
+  # see that method's header comment.
+  dplyr::tibble(
+    .chain = NA_integer_,
+    .iteration = NA_integer_,
+    .draw = seq_along(model$sigma2_global_samples),
+    !!value := model$sigma2_global_samples
+  )
+}
+
 # The prognostic and treatment-effect forests can have different covariate
 # sets: e.g. by default the propensity score is added as an extra covariate
 # to the prognostic forest only (model_params$propensity_covariate), so

@@ -305,3 +305,24 @@ tidy_draws.bartmodel <- function(model, ...) {
 
   return(out)
 }
+
+#' @export
+variance_draws.bartmodel <- function(model, value = ".sigma_sq", ...) {
+  if (!isTRUE(model$model_params$sample_sigma2_global)) {
+    stop("`variance_draws()` is not applicable to this model: its global error variance was not ",
+         "sampled (either an improper/fixed prior was used, or the outcome is binary/probit, ",
+         "where the error variance is fixed at 1, not estimated).")
+  }
+
+  # model$sigma2_global_samples is already the variance (stochtree's own
+  # IG(shape, scale) prior targets sigma^2 directly), unlike BART::wbart's/
+  # dbarts::bart2's $sigma, which are SDs needing squaring - see
+  # extract_sigma_global_draws()'s header comment in the benchmark suite
+  # (examples/benchmark/R/metrics-rfx.R) for how this was confirmed.
+  dplyr::tibble(
+    .chain = NA_integer_,
+    .iteration = NA_integer_,
+    .draw = seq_along(model$sigma2_global_samples),
+    !!value := model$sigma2_global_samples
+  )
+}

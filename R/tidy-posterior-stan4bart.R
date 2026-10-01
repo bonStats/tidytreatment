@@ -173,5 +173,26 @@ tidy_draws.stan4bartFit = function(model, ...) {
   return(draws)
 }
 
+#' @export
+variance_draws.stan4bartFit <- function(model, value = ".sigma_sq", ...) {
+  draws <- tidy_draws.stan4bartFit(model)
+
+  if (!("sigma" %in% names(draws))) {
+    stop("`variance_draws()` is not applicable to this model: its global error variance was not ",
+         "sampled (the outcome is binary/probit, where the error variance is fixed at 1, not ",
+         "estimated).")
+  }
+
+  # tidy_draws.stan4bartFit()'s "sigma" column is already the SD (stan4bart's
+  # own `aux.1` Stan parameter) - squared here since variance_draws() returns
+  # sigma^2, matching every other engine's method for this generic.
+  dplyr::tibble(
+    .chain = draws$.chain,
+    .iteration = draws$.iteration,
+    .draw = draws$.draw,
+    !!value := draws$sigma^2
+  )
+}
+
 
 

@@ -15,16 +15,20 @@ variance_draws <- function(model, value = ".sigma_sq", ...) {
 
 #' @export
 variance_draws.wbart <- function(model, value = ".sigma_sq", ...) {
-  # model$sigma: plain vector for a single chain, [samples x mc.cores] matrix
-  # for mc.wbart()-combined chains - as.vector() flattens column-major, i.e.
-  # chain-major, matching bart_chain_iteration_index()'s convention.
-  sigma_draws <- if (is.matrix(model$sigma)) as.vector(model$sigma) else model$sigma
-  chain_index <- bart_chain_iteration_index(model, length(sigma_draws))
+  # model$sigma prepends nskip burn-in draws to the ndpost kept draws (see
+  # bart_sigma_aligned()'s own header comment in tidy-posterior-BART.R) -
+  # n_total must come from yhat.train (always post-burn-in only), not from
+  # sigma's own length, or burn-in silently leaks into the returned draws
+  # and their .chain/.iteration labels. Mirrors tidy_draws.wbart()'s own
+  # (correct) extraction exactly.
+  n_total <- nrow(model$yhat.train)
+  chain_index <- bart_chain_iteration_index(model, n_total)
+  sigma_draws <- bart_sigma_aligned(model, n_total)
 
   dplyr::tibble(
     .chain = chain_index$chain,
     .iteration = chain_index$iteration,
-    .draw = seq_along(sigma_draws),
+    .draw = seq_len(n_total),
     !!value := sigma_draws^2
   )
 }
