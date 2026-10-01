@@ -332,9 +332,25 @@ variance_draws.bcfmodel <- function(model, value = ".sigma_sq", ...) {
 
 # The prognostic and treatment-effect forests can have different covariate
 # sets: e.g. by default the propensity score is added as an extra covariate
-# to the prognostic forest only (model_params$propensity_covariate), so
-# num_prognostic_covariates != num_treatment_covariates in that case. Checked
-# in tests/testthat/test-stochtree-bcf-implementation.R.
+# to the prognostic forest only (model_params$propensity_covariate).
+#
+# `p` here is deliberately NOT model_params$num_prognostic_covariates /
+# num_treatment_covariates, for two reasons found empirically:
+#   1. Those two fields don't survive a save-to-JSON/reload round trip
+#      (saveBCFModelToJson()/createBCFModelFromJson()) - model_params$
+#      num_covariates is the one forest/treatment-specific field that does.
+#   2. Even on a freshly-fit (non-serialized) model, they're the *wrong*
+#      value to pass to get_aggregate_split_counts() whenever `drop_vars`/
+#      `keep_vars` was used on a forest: the forest's internal split-count
+#      array is always sized to the *original, unfiltered* covariate index
+#      space (confirmed empirically - get_aggregate_split_counts() errors
+#      for p = num_prognostic_covariates when drop_vars is active, and
+#      succeeds, with the dropped variable's own count coming back exactly
+#      0, for p = num_covariates + has_propensity instead).
+# num_covariates + has_propensity is therefore both the value
+# get_aggregate_split_counts() actually needs *and* exactly
+# length(base_vars) + has_propensity below, by construction - so the two
+# always agree and there's no separate alignment check needed.
 #' @export
 covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_effect", "prognostic"), ...) {
 
@@ -346,16 +362,14 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
 
   if (forest == "treatment_effect") {
     forest_obj <- model$forests_tau
-    p <- model$model_params$num_treatment_covariates
     has_propensity <- model$model_params$propensity_covariate %in% c("treatment_effect", "both")
   } else {
     forest_obj <- model$forests_mu
-    p <- model$model_params$num_prognostic_covariates
     has_propensity <- model$model_params$propensity_covariate %in% c("prognostic", "both")
   }
 
+  p <- model$model_params$num_covariates + has_propensity
   variable_names <- if (has_propensity) c(base_vars, "propensity") else base_vars
-  stopifnot(length(variable_names) == p)
 
   res <- dplyr::tibble(
     variable = variable_names,

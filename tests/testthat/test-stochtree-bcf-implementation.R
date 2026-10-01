@@ -52,6 +52,67 @@ test_that("covariate_importance.bcfmodel requires X_train", {
   expect_error(covariate_importance(fixture_bcf))
 })
 
+test_that("covariate_importance.bcfmodel works when num_treatment_covariates/num_prognostic_covariates are absent (regression test: these don't survive saveBCFModelToJson()/createBCFModelFromJson(), only num_covariates does)", {
+  fit_no_forest_fields <- fixture_bcf
+  fit_no_forest_fields$model_params$num_treatment_covariates <- NULL
+  fit_no_forest_fields$model_params$num_prognostic_covariates <- NULL
+
+  res <- covariate_importance(fit_no_forest_fields, X_train = fixture_bcf_x, forest = "treatment_effect")
+  expect_equal(res, covariate_importance(fixture_bcf, X_train = fixture_bcf_x, forest = "treatment_effect"))
+})
+
+test_that("covariate_importance.bcfmodel (prognostic) correctly excludes a drop_vars variable, with its own 0 split count, rather than erroring", {
+  skip_if_not_installed("stochtree")
+
+  dropped_var <- colnames(fixture_bcf_x)[1]
+  fit_drop <- stochtree::bcf(
+    X_train = fixture_bcf_x, Z_train = fixture_bcf_z, y_train = fixture_bcf_y,
+    propensity_train = fixture_bcf_pi,
+    prognostic_forest_params = list(drop_vars = dropped_var, num_trees = 10),
+    treatment_effect_forest_params = list(num_trees = 10),
+    num_gfr = 0, num_burnin = 20, num_mcmc = 20
+  )
+
+  res <- covariate_importance(fit_drop, X_train = fixture_bcf_x, forest = "prognostic")
+
+  # The dropped variable is still labelled (base_vars is the full, unfiltered
+  # set - that's what get_aggregate_split_counts()'s own index space spans),
+  # but was never actually selectable, so its split count must be exactly 0.
+  expect_true(dropped_var %in% res$variable)
+  expect_equal(res$avg_inclusion[res$variable == dropped_var], 0)
+  # Every other prognostic covariate (plus propensity) remains available and
+  # should show some real usage - not every entry collapsing to 0, which
+  # would indicate p was wrong rather than drop_vars correctly taking effect.
+  expect_true(any(res$avg_inclusion[res$variable != dropped_var] > 0))
+
+  # The treatment-effect forest had no drop_vars, so nothing should be zeroed
+  # out there - confirms drop_vars on one forest doesn't bleed into the other.
+  res_trt <- covariate_importance(fit_drop, X_train = fixture_bcf_x, forest = "treatment_effect")
+  expect_true(all(res_trt$avg_inclusion > 0))
+})
+
+test_that("covariate_importance.bcfmodel (prognostic, drop_vars) still works correctly after a save-to-JSON/reload round trip (regression test for the original reported bug)", {
+  skip_if_not_installed("stochtree")
+
+  dropped_var <- colnames(fixture_bcf_x)[1]
+  fit_drop <- stochtree::bcf(
+    X_train = fixture_bcf_x, Z_train = fixture_bcf_z, y_train = fixture_bcf_y,
+    propensity_train = fixture_bcf_pi,
+    prognostic_forest_params = list(drop_vars = dropped_var, num_trees = 10),
+    treatment_effect_forest_params = list(num_trees = 10),
+    num_gfr = 0, num_burnin = 20, num_mcmc = 20
+  )
+  fit_reloaded <- stochtree::createBCFModelFromJson(stochtree::saveBCFModelToJson(fit_drop))
+
+  expect_null(fit_reloaded$model_params$num_prognostic_covariates)
+  expect_false(is.null(fit_reloaded$model_params$num_covariates))
+
+  res_before <- covariate_importance(fit_drop, X_train = fixture_bcf_x, forest = "prognostic")
+  res_after <- covariate_importance(fit_reloaded, X_train = fixture_bcf_x, forest = "prognostic")
+  expect_equal(res_before, res_after)
+  expect_equal(res_after$avg_inclusion[res_after$variable == dropped_var], 0)
+})
+
 # --- epred_draws.bcfmodel ----------------------------------------------------
 
 test_that("epred_draws.bcfmodel (no newdata) matches model$y_hat_train", {
