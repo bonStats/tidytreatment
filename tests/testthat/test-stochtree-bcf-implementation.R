@@ -113,6 +113,49 @@ test_that("covariate_importance.bcfmodel (prognostic, drop_vars) still works cor
   expect_equal(res_after$avg_inclusion[res_after$variable == dropped_var], 0)
 })
 
+test_that("covariate_importance.bcfmodel works when X_train contains an unordered categorical variable (regression test: stochtree one-hot-expands it internally, so model_params$num_covariates - a raw column count - undercounts the forest's actual split-variable index space and get_aggregate_split_counts() errors with 'Error: r_vector')", {
+  skip_if_not_installed("stochtree")
+
+  n <- length(fixture_bcf_y)
+  Xcat <- fixture_bcf_x
+  Xcat$c1 <- factor(sample(c("a", "b", "c"), n, replace = TRUE))
+  dropped_var <- "c1"
+
+  fit_cat <- stochtree::bcf(
+    X_train = Xcat, Z_train = fixture_bcf_z, y_train = fixture_bcf_y,
+    propensity_train = fixture_bcf_pi,
+    prognostic_forest_params = list(drop_vars = dropped_var, num_trees = 10),
+    treatment_effect_forest_params = list(num_trees = 10),
+    num_gfr = 0, num_burnin = 20, num_mcmc = 20
+  )
+
+  # The categorical column expands to multiple internal split-indices, so
+  # base_vars (and therefore p) is longer than ncol(Xcat)/num_covariates.
+  base_vars <- colnames(Xcat)[fit_cat$train_set_metadata$original_var_indices]
+  expect_gt(length(base_vars), ncol(Xcat))
+  expect_lt(fit_cat$model_params$num_covariates, length(base_vars))
+
+  res_prog <- covariate_importance(fit_cat, X_train = Xcat, forest = "prognostic")
+  res_trt <- covariate_importance(fit_cat, X_train = Xcat, forest = "treatment_effect")
+
+  # Dropped (and categorical) on the prognostic forest: still labelled once
+  # (the group_by/summarise collapses the one-hot-expanded repeats), with a
+  # 0 split count since it was never selectable there.
+  expect_equal(sum(res_prog$variable == dropped_var), 1)
+  expect_equal(res_prog$avg_inclusion[res_prog$variable == dropped_var], 0)
+  expect_true(any(res_prog$avg_inclusion[res_prog$variable != dropped_var] > 0))
+
+  # Not dropped on the treatment-effect forest: still correctly labelled once
+  # and selectable (no error, no artificially-zeroed entry).
+  expect_equal(sum(res_trt$variable == dropped_var), 1)
+
+  # Survives a save-to-JSON/reload round trip too (categorical + drop_vars
+  # combined, the exact scenario from the user's reported vignette bug).
+  fit_reloaded <- stochtree::createBCFModelFromJson(stochtree::saveBCFModelToJson(fit_cat))
+  res_prog_after <- covariate_importance(fit_reloaded, X_train = Xcat, forest = "prognostic")
+  expect_equal(res_prog, res_prog_after)
+})
+
 # --- epred_draws.bcfmodel ----------------------------------------------------
 
 test_that("epred_draws.bcfmodel (no newdata) matches model$y_hat_train", {

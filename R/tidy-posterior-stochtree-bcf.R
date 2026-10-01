@@ -334,23 +334,35 @@ variance_draws.bcfmodel <- function(model, value = ".sigma_sq", ...) {
 # sets: e.g. by default the propensity score is added as an extra covariate
 # to the prognostic forest only (model_params$propensity_covariate).
 #
-# `p` here is deliberately NOT model_params$num_prognostic_covariates /
-# num_treatment_covariates, for two reasons found empirically:
-#   1. Those two fields don't survive a save-to-JSON/reload round trip
-#      (saveBCFModelToJson()/createBCFModelFromJson()) - model_params$
-#      num_covariates is the one forest/treatment-specific field that does.
-#   2. Even on a freshly-fit (non-serialized) model, they're the *wrong*
-#      value to pass to get_aggregate_split_counts() whenever `drop_vars`/
-#      `keep_vars` was used on a forest: the forest's internal split-count
-#      array is always sized to the *original, unfiltered* covariate index
-#      space (confirmed empirically - get_aggregate_split_counts() errors
-#      for p = num_prognostic_covariates when drop_vars is active, and
-#      succeeds, with the dropped variable's own count coming back exactly
-#      0, for p = num_covariates + has_propensity instead).
-# num_covariates + has_propensity is therefore both the value
-# get_aggregate_split_counts() actually needs *and* exactly
-# length(base_vars) + has_propensity below, by construction - so the two
-# always agree and there's no separate alignment check needed.
+# `p` here is `length(base_vars) + has_propensity`, NOT any of
+# model_params$num_covariates / num_prognostic_covariates /
+# num_treatment_covariates - all three turned out to disagree with what
+# get_aggregate_split_counts() actually needs, in different circumstances,
+# confirmed empirically:
+#   - num_prognostic_covariates/num_treatment_covariates don't survive a
+#     save-to-JSON/reload round trip (saveBCFModelToJson()/
+#     createBCFModelFromJson() drop them).
+#   - num_covariates is the number of *raw input columns*, which undercounts
+#     whenever X_train has an unordered categorical variable: stochtree
+#     one-hot-expands it internally, so the forest's actual split-variable
+#     index space is wider than the raw column count (confirmed: a single
+#     3-level factor column expanded to 4 internal indices, all mapping back
+#     to it via train_set_metadata$original_var_indices).
+#   - num_prognostic_covariates/num_treatment_covariates are *also* wrong
+#     whenever `drop_vars`/`keep_vars` was used on that forest: the forest's
+#     internal split-count array is always sized to the full, unfiltered
+#     index space regardless of drop_vars, but these two fields report the
+#     post-drop count instead.
+# `base_vars` (already computed below for labelling) sidesteps all of this:
+# it's derived from train_set_metadata$original_var_indices, which already
+# reflects the *expanded* index space - repeating a column's name once per
+# one-hot level - and is unaffected by drop_vars (it always describes the
+# original, unfiltered space, exactly matching what get_aggregate_split_counts()
+# needs). So `p` and the length of `variable_names` below always agree by
+# construction - no separate alignment check needed - and the existing
+# group_by(variable) %>% summarise(sum(...)) step (unchanged) is what
+# correctly collapses a one-hot-expanded categorical's repeated name back
+# into a single combined importance score.
 #' @export
 covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_effect", "prognostic"), ...) {
 
@@ -368,7 +380,7 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment_
     has_propensity <- model$model_params$propensity_covariate %in% c("prognostic", "both")
   }
 
-  p <- model$model_params$num_covariates + has_propensity
+  p <- length(base_vars) + has_propensity
   variable_names <- if (has_propensity) c(base_vars, "propensity") else base_vars
 
   res <- dplyr::tibble(
