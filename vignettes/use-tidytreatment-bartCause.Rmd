@@ -93,7 +93,8 @@ Note: Using the automatic treatment assignment model in `bartCause` ignores step
   
 # STEP 1 VS Model: Regress y ~ covariates
 vs_bart <- stan4bart(y ~ bart(. - subject_id - z) + (1|subject_id), 
-                             data = dat, iter = 5000, verbose = -1)
+                             data = dat, iter = 5000, verbose = -1,
+                     bart_args = list(keepTrees = TRUE))
 
 # STEP 2: Variable selection
   # select most important vars from y ~ covariates model

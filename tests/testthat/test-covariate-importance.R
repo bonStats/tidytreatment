@@ -1,16 +1,28 @@
 library(BART)
 library(dplyr)
 
-test_that("covariate_importance.wbart returns varcount.mean as a tibble", {
+test_that("covariate_importance.wbart returns raw inclusion counts and a per-tree-inclusion-probability column", {
   res <- covariate_importance(bartmodel1)
 
   expect_s3_class(res, "tbl_df")
   expect_setequal(res$variable, names(bartmodel1$varcount.mean))
 
-  expected <- dplyr::tibble(variable = names(bartmodel1$varcount.mean), avg_inclusion = unname(bartmodel1$varcount.mean))
+  n_trees <- as.integer(strsplit(trimws(strsplit(bartmodel1$treedraws$trees, "\n")[[1]][1]), "\\s+")[[1]])[2]
+  n_iterations <- nrow(bartmodel1$varcount)
+  raw_count <- colSums(bartmodel1$varcount)
+
+  expected <- dplyr::tibble(
+    variable = names(raw_count),
+    inclusion = unname(raw_count),
+    avg_inclusion = unname(raw_count) / (n_iterations * n_trees)
+  )
   actual <- dplyr::arrange(res, variable)
+  actual$inclusion <- unname(actual$inclusion)
   actual$avg_inclusion <- unname(actual$avg_inclusion)
   expect_equal(actual, dplyr::arrange(expected, variable))
+
+  # inclusion should equal avg_inclusion scaled back up by iterations * trees
+  expect_equal(res$inclusion, res$avg_inclusion * n_iterations * n_trees)
 })
 
 test_that("covariate_with_treatment_importance.wbart excludes the treatment variable", {
@@ -98,25 +110,39 @@ test_that("count_once_per_tree = TRUE gives counts no larger than the default (F
 
 skip_if_not_installed("BART")
 
-test_that("covariate_importance.pbart returns varcount.mean as a tibble", {
+test_that("covariate_importance.pbart returns raw inclusion counts and a per-tree-inclusion-probability column", {
   skip_if(is.null(fixture_pbart))
 
   res <- covariate_importance(fixture_pbart)
 
   expect_setequal(res$variable, names(fixture_pbart$varcount.mean))
 
-  expected <- dplyr::tibble(variable = names(fixture_pbart$varcount.mean), avg_inclusion = unname(fixture_pbart$varcount.mean))
+  n_trees <- as.integer(strsplit(trimws(strsplit(fixture_pbart$treedraws$trees, "\n")[[1]][1]), "\\s+")[[1]])[2]
+  n_iterations <- nrow(fixture_pbart$varcount)
+  raw_count <- colSums(fixture_pbart$varcount)
+
+  expected <- dplyr::tibble(
+    variable = names(raw_count),
+    inclusion = unname(raw_count),
+    avg_inclusion = unname(raw_count) / (n_iterations * n_trees)
+  )
   actual <- dplyr::arrange(res, variable)
+  actual$inclusion <- unname(actual$inclusion)
   actual$avg_inclusion <- unname(actual$avg_inclusion)
   expect_equal(actual, dplyr::arrange(expected, variable))
 })
 
-test_that("covariate_importance.lbart returns varcount.mean as a tibble", {
+test_that("covariate_importance.lbart returns raw inclusion counts and a per-tree-inclusion-probability column", {
   skip_if(is.null(fixture_lbart))
 
   res <- covariate_importance(fixture_lbart)
 
   expect_setequal(res$variable, names(fixture_lbart$varcount.mean))
+
+  n_trees <- as.integer(strsplit(trimws(strsplit(fixture_lbart$treedraws$trees, "\n")[[1]][1]), "\\s+")[[1]])[2]
+  n_iterations <- nrow(fixture_lbart$varcount)
+  expect_equal(res$inclusion[match(names(fixture_lbart$varcount.mean), res$variable)], unname(colSums(fixture_lbart$varcount)))
+  expect_equal(res$avg_inclusion, res$inclusion / (n_iterations * n_trees))
 })
 
 test_that("covariate_with_treatment_importance.pbart excludes the treatment variable", {
@@ -127,16 +153,26 @@ test_that("covariate_with_treatment_importance.pbart excludes the treatment vari
   expect_false("x1" %in% res$variable)
 })
 
-test_that("covariate_importance.stan4bartFit matches dbarts varcount extraction", {
+test_that("covariate_importance.stan4bartFit returns raw inclusion counts and a per-tree-inclusion-probability column", {
   skip_if_not_installed("stan4bart")
   skip_if(is.null(fixture_stan4bart))
 
   vv <- dbarts::extract(fixture_stan4bart, type = "varcount", combine_chains = FALSE, include_warmup = FALSE)
-  check <- dplyr::tibble(variable = dimnames(vv)$predictor, avg_inclusion = rowMeans(vv))
+  var_names <- dimnames(vv)$predictor
+  raw_count <- apply(vv, 1, sum)
+  n_iterations_total <- length(vv) / length(var_names)
+  n_trees <- length(unique(dbarts::extract(fixture_stan4bart, type = "trees")$tree))
+
+  check <- dplyr::tibble(
+    variable = var_names,
+    inclusion = unname(raw_count),
+    avg_inclusion = unname(raw_count) / (n_iterations_total * n_trees)
+  )
 
   res <- covariate_importance(fixture_stan4bart)
 
   expect_setequal(res$variable, check$variable)
+  expect_equal(res$inclusion[match(check$variable, res$variable)], check$inclusion)
   expect_equal(
     res$avg_inclusion[match(check$variable, res$variable)],
     check$avg_inclusion

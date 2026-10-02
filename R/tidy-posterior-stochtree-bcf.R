@@ -382,17 +382,22 @@ covariate_importance.bcfmodel <- function(model, X_train, forest = c("treatment"
 
   p <- length(base_vars) + has_propensity
   variable_names <- if (has_propensity) c(base_vars, "propensity") else base_vars
+  n_iterations <- forest_obj$num_samples()
+  n_trees <- forest_obj$num_trees()
 
   res <- dplyr::tibble(
     variable = variable_names,
     inclusion = forest_obj$get_aggregate_split_counts(p)
   )
 
+  # `inclusion` (raw, summed-over-draws split count) and `avg_inclusion`
+  # (normalised by iterations * trees, i.e. the average number of times the
+  # variable is used per tree - a probability of inclusion in a given tree
+  # when trees rarely split on the same variable more than once).
   res |>
     dplyr::group_by(.data$variable) |>
-    dplyr::summarise(inclusion = sum(.data$inclusion)) |>
-    dplyr::mutate(avg_inclusion = .data$inclusion / sum(.data$inclusion)) |>
-    dplyr::select(-"inclusion")
+    dplyr::summarise(inclusion = sum(.data$inclusion), .groups = "drop") |>
+    dplyr::mutate(avg_inclusion = .data$inclusion / (n_iterations * n_trees))
 }
 
 # TRUE if this model's random effects are part of the treatment effect itself

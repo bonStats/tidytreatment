@@ -6,6 +6,28 @@ skip_if(is.null(fixture_stochtree_bin))
 
 newX <- fixture_stochtree_x[1:5, ]
 
+# --- covariate_importance.bartmodel ----------------------------------------
+
+test_that("covariate_importance.bartmodel returns raw inclusion counts and a per-tree-inclusion-probability column", {
+  res <- covariate_importance(fixture_stochtree, X_train = fixture_stochtree_x)
+
+  p <- length(fixture_stochtree$train_set_metadata$feature_types)
+  n_iterations <- fixture_stochtree$mean_forests$num_samples()
+  n_trees <- fixture_stochtree$mean_forests$num_trees()
+
+  expected <- dplyr::tibble(
+    variable = colnames(fixture_stochtree_x)[fixture_stochtree$train_set_metadata$original_var_indices],
+    inclusion = fixture_stochtree$mean_forests$get_aggregate_split_counts(p)
+  ) %>%
+    dplyr::group_by(variable) %>%
+    dplyr::summarise(inclusion = sum(inclusion), .groups = "drop") %>%
+    dplyr::mutate(avg_inclusion = inclusion / (n_iterations * n_trees)) %>%
+    dplyr::arrange(variable)
+
+  expect_equal(dplyr::arrange(res, variable), expected)
+  expect_equal(res$avg_inclusion, res$inclusion / (n_iterations * n_trees))
+})
+
 # --- epred_draws.bartmodel ------------------------------------------------
 
 test_that("epred_draws.bartmodel (no newdata) matches model$y_hat_train", {

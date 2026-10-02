@@ -304,11 +304,20 @@ covariate_importance.bart <- function(model, ...) {
   vc <- combine_dbarts_chains(vc)$posterior
   colnames(vc) <- var_names
 
-  vv <- colMeans(vc)
+  # Raw total split count (summed across all combined chains/iterations,
+  # already summed across trees within each iteration), and that count
+  # normalised by iterations * trees - the average number of times the
+  # variable is used per tree, i.e. a probability of inclusion in a given
+  # tree (barring the rare case of a tree splitting on the same variable
+  # more than once).
+  raw_count <- colSums(vc)
+  n_iterations <- nrow(vc)
+  n_trees <- model$fit$control@n.trees
 
   dplyr::tibble(
-    variable = names(vv),
-    avg_inclusion = vv
+    variable = names(raw_count),
+    inclusion = unname(raw_count),
+    avg_inclusion = unname(raw_count) / (n_iterations * n_trees)
   )
 }
 

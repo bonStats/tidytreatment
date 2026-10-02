@@ -10,7 +10,7 @@ newPi <- fixture_bcf_pi[1:5]
 
 # --- covariate_importance.bcfmodel ------------------------------------------
 
-test_that("covariate_importance.bcfmodel (forest = 'treatment_effect', default) matches forests_tau split counts", {
+test_that("covariate_importance.bcfmodel (forest = 'treatment', default) matches forests_tau split counts", {
   res <- covariate_importance(fixture_bcf, X_train = fixture_bcf_x)
 
   base_vars <- colnames(fixture_bcf_x)[fixture_bcf$train_set_metadata$original_var_indices]
@@ -18,12 +18,13 @@ test_that("covariate_importance.bcfmodel (forest = 'treatment_effect', default) 
   vars <- if (has_ps) c(base_vars, "propensity") else base_vars
   p <- fixture_bcf$model_params$num_treatment_covariates
   expected_counts <- fixture_bcf$forests_tau$get_aggregate_split_counts(p)
+  n_iterations <- fixture_bcf$forests_tau$num_samples()
+  n_trees <- fixture_bcf$forests_tau$num_trees()
 
   expected <- dplyr::tibble(variable = vars, inclusion = expected_counts) %>%
     dplyr::group_by(variable) %>%
     dplyr::summarise(inclusion = sum(inclusion), .groups = "drop") %>%
-    dplyr::mutate(avg_inclusion = inclusion / sum(inclusion)) %>%
-    dplyr::select(-inclusion) %>%
+    dplyr::mutate(avg_inclusion = inclusion / (n_iterations * n_trees)) %>%
     dplyr::arrange(variable)
 
   expect_equal(dplyr::arrange(res, variable), expected)
@@ -37,12 +38,13 @@ test_that("covariate_importance.bcfmodel (forest = 'prognostic') matches forests
   vars <- if (has_ps) c(base_vars, "propensity") else base_vars
   p <- fixture_bcf$model_params$num_prognostic_covariates
   expected_counts <- fixture_bcf$forests_mu$get_aggregate_split_counts(p)
+  n_iterations <- fixture_bcf$forests_mu$num_samples()
+  n_trees <- fixture_bcf$forests_mu$num_trees()
 
   expected <- dplyr::tibble(variable = vars, inclusion = expected_counts) %>%
     dplyr::group_by(variable) %>%
     dplyr::summarise(inclusion = sum(inclusion), .groups = "drop") %>%
-    dplyr::mutate(avg_inclusion = inclusion / sum(inclusion)) %>%
-    dplyr::select(-inclusion) %>%
+    dplyr::mutate(avg_inclusion = inclusion / (n_iterations * n_trees)) %>%
     dplyr::arrange(variable)
 
   expect_equal(dplyr::arrange(res, variable), expected)
@@ -57,8 +59,8 @@ test_that("covariate_importance.bcfmodel works when num_treatment_covariates/num
   fit_no_forest_fields$model_params$num_treatment_covariates <- NULL
   fit_no_forest_fields$model_params$num_prognostic_covariates <- NULL
 
-  res <- covariate_importance(fit_no_forest_fields, X_train = fixture_bcf_x, forest = "treatment_effect")
-  expect_equal(res, covariate_importance(fixture_bcf, X_train = fixture_bcf_x, forest = "treatment_effect"))
+  res <- covariate_importance(fit_no_forest_fields, X_train = fixture_bcf_x, forest = "treatment")
+  expect_equal(res, covariate_importance(fixture_bcf, X_train = fixture_bcf_x, forest = "treatment"))
 })
 
 test_that("covariate_importance.bcfmodel (prognostic) correctly excludes a drop_vars variable, with its own 0 split count, rather than erroring", {
@@ -70,6 +72,14 @@ test_that("covariate_importance.bcfmodel (prognostic) correctly excludes a drop_
     propensity_train = fixture_bcf_pi,
     prognostic_forest_params = list(drop_vars = dropped_var, num_trees = 10),
     treatment_effect_forest_params = list(num_trees = 10),
+    # stochtree's own C++ sampler has its own RNG, independent of R's
+    # set.seed()/withr::with_seed() - it only becomes reproducible when given
+    # an explicit, non-negative general_params$random_seed (confirmed from
+    # stochtree::bcf()'s own source: random_seed = -1, its default, skips
+    # seeding entirely and leaves the C++ RNG to self-seed from entropy).
+    # Without this, `all(res_trt$avg_inclusion > 0)` below is a genuine
+    # coin-flip on which run you get, not just an underpowered check.
+    general_params = list(random_seed = 101),
     num_gfr = 0, num_burnin = 20, num_mcmc = 20
   )
 
@@ -87,7 +97,7 @@ test_that("covariate_importance.bcfmodel (prognostic) correctly excludes a drop_
 
   # The treatment-effect forest had no drop_vars, so nothing should be zeroed
   # out there - confirms drop_vars on one forest doesn't bleed into the other.
-  res_trt <- covariate_importance(fit_drop, X_train = fixture_bcf_x, forest = "treatment_effect")
+  res_trt <- covariate_importance(fit_drop, X_train = fixture_bcf_x, forest = "treatment")
   expect_true(all(res_trt$avg_inclusion > 0))
 })
 
@@ -136,7 +146,7 @@ test_that("covariate_importance.bcfmodel works when X_train contains an unordere
   expect_lt(fit_cat$model_params$num_covariates, length(base_vars))
 
   res_prog <- covariate_importance(fit_cat, X_train = Xcat, forest = "prognostic")
-  res_trt <- covariate_importance(fit_cat, X_train = Xcat, forest = "treatment_effect")
+  res_trt <- covariate_importance(fit_cat, X_train = Xcat, forest = "treatment")
 
   # Dropped (and categorical) on the prognostic forest: still labelled once
   # (the group_by/summarise collapses the one-hot-expanded repeats), with a

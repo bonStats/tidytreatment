@@ -298,9 +298,14 @@ test_that("variance_draws.bart() errors for a binary (probit) outcome model", {
   expect_error(variance_draws(fixture_dbarts_bin), "binary")
 })
 
-test_that("covariate_importance.bart() exactly matches the model's own varcount, averaged over draws", {
+test_that("covariate_importance.bart() returns raw inclusion counts and a per-tree-inclusion-probability column", {
   ci <- covariate_importance(fixture_dbarts)
-  expect_equal(unname(ci$avg_inclusion), unname(colMeans(fixture_dbarts$varcount)))
+  n_trees <- fixture_dbarts$fit$control@n.trees
+  n_iterations <- nrow(fixture_dbarts$varcount)
+
+  expect_equal(unname(ci$inclusion), unname(colSums(fixture_dbarts$varcount)))
+  expect_equal(unname(ci$avg_inclusion), unname(colMeans(fixture_dbarts$varcount)) / n_trees)
+  expect_equal(ci$avg_inclusion, ci$inclusion / (n_iterations * n_trees))
   expect_equal(ci$variable, colnames(fixture_dbarts$varcount))
 })
 
@@ -314,7 +319,12 @@ test_that("covariate_importance.bart() correctly combines chains for a multi-cha
 
   ci <- covariate_importance(fit_multichain)
   var_names <- dimnames(fit_multichain$varcount)[[3]]
-  expect_equal(unname(ci$avg_inclusion), unname(apply(fit_multichain$varcount, 3, mean))[match(ci$variable, var_names)])
+  n_trees <- fit_multichain$fit$control@n.trees
+  n_iterations <- 3L * 8L # n.chains * n.samples
+
+  raw_count <- unname(apply(fit_multichain$varcount, 3, sum))[match(ci$variable, var_names)]
+  expect_equal(unname(ci$inclusion), raw_count)
+  expect_equal(unname(ci$avg_inclusion), raw_count / (n_iterations * n_trees))
 })
 
 test_that("treatment_effects()/has_common_support() work on a dbarts::bart2() model without an explicit newdata/modeldata", {

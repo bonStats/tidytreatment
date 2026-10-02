@@ -158,8 +158,8 @@ test_that("covariate_importance.bcfmodel (both forests) survives a save-to-JSON/
     covariate_importance(reloaded, X_train = fixture_bcf_x, forest = "prognostic")
   )
   expect_equal(
-    covariate_importance(fixture_bcf, X_train = fixture_bcf_x, forest = "treatment_effect"),
-    covariate_importance(reloaded, X_train = fixture_bcf_x, forest = "treatment_effect")
+    covariate_importance(fixture_bcf, X_train = fixture_bcf_x, forest = "treatment"),
+    covariate_importance(reloaded, X_train = fixture_bcf_x, forest = "treatment")
   )
 })
 
