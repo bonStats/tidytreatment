@@ -118,40 +118,10 @@ extract_sigma_group_draws <- function(fit, engine) {
 # benchmark's own fitted-value ESS check) - metrics.R is sourced before this
 # file in benchmark-prediction-rfx.qmd's setup chunk.
 
-# Follow-up to the sigma^2 ACF investigation above: both engines update their
-# non-tree parameters conditional on the *current* tree ensemble (confirmed
-# by reading both packages' own sampling loops - this is blocked-Gibbs on
-# both sides, not something HMC escapes), so the shared bottleneck candidate
-# is how quickly the trees' own fit moves between sweeps. That isn't
-# observable from sigma^2 alone. This tracks the fitted-value *distribution*
-# per draw instead: for each retained draw, five quantiles (0.05, 0.2, 0.5,
-# 0.8, 0.95) of the fitted values across observations, giving five per-draw
-# time series whose own ACF can be compared to sigma^2's - reuses the same
-# `draws` tibble already extracted for RMSE/coverage/CRPS, no extra fitting.
-# `.draw` is confirmed (empirically, both engines) to run 1:N in the same
-# order as the raw sigma^2/sigma_G draws, which is what makes the pairwise
-# joint values below meaningful.
-fitted_quantile_draws <- function(draws, value_col = "fit", probs = c(0.05, 0.2, 0.5, 0.8, 0.95)) {
-  wide <- draws %>%
-    dplyr::select(".row", ".draw", dplyr::all_of(value_col)) %>%
-    tidyr::pivot_wider(names_from = ".draw", values_from = dplyr::all_of(value_col)) %>%
-    dplyr::arrange(.data$.row)
-  mat <- as.matrix(wide[, -1, drop = FALSE])
-  draw_ids <- as.integer(colnames(mat))
-  q <- apply(mat, 2, stats::quantile, probs = probs)
-  rownames(q) <- paste0("q", probs * 100)
-  out <- as.data.frame(t(q))
-  out$.draw <- draw_ids
-  out[order(out$.draw), , drop = FALSE]
-}
-
-fitted_quantile_acf <- function(draws, value_col = "fit", probs = c(0.05, 0.2, 0.5, 0.8, 0.95), lag_max = 150) {
-  q_df <- fitted_quantile_draws(draws, value_col, probs)
-  qcols <- setdiff(names(q_df), ".draw")
-  dplyr::bind_rows(lapply(qcols, function(qname) {
-    x <- q_df[[qname]]
-    if (length(x) < 10) return(NULL)
-    lm <- min(lag_max, length(x) - 1)
-    dplyr::tibble(quantile = qname, lag = 0:lm, acf = as.numeric(stats::acf(x, lag.max = lm, plot = FALSE)$acf))
-  }))
-}
+# fitted_quantile_draws()/fitted_quantile_acf() - the "do the trees mix at
+# the same rate" follow-up to the sigma^2 ACF investigation above - moved to
+# metrics.R since they turned out to be fully generic (no rfx-specific
+# logic at all: they operate on any epred_draws()-style `draws`/`value_col`)
+# and benchmark-prediction.qmd now reuses them too. metrics.R is sourced
+# before this file in benchmark-prediction-rfx.qmd's setup chunk, so nothing
+# here needs to change to keep using them.

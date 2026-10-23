@@ -48,6 +48,13 @@ benchmark_dir <- normalizePath(".")
 
 ```
 
+:::{.callout-warning}
+## Under construction
+
+These pages are under construction. Results may be informative but require validation.
+
+:::
+
 ## Scope
 
 This document compares predictions from two Bayesian Additive Regression Tree (BART) packages in R that can handle the addition of group-specific random effects. The packages tested are `stan4bart` and `stochtree`.
@@ -61,8 +68,6 @@ The method `stochtree::bart` gets one additional variant:
 `stan4bart::stan4bart` gets one additional variant:
 
 - `default+sigest`: (for continuous only) keeps `default`'s prior *family* but calibrates its rate from a potentially more indicative variance estimate (see @sec-prior-global-var for details).
-
-The final number of retained draws is `T=`r params$n_mcmc_draws`` in all cases.
 
 ## Data generating process
 
@@ -126,7 +131,7 @@ names(hp_display) <- sprintf("`%s`", names(hp))
 knitr::kable(t(hp_display), align = "c", row.names = FALSE)
 ```
 
-For the `baseline` variant, most of the hyperprior parameter specification is trivial to match across packages. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).
+For the `baseline` variant, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (which can be seen as an empirical Bayes prior).
 
 ### Tree-structure prior
 
@@ -141,8 +146,8 @@ Each leaf's contribution gets a $N(0, \tau^2)$ prior, with $\tau$ set from `k` (
 
 $$
 \tau = \begin{cases}
-\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} & \text{continuous outcome - uses the data's own range} \\[8pt]
-\dfrac{3}{k\sqrt{\texttt{n\_trees}}} & \text{binary outcome - calibrated to the probit latent's } \pm 3 \text{ range instead}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} & \text{if continuous outcome,} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} & \text{if binary outcome}.
 \end{cases}
 $$
 

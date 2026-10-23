@@ -28,7 +28,7 @@ fit_dbarts_bart <- function(X, y, hp, outcome = c("continuous", "binary"), varia
   do.call(dbarts::bart2, c(list(.y ~ ., data = dat), args))
 }
 
-fit_stochtree_bart <- function(X, y, hp, outcome = c("continuous", "binary"), num_gfr = 0, variant = c("baseline", "default"), sample_leaf_var = FALSE) {
+fit_stochtree_bart <- function(X, y, hp, outcome = c("continuous", "binary"), num_gfr = 0, variant = c("baseline", "default"), sample_leaf_var = FALSE, seed = NULL) {
   outcome <- match.arg(outcome)
   variant <- match.arg(variant)
   args <- if (variant == "default") {
@@ -36,6 +36,14 @@ fit_stochtree_bart <- function(X, y, hp, outcome = c("continuous", "binary"), nu
   } else {
     hp_to_stochtree_bart(hp, X = X, y = y, outcome = outcome, num_gfr = num_gfr, sample_leaf_var = sample_leaf_var)
   }
+  # stochtree's own default (general_params$random_seed = -1) seeds its
+  # internal C++ RNG from hardware entropy, not R's own RNG state - set.seed()
+  # around the call has no effect on it (confirmed empirically: unlike
+  # BART::wbart/dbarts::bart2, which both do respect an ambient set.seed()).
+  # Without this, stochtree fits are not reproducible run-to-run even at a
+  # fixed R seed - same fix already applied in fit-engines-rfx.R's
+  # fit_stochtree_bart_rfx().
+  if (!is.null(seed)) args$general_params$random_seed <- seed
   y_train <- if (outcome == "binary") as.integer(y) else y
   # X_train must be a data.frame, not a matrix: stochtree::bart() silently
   # relabels a matrix's columns x1, x2, ... internally, which then fails to

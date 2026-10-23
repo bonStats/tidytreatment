@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.38">
+<meta name="generator" content="quarto-1.10.18">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -12,10 +12,13 @@
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
 */
-code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -87,10 +90,10 @@ div.csl-indent {
 <script src="benchmark-prediction-rfx_files/libs/quarto-html/tippy.umd.min.js"></script>
 <script src="benchmark-prediction-rfx_files/libs/quarto-html/anchor.min.js"></script>
 <link href="benchmark-prediction-rfx_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="benchmark-prediction-rfx_files/libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="benchmark-prediction-rfx_files/libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="benchmark-prediction-rfx_files/libs/bootstrap/bootstrap.min.js"></script>
 <link href="benchmark-prediction-rfx_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="benchmark-prediction-rfx_files/libs/bootstrap/bootstrap-138a6193a3bd40baf1e627da441a4734.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="benchmark-prediction-rfx_files/libs/bootstrap/bootstrap-917079515d91bccb85b543faf8aa8bb6.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script src="benchmark-prediction-rfx_files/libs/kePrint-0.0.1/kePrint.js"></script>
 <link href="benchmark-prediction-rfx_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
 
@@ -224,6 +227,19 @@ window.Quarto = {
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>benchmark_dir <span class="ot">&lt;-</span> <span class="fu">normalizePath</span>(<span class="st">"."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Under construction
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>These pages are under construction. Results may be informative but require validation.</p>
+</div>
+</div>
 <section id="scope" class="level2">
 <h2 class="anchored" data-anchor-id="scope">Scope</h2>
 <p>This document compares predictions from two Bayesian Additive Regression Tree (BART) packages in R that can handle the addition of group-specific random effects. The packages tested are <code>stan4bart</code> and <code>stochtree</code>.</p>
@@ -236,7 +252,6 @@ window.Quarto = {
 <ul>
 <li><code>default+sigest</code>: (for continuous only) keeps <code>default</code>’s prior <em>family</em> but calibrates its rate from a potentially more indicative variance estimate (see <a href="#sec-prior-global-var" class="quarto-xref">Section&nbsp;3.3</a> for details).</li>
 </ul>
-<p>The final number of retained draws is <code>T=2000</code> in all cases.</p>
 </section>
 <section id="data-generating-process" class="level2">
 <h2 class="anchored" data-anchor-id="data-generating-process">Data generating process</h2>
@@ -341,7 +356,7 @@ window.Quarto = {
 </table>
 </div>
 </div>
-<p>For the <code>baseline</code> variant, most of the hyperprior parameter specification is trivial to match across packages. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).</p>
+<p>For the <code>baseline</code> variant, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (which can be seen as an empirical Bayes prior).</p>
 <section id="tree-structure-prior" class="level3">
 <h3 class="anchored" data-anchor-id="tree-structure-prior">Tree-structure prior</h3>
 <p>Naming conventions for the prior on trees differ across packages: <code>alpha</code> = <code>base</code> and <code>beta</code>=<code>power</code>.</p>
@@ -352,8 +367,8 @@ window.Quarto = {
 <p>Each leaf’s contribution gets a <span class="math inline">N(0, \tau^2)</span> prior, with <span class="math inline">\tau</span> set from <code>k</code> (the number of prior standard deviations a leaf is expected to sit from the boundary of <span class="math inline">y</span>’s range) and the number of trees:</p>
 <p><span class="math display">
 \tau = \begin{cases}
-\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} &amp; \text{continuous outcome - uses the data's own range} \\[8pt]
-\dfrac{3}{k\sqrt{\texttt{n\_trees}}} &amp; \text{binary outcome - calibrated to the probit latent's } \pm 3 \text{ range instead}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} &amp; \text{if continuous outcome,} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} &amp; \text{if binary outcome}.
 \end{cases}
 </span></p>
 <p>Some differences between packages:</p>
@@ -1613,9 +1628,9 @@ p(\sigma) \propto \frac{1}{\sigma},
  collate  en_US.UTF-8
  ctype    en_US.UTF-8
  tz       Australia/Adelaide
- date     2026-09-03
- pandoc   3.8.3 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
- quarto   1.9.38 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
+ date     2026-10-23
+ pandoc   3.10 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64/ (via rmarkdown)
+ quarto   1.10.18 @ /Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto
 
 ─ Packages ───────────────────────────────────────────────────────────────────
  package        * version    date (UTC) lib source
@@ -1691,7 +1706,7 @@ p(\sigma) \propto \frac{1}{\sigma},
  tidybayes      * 3.0.7      2024-09-15 [1] CRAN (R 4.6.0)
  tidyr          * 1.3.2      2025-12-19 [1] CRAN (R 4.6.0)
  tidyselect       1.2.1      2024-03-11 [1] CRAN (R 4.6.0)
- tidytreatment  * 0.3.2.9000 2026-08-17 [1] local
+ tidytreatment  * 0.3.2.9000 2026-10-02 [1] local
  vctrs            0.7.3      2026-04-11 [1] CRAN (R 4.6.0)
  viridisLite      0.4.3      2026-02-04 [1] CRAN (R 4.6.0)
  withr            3.0.3      2026-06-19 [1] CRAN (R 4.6.0)

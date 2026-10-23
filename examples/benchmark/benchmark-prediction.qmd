@@ -13,6 +13,8 @@ params:
   n_reps: 20
   seed: 1
   y_sd: 1               # SD of the noise added to the continuous outcome
+  n_mcmc_draws: 2000    # number of MCMC draws retained per chain, post burn-in
+  mcmc_seed: 17         # random seed for stochtree (the only engine here whose internal RNG ignores set.seed()), distinct from `seed` (the DGP's own)
   parallel_workers: null # number of parallel workers for replications; null -> availableCores() - 1, 1 disables parallelism
 ---
 
@@ -27,6 +29,7 @@ library(BART)
 library(dbarts)
 library(stochtree)
 library(coda)
+library(GGally)
 library(future)
 
 source("R/cache.R")
@@ -34,6 +37,7 @@ source("R/hyperparams.R")
 source("R/dgp.R")
 source("R/fit-engines-prediction.R")
 source("R/metrics.R")
+source("R/metrics-prediction.R")
 source("R/parallel-driver.R")
 source("R/run-benchmark-prediction.R")
 
@@ -41,25 +45,32 @@ benchmark_dir <- normalizePath(".")
 
 ```
 
+:::{.callout-warning}
+## Under construction
+
+These pages are under construction. Results may be informative but require validation.
+
+:::
+
 ## Scope
 
-This document compares predictions from several Bayesian Additive Regression Tree  (BART) packages in R. Specific engines from each of these packages are considered over binary and real valued response data. Each engine is tested under several variants - different parameter-setting combinations. The packages considered are
+This document compares predictions from several Bayesian Additive Regression Tree  (BART) packages in R. Specific engines from each of these packages are considered over binary and real valued response data. Each engine is tested under several variants - different parameter-setting combinations. The packages/engines considered are
 
-- `BART` with `wbart`/`pbart` for real/binary-valued responses
-- `dbarts` with `bart2` (equivalent to `bart` with a different API)
-- `stochtree` with `bart`
+- `BART::wbart` and `BART::pbart` for real and binary-valued responses, respectively.
+- `dbarts::bart2` (equivalent to `dbarts::bart` with a change in API).
+- `stochtree::bart`.
 
 A `baseline` variant is implemented for the above methods which attempts to match hyperprior specification across the methods, for a fair comparison.
 
 When the `baseline` differs significantly from the `default` settings of the method, we also test a `default` variant.
 
-For `stochtree` we also run a `baseline+gfr` variant where `stochtree`'s own warm-start default turned back on (we turn it off for the `baseline` because the other methods don't have this). Similarly, `baseline+leaf_var` turns leaf-variance sampling back on (`sample_sigma2_leaf = TRUE`) with everything else left at `baseline`, isolating just that one setting's effect (see @sec-defaults).
+For `stochtree` we also run a `baseline+gfr` variant where `stochtree`'s own warm-start default turned on^[We turn off the warm-start grow-from-root setting in `stochtree` for the `baseline` version because the other methods don't have this.]. Similarly, `baseline+leaf_var` turns leaf-variance sampling back on^[Setting `sample_sigma2_leaf = TRUE` with everything else left at `baseline`, isolating just that one setting's effect.] (see @sec-defaults).
 
-Two packages supported by `tidytreatment` that are not becnhmarked here are `stan4bart` and `bartCause`. Random effects are tested in an alternative benchmark, `benchmark-prediction-rfx.qmd`, where `stan4bart` does appear, it is specifically designed for this setting. Whilst, `bartCause` is for causal inference and estimating treatment effects which is also tested in a different benchmark, `benchmark-causal.qmd`. Neither package has a vanilla-prediction-only mode anyway.
+Two packages supported by `tidytreatment` that are not becnhmarked here are `stan4bart` and `bartCause`. BART with random effects are tested in an alternative benchmark, `benchmark-prediction-rfx.qmd`, where `stan4bart` does appear. Whilst, `bartCause` is for causal inference and estimating treatment effects which is also tested in a different benchmark, `benchmark-causal.qmd`.
 
 ## Data generating process
 
-The data-generating process is Friedman's function [@friedman1991multivariate], the field-standard benchmark for BART methods, used here in both a continuous and a probit-transformed binary version. See `R/dgp.R` for the exact definitions, and for how "true probability" is defined for the binary variant.
+The data-generating process is Friedman's function [@friedman1991multivariate], often used for benchmarking for BART methods, used here in both a continuous and a probit-transformed binary version. See `benchmark/R/dgp.R` for the exact definitions, and for how "true probability" is defined for the binary variant.
 
 For the continuous outcome, independent $N(0, \sigma^2)$ noise is added on top of Friedman's function^[By default $\sigma = 1$ but this quarto file contains the `y_sd` document parameter to vary this.].
 
@@ -81,6 +92,7 @@ The main hyperparameters are specified below.
 
 ```{r hyperparams}
 hp <- baseline_hyperparams()
+hp$draws <- params$n_mcmc_draws
 if (isTRUE(params$fast_mode)) {
   hp$burn <- 20
   hp$draws <- 30
@@ -92,7 +104,7 @@ names(hp_display) <- sprintf("`%s`", names(hp))
 knitr::kable(t(hp_display), align = "c", row.names = FALSE)
 ```
 
-For the `baseline` variant, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (more or less an empirical Bayes decision).
+For the `baseline` variant, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (which can be seen as an empirical Bayes prior).
 
 ### Tree-structure prior
 
@@ -107,8 +119,8 @@ Each leaf's contribution gets a $N(0, \tau^2)$ prior, with $\tau$ set from `k` (
 
 $$
 \tau = \begin{cases}
-\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} & \text{continuous outcome - uses the data's own range} \\[8pt]
-\dfrac{3}{k\sqrt{\texttt{n\_trees}}} & \text{binary outcome - calibrated to the probit latent's } \pm 3 \text{ range instead}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} & \text{if continuous outcome,} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} & \text{if binary outcome}.
 \end{cases}
 $$
 
@@ -184,7 +196,7 @@ res <- cached_run(cache_file, function() {
   old_plan <- future::plan(future::multisession, workers = benchmark_worker_count(params$parallel_workers))
   on.exit(future::plan(old_plan), add = TRUE)
   run_benchmark_prediction(n_values = n_values, B = n_reps, hp = hp, seed = params$seed, y_sd = params$y_sd,
-                            benchmark_dir = benchmark_dir)
+                            mcmc_seed = params$mcmc_seed, benchmark_dir = benchmark_dir)
 })
 ```
 
@@ -279,16 +291,16 @@ res$agreement %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-### MCMC mixing (fitted-value effective sample size)
+### MCMC mixing
 
-Two engines can have equally sensible priors and equally unbiased posterior means, yet still disagree on prediction accuracy if one's chain is more autocorrelated: the same nominal number of post-burn-in draws then buys less information, so the posterior mean is noisier - a sampler-efficiency gap rather than a modelling one (this is exactly what turned out to explain a persistent RMSE gap between engines in `benchmark-prediction-rfx.qmd`'s own random-effects models, once the tree and variance priors were checked and ruled out).
+#### Fitted-value ESS
 
-Rather than tracking a specific named parameter (`sigma`, which differs in name and availability by engine and is fixed at 1 outright for a binary outcome under every engine here), the metric tracked is the effective sample size (ESS) of each observation's own fitted-value draws - the same draws behind every RMSE/coverage/CRPS number above, and so the most directly relevant mixing check available, for either outcome and every engine without exception. It's summarised per fit as the *median* ESS across observations, since per-observation ESS varies with how easy or confounded that point's local fit is.
+Here some MCMC mixing diagnostics are shown. The Effective Sample Size (ESS) for each fitted value is calculated and the median across observations is displayed (the average of this median across repeated runs).
 
 ```{r ess-table}
 res$metrics %>%
   group_by(outcome, engine, variant, n) %>%
-  summarise(median_fitted_ess = median(fitted_ess), .groups = "drop") %>%
+  summarise(med_fit_ess = mean(fitted_ess), .groups = "drop") %>%
   arrange(outcome, n, engine, variant) %>%
   knitr::kable(digits = 0, format = "html") %>%
   kableExtra::collapse_rows(columns = 1:3, valign = "top")
@@ -305,7 +317,102 @@ res$metrics %>%
   theme_bw()
 ```
 
-A low or engine-specific ESS here is a flag to interpret RMSE/coverage differences with some caution - a noisier posterior mean widens the gap between engines without either one's model or prior actually being worse.
+#### Fitted-value (auto)correlation
+
+We show the autocorrelation for different quantiles of the fitted values, averaged over replicates.
+
+```{r pred-fitted-quantile-acf-plot}
+#| fig-height: 8
+res$fitted_quantile_acf %>%
+  filter(lag > 0, variant == "baseline") %>%
+  mutate(quantile = factor(quantile, levels = c("q5", "q20", "q50", "q80", "q95"))) %>%
+  group_by(engine, n, quantile, lag) %>%
+  summarise(acf = mean(acf), .groups = "drop") %>%
+  ggplot(aes(x = lag, y = acf, colour = engine)) +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_line() +
+  facet_grid(quantile ~ n, labeller = label_both) +
+  labs(x = "Lag (raw MCMC sweeps)", y = "Autocorrelation of fitted-value quantile", colour = NULL) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+We show the correlation for the 5% and 95% quantile of the fitted values, along with `sigma`. Pairs plots for each engine are presented below.
+
+```{r pred-fitted-quantile-correlation-table}
+res$fitted_quantile_joint %>%
+  filter(variant == "baseline") %>%
+  group_by(engine) %>%
+  summarise(`cor(q95, sigma)` = cor(q95, sigma), .groups = "drop") %>%
+  knitr::kable(digits = 2)
+```
+
+```{r pred-fitted-quantile-pairs-setup}
+pred_pairs_data <- function(engine_name) {
+  res$fitted_quantile_joint %>%
+    filter(engine == engine_name, variant == "baseline") %>%
+    transmute(sigma = sigma, q5 = q5, q95 = q95)
+}
+
+pred_pairs_plot <- function(df, title) {
+  GGally::ggpairs(
+    df,
+    lower = list(continuous = GGally::wrap("points", alpha = 0.5, size = 1)),
+    diag = list(continuous = "densityDiag"),
+    upper = list(continuous = "blank"),
+    title = title
+  ) + theme_bw()
+}
+```
+
+```{r pred-fitted-quantile-pairs-wbart}
+#| fig-height: 5
+#| fig-width: 5
+pred_pairs_plot(pred_pairs_data("BART::wbart"), "BART::wbart (baseline)")
+```
+
+```{r pred-fitted-quantile-pairs-dbarts}
+#| fig-height: 5
+#| fig-width: 5
+pred_pairs_plot(pred_pairs_data("dbarts::bart2"), "dbarts::bart2 (baseline)")
+```
+
+```{r pred-fitted-quantile-pairs-stochtree}
+#| fig-height: 5
+#| fig-width: 5
+pred_pairs_plot(pred_pairs_data("stochtree::bart"), "stochtree::bart (baseline)")
+```
+
+
+#### ESS and autocorrelation of sigma (continuous outcome)
+
+For the continuous outcome, we can also look at the ESS of `sigma` (the global residual SD) using the average across replicates. The autocorrelation is also plotted below.
+
+```{r sigma-ess-table}
+res$metrics %>%
+  filter(outcome == "continuous") %>%
+  group_by(engine, variant, n) %>%
+  summarise(mean_sigma_ess = mean(sigma_ess, na.rm = TRUE), .groups = "drop") %>%
+  arrange(n, engine, variant) %>%
+  knitr::kable(digits = 0, format = "html") %>%
+  kableExtra::collapse_rows(columns = 1, valign = "top")
+```
+
+```{r sigma-acf-plot}
+#| fig-height: 6
+res$acf_sigma %>%
+  filter(lag > 0) %>%
+  group_by(engine, variant, n, lag) %>%
+  summarise(acf = mean(acf), .groups = "drop") %>%
+  ggplot(aes(x = lag, y = acf, colour = factor(n))) +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_line() +
+  facet_wrap(~ paste(engine, variant)) +
+  labs(x = "Lag (raw MCMC sweeps)", y = expression(paste("Autocorrelation of ", sigma)), colour = "n") +
+  theme_bw()
+```
+
+
 
 ### Runtime {#sec-runtime}
 

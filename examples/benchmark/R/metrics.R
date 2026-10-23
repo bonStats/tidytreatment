@@ -74,6 +74,46 @@ fitted_value_ess <- function(draws, value_col) {
   stats::median(ess_by_row$.ess, na.rm = TRUE)
 }
 
+# "Do the trees mix at the same rate?" - originally built for the rfx
+# benchmark's investigation into a stan4bart-vs-stochtree mixing gap, moved
+# here (from metrics-rfx.R) once it turned out to be fully generic: both
+# engines update their non-tree parameters conditional on the *current* tree
+# ensemble, so the tree ensemble's own mixing rate is a shared candidate
+# bottleneck that isn't observable from a single named variance parameter
+# alone. This tracks the fitted-value *distribution* per draw instead: for
+# each retained draw, five quantiles (0.05, 0.2, 0.5, 0.8, 0.95) of the
+# fitted values across observations, giving five per-draw time series whose
+# own ACF can be compared to a variance parameter's - reuses the same
+# `draws` tibble already extracted for RMSE/coverage/CRPS, no extra fitting.
+# `.draw` is assumed to run 1:N in the same order as any other per-draw
+# series (raw sigma^2/sigma_G draws, etc.) being compared against - what
+# makes pairwise joint values meaningful (confirmed empirically for the rfx
+# benchmark's own engines).
+fitted_quantile_draws <- function(draws, value_col = "fit", probs = c(0.05, 0.2, 0.5, 0.8, 0.95)) {
+  wide <- draws %>%
+    dplyr::select(".row", ".draw", dplyr::all_of(value_col)) %>%
+    tidyr::pivot_wider(names_from = ".draw", values_from = dplyr::all_of(value_col)) %>%
+    dplyr::arrange(.data$.row)
+  mat <- as.matrix(wide[, -1, drop = FALSE])
+  draw_ids <- as.integer(colnames(mat))
+  q <- apply(mat, 2, stats::quantile, probs = probs)
+  rownames(q) <- paste0("q", probs * 100)
+  out <- as.data.frame(t(q))
+  out$.draw <- draw_ids
+  out[order(out$.draw), , drop = FALSE]
+}
+
+fitted_quantile_acf <- function(draws, value_col = "fit", probs = c(0.05, 0.2, 0.5, 0.8, 0.95), lag_max = 150) {
+  q_df <- fitted_quantile_draws(draws, value_col, probs)
+  qcols <- setdiff(names(q_df), ".draw")
+  dplyr::bind_rows(lapply(qcols, function(qname) {
+    x <- q_df[[qname]]
+    if (length(x) < 10) return(NULL)
+    lm <- min(lag_max, length(x) - 1)
+    dplyr::tibble(quantile = qname, lag = 0:lm, acf = as.numeric(stats::acf(x, lag.max = lm, plot = FALSE)$acf))
+  }))
+}
+
 # Pairwise agreement between engines' posterior-mean fitted values on the
 # *same* simulated dataset - the "does implementation X disagree with the
 # pack" check. `fitted_by_engine`: named list of numeric vectors

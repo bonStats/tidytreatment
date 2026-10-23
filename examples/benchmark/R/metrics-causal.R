@@ -13,6 +13,23 @@ draw_level_ate <- function(te_draws, rows = NULL) {
     dplyr::pull(".ate")
 }
 
+# MCMC mixing diagnostic for the causal estimand itself - the counterpart of
+# metrics-prediction.R's/metrics-rfx.R's sigma-focused ESS/ACF. What this
+# benchmark actually reports is the ATE (and CATE), so that - not a
+# residual-variance parameter or a raw fitted value - is the quantity whose
+# own Monte Carlo noise is directly relevant here, and unlike sigma (fixed
+# at 1 under every engine's probit link for a binary outcome) the ATE is a
+# genuine, comparably-defined estimand for both outcomes and every row (two-
+# step or native) in this benchmark, so no outcome-based gating is needed.
+# draw_level_ate() above already gives a plain per-draw numeric vector for
+# any row, so ess_safe()/stats::acf() apply with no extra extraction.
+ate_acf <- function(te_draws, lag_max = 150) {
+  draws <- draw_level_ate(te_draws)
+  if (length(draws) < 10) return(NULL)
+  lag_max <- min(lag_max, length(draws) - 1)
+  dplyr::tibble(lag = 0:lag_max, acf = as.numeric(stats::acf(draws, lag.max = lag_max, plot = FALSE)$acf))
+}
+
 ate_summary <- function(te_draws, true_ate, level = 0.95) {
   ate_draws <- draw_level_ate(te_draws)
   alpha <- 1 - level
