@@ -12,23 +12,23 @@ License: MIT + file LICENSE
 URL: https://github.com/bonstats/tidytreatment
 BugReports: https://github.com/bonstats/tidytreatment/issues
 Language: en-US
-Depends: R (>= 3.1.0)
+Depends: R (>= 4.1.0)
 Suggests: 
     knitr,
     rmarkdown,
     stan4bart,
     bartCause,
+    stochtree,
     ggplot2,
     testthat (>= 3.0.0),
     withr,
     lme4
 VignetteBuilder: knitr
-RoxygenNote: 7.3.3
 Imports: 
     tidybayes,
     purrr,
     tidyr,
-    dplyr,
+    dplyr (>= 1.1.0),
     readr,
     rlang,
     dbarts,
@@ -38,3 +38,4 @@ Imports:
 Enhances:
     bartMachine
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

@@ -13,11 +13,12 @@
 #' @param method Method to use in determining common support. 'chisq', or 'sd'.
 #' @param cutoff Cutoff point to use for method.
 #' @param modeldata Manually provide model data for some models (e.g. from BART package)
+#' @param ... Arguments to be passed to \code{tidybayes::epred_draws} (e.g. \code{scale} for \code{BART} models).
 #'
 #' @return Tibble with a row for each observation and a column indicating whether common support exists.
 #' @export
 #'
-has_common_support <- function(model, treatment, method, cutoff, modeldata = NULL) {
+has_common_support <- function(model, treatment, method, cutoff, modeldata = NULL, ...) {
   if (is.null(modeldata)) {
     modeldata <- stats::model.matrix(model)
   }
@@ -50,7 +51,8 @@ has_common_support <- function(model, treatment, method, cutoff, modeldata = NUL
       model = model,
       newdata = modeldata,
       treatment = treatment,
-      subset = "all"
+      subset = "all",
+      ...
     ),
     modeldata = modeldata,
     treatment = treatment,
@@ -102,7 +104,7 @@ common_support_sd_method <- function(sd_obs, sd_cf, treatment, ...) {
   sd_cf < m_a + stats::sd(sd_obs_treated)
 }
 
-common_support_default <- function(sd_obs, sd_cf, cutoff) {
+common_support_default <- function(sd_obs, sd_cf, cutoff, ...) {
   warning("Please specify common support 'method'.")
   rep(NA, times = length(sd_obs))
 }

@@ -10,13 +10,22 @@
 
 The package currently supports the following models:
 
-- `BART`: see [CRAN](https://cran.r-project.org/package=BART)
+- `BART`: see [CRAN](https://cran.r-project.org/package=BART). 
+  - Continuous (`wbart`) and binary (`pbart`, `lbart`) outcome models are supported.
+  - Multinomial models (`mbart`, `mbart2`) are not currently supported.
+- `dbarts`: see [CRAN](https://cran.r-project.org/package=dbarts).
+  - `bart()`/`bart2()` with continuous and binary (probit) outcomes are supported. Use `keeptrees = TRUE`/`keepTrees = TRUE`.
 - `bartMachine`: see [CRAN](https://cran.r-project.org/package=bartMachine).
-- `bcf`: see [CRAN](https://cran.r-project.org/package=bcf) (in development, see branch `bcf-hold` on github)
+  - Uses rJava, not tested by this package, see [installation guide](https://github.com/kapelner/bartMachine?tab=readme-ov-file).
+- `stan4bart`: see [CRAN](https://cran.r-project.org/package=stan4bart).
+- `bartCause`: see [CRAN](https://cran.r-project.org/package=bartCause).
+- `stochtree`: see [CRAN](https://cran.r-project.org/package=stochtree).
+  - `bart()` with continuous and binary outcomes are supported.
+  - `bcf()` (Bayesian Causal Forest) models are supported, including with random effects.
 
 in addition to models supported by [tidybayes](https://github.com/mjskay/tidybayes).
 
-See this [HTML vignette](https://CRAN.R-project.org/package=tidytreatment/vignettes/use-tidytreatment-BART.html) or `vignette("use-tidytreatment-BART")` for examples of usage.
+See the vignettes on the [package's CRAN page](https://CRAN.R-project.org/package=tidytreatment) or run `browseVignettes("tidytreatment")` locally for examples of usage.
 
 ## How to install
 

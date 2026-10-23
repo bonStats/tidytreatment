@@ -32,7 +32,7 @@ suppressPackageStartupMessages({
   
 ```
 
-This vignette demonstrates an example workflow for heterogeneous treatment effect models using the `BART` package for fitting Bayesian Additive Regression Trees and `tidytreatment` for investigating the output of such models. The `tidytreatment` package can also be used with `bartMachine` models, support for `bcf` is coming soon (see branch `bcf-hold` on github). 
+This vignette demonstrates an example workflow for heterogeneous treatment effect models using the `bartCause` package for fitting Bayesian Additive Regression Trees and `tidytreatment` for investigating the output of such models. The `tidytreatment` package can also be used with other BART packages, see other vignettes for details. 
 
 ## Simulate data
 
@@ -93,7 +93,8 @@ Note: Using the automatic treatment assignment model in `bartCause` ignores step
   
 # STEP 1 VS Model: Regress y ~ covariates
 vs_bart <- stan4bart(y ~ bart(. - subject_id - z) + (1|subject_id), 
-                             data = dat, iter = 5000, verbose = -1)
+                             data = dat, iter = 5000, verbose = -1,
+                     bart_args = list(keepTrees = TRUE))
 
 # STEP 2: Variable selection
   # select most important vars from y ~ covariates model
@@ -192,11 +193,11 @@ posterior_treat_eff <- treatment_effects(te_bart)
 # Histogram of treatment effect (all draws)
 posterior_treat_eff %>% 
   ggplot() +
-  geom_histogram(aes(x = icate), binwidth = 0.1, colour = "white") + 
+  geom_histogram(aes(x = cte), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (all draws)")
 
 # Histogram of treatment effect (median for each subject)
-posterior_treat_eff %>% summarise(cte_hat = median(icate)) %>%
+posterior_treat_eff %>% summarise(cte_hat = median(cte)) %>%
   ggplot() +
   geom_histogram(aes(x = cte_hat), binwidth = 0.1, colour = "white") + 
   theme_bw() + ggtitle("Histogram of treatment effect (median for each subject)")

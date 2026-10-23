@@ -19,4 +19,9 @@ Useful links:
 \author{
 \strong{Maintainer}: Joshua J Bon \email{joshuajbon@gmail.com} (\href{https://orcid.org/0000-0003-2313-2949}{ORCID})
 
+Authors:
+\itemize{
+  \item Joshua J Bon \email{joshuajbon@gmail.com} (\href{https://orcid.org/0000-0003-2313-2949}{ORCID})
+}
+
 }

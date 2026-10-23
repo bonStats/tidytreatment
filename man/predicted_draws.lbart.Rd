@@ -10,7 +10,8 @@
   value = ".prediction",
   ...,
   ndraws = NULL,
-  include_newdata = TRUE
+  include_newdata = FALSE,
+  include_fitted = FALSE
 )
 }
 \arguments{
@@ -24,7 +25,9 @@
 
 \item{ndraws}{Not currently implemented.}
 
-\item{include_newdata}{Should the newdata be included in the tibble?}
+\item{include_newdata}{Should the newdata be included in the tibble? Default \code{FALSE}.}
+
+\item{include_fitted}{Should the posterior fitted values be included in the tibble? Default \code{FALSE}.}
 }
 \value{
 A tidy data frame (tibble) with predicted values.

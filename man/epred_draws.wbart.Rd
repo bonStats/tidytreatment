@@ -10,8 +10,9 @@
   value = ".value",
   ...,
   ndraws = NULL,
-  include_newdata = TRUE,
-  include_sigsqs = FALSE
+  include_newdata = FALSE,
+  include_sigsqs = FALSE,
+  scale = "linear"
 )
 }
 \arguments{
@@ -25,9 +26,11 @@
 
 \item{ndraws}{Not currently implemented.}
 
-\item{include_newdata}{Should the newdata be included in the tibble?}
+\item{include_newdata}{Should the newdata be included in the tibble? Default \code{FALSE}.}
 
 \item{include_sigsqs}{Should the posterior sigma-squared draw be included?}
+
+\item{scale}{What scale should the returned values be on? Default uses the response scale for the model's outcome type. Other options: \code{scale="probability"} (applicable only for binary/probit outcome model), and \code{scale="linear"} for linear predictor. Has no effect for \code{wbart}, which has no link function.}
 }
 \value{
 A tidy data frame (tibble) with fitted values.

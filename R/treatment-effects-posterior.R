@@ -53,7 +53,7 @@ treatment_effects.default <- function(model, treatment, newdata, subset = "all",
 
   posterior_treatment <- dplyr::select(
     dplyr::mutate(posterior_fit_with_cf, cte = (2L * as.integer(!!rlang::sym(treatment)) - 1L) * (.data$observed - .data$cfactual)), # equivalent to treatment - non_treatment
-    -.data$observed, -.data$cfactual
+    -"observed", -"cfactual"
   )
 
   # add boolean for common support

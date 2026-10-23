@@ -4,12 +4,23 @@
 \alias{covariate_with_treatment_importance}
 \title{Counts of variable inclusion when interacting with treatment}
 \usage{
-covariate_with_treatment_importance(model, treatment, ...)
+covariate_with_treatment_importance(
+  model,
+  treatment,
+  count_once_per_tree = FALSE,
+  ...
+)
 }
 \arguments{
 \item{model}{Model}
 
 \item{treatment}{A character string specifying the name of the treatment variable.}
+
+\item{count_once_per_tree}{For \code{BART}-package models: if \code{FALSE} (default), a tree
+in which treatment splits on multiple nodes contributes to every other variable's count once
+per treatment occurrence in that tree (i.e. counts scale with how often treatment itself is
+used to split). If \code{TRUE}, each qualifying tree contributes its variable counts exactly
+once, regardless of how many times treatment splits within it. Not used by all methods.}
 
 \item{...}{Arguments to pass to particular methods.}
 }

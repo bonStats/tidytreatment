@@ -1,0 +1,516 @@
+---
+title: "Benchmark: Causal Estimates"
+subtitle: "Cross-package comparison of ATE/CATE recovery, with matched priors"
+format:
+  html:
+    toc: true
+    code-fold: true
+    html-math-method: katex
+bibliography: refs.bib
+params:
+  fast_mode: false
+  n_values: [250, 1000]
+  n_reps: 20
+  seed: 1
+  y_sd: 1               # SD of the noise added to the continuous outcome
+  parallel_workers: null # number of parallel workers for replications; null -> availableCores() - 1, 1 disables parallelism
+---
+
+```{r setup}
+#| message: false
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(tidytreatment)
+library(tidybayes)
+library(BART)
+library(stochtree)
+library(bartCause)
+library(coda)
+library(GGally)
+library(future)
+
+source("R/cache.R")
+source("R/hyperparams.R")
+source("R/dgp.R")
+source("R/metrics.R")
+source("R/metrics-causal.R")
+source("R/propensity.R")
+source("R/fit-engines-causal.R")
+source("R/parallel-driver.R")
+source("R/run-benchmark-causal.R")
+
+benchmark_dir <- normalizePath(".")
+
+```
+
+:::{.callout-warning}
+## Under construction
+
+These pages are under construction. Results may be informative but require validation.
+
+:::
+
+## Scope
+
+This document compares causal-effect estimation across three packages:
+
+- `BART`
+- `bartCause`
+- `stochtree`
+
+Packages engines `bartCause::bartc` and `stochtree::bcf` have in-built propensity score estimation, whilst `BART::wbart`/`BART::pbart` and `stochtree::bart` do not. The former two engines can also be passed an estimated propensity score. We test a DIY propensity score estimation procedure for every engine as well as the in-built procedures where applicable.
+
+The DIY propensity (using `fit_diy_propensity()`) estimation has two versions:
+
+- `two_stage`: variable selection first, propensity fit only on the
+  selected variables (matching the vignettes).
+- `ps_all`: propensity fit on every confounder directly, with no selection
+  step.
+
+## Data generating process
+
+The data-generating process is `simulate_su_hill_data()` [@hillsu2013],
+used in a continuous version and a binary version (thresholded at the
+median). Each version is tested under two settings: 
+
+- `response_parallel = TRUE` (homogeneous treatment effect)
+- `response_parallel = FALSE` (heterogeneous treatment effect). 
+
+
+### Estimated signal-to-noise ratio (continuous case)
+
+```{r snr-demo}
+set.seed(1)
+n_snr <- 5000
+sim_snr_par <- simulate_su_hill_data(n = n_snr, tau = 4, response_parallel = TRUE, y_sd = params$y_sd)
+sim_snr_het <- simulate_su_hill_data(n = n_snr, tau = 4, response_parallel = FALSE, y_sd = params$y_sd)
+snr_par <- var(sim_snr_par$mean_y) / params$y_sd^2
+snr_het <- var(sim_snr_het$mean_y) / params$y_sd^2
+```
+
+The global variance is $\sigma^2 = `r params$y_sd^2`$, and the variance ratio^[The variance of the mean response, relative to $\sigma^2$.] is estimated to be `r round(snr_par, 2)` for the homogeneous-effect setting and `r round(snr_het, 2)` for the heterogeneous-effect setting (`r round(sqrt(snr_par), 2)` and `r round(sqrt(snr_het), 2)` respectively, on the standard deviation scale).
+
+## Hyperparameters
+
+The main hyperparameters are specified below.
+
+```{r hyperparams}
+hp <- baseline_hyperparams()
+if (isTRUE(params$fast_mode)) {
+  hp$burn <- 20
+  hp$draws <- 30
+  hp$n_trees <- 20
+}
+hp_vals <- unlist(hp)
+hp_display <- ifelse(hp_vals == round(hp_vals), sprintf("%.0f", hp_vals), as.character(hp_vals))
+names(hp_display) <- sprintf("`%s`", names(hp))
+knitr::kable(t(hp_display), align = "c", row.names = FALSE)
+```
+
+For the `baseline` variant, most of the hyperprior parameter specification is trivial to match across engines. However, some hyperpriors are chosen based on the data itself (which can be seen as an empirical Bayes prior).
+
+### Tree-structure prior
+
+Naming conventions for the prior on trees differ across packages: `alpha` =
+`base` and `beta`=`power`.
+
+These control the prior probability that a node at depth $d$ splits
+further: $$P(\text{split at depth } d) = \alpha (1+d)^{-\beta}.$$
+These are constants, passed unchanged to whichever argument name each
+package uses.
+
+### Leaf-shrinkage prior
+
+Each leaf's contribution gets a $N(0, \tau^2)$ prior, with $\tau$ set from
+`k` (the number of prior standard deviations a leaf is expected to sit from
+the boundary of $y$'s range) and the number of trees:
+
+$$
+\tau = \begin{cases}
+\dfrac{\max(y) - \min(y)}{2k\sqrt{\texttt{n\_trees}}} & \text{if continuous outcome,} \\[8pt]
+\dfrac{3}{k\sqrt{\texttt{n\_trees}}} & \text{if binary outcome}.
+\end{cases}
+$$
+
+Some differences between packages:
+
+- `BART`/`dbarts`-style engines (including `bartCause`, which shares
+  `dbarts::bart2`'s argument set) take $\tau$ via `k` directly.
+- `stochtree` standardizes a continuous outcome internally, so it needs the
+  *variance* $\tau^2$ on that standardized scale instead. This is $\tau^2 /
+  \text{var}(y)$ for a continuous outcome, or plain $\tau^2$ for binary (the
+  probit latent isn't rescaled). `stochtree::bcf` applies this to both its
+  prognostic and treatment-effect forests.
+
+More generally, `BART::wbart` and `stochtree` (both `bart` and `bcf`) centre the response before fitting for a continuous outcome (`stochtree` also rescales it, per the standardisation above), while `dbarts::bart2` - and so `bartCause`, which shares it - works on the raw scale throughout. Neither centering concept applies to the binary outcome, fit directly on the 0/1 response under a probit link in every package here.
+
+### Global error-variance prior
+
+:::{.callout-note}
+The following applies to the real-valued response only.
+:::
+
+The residual variance $\sigma^2$ has an inverse-gamma prior,
+$$\sigma^2 \sim \text{Inv-Gamma}(\alpha, \beta),$$
+with shape $\alpha = \nu / 2$ set from $\nu =$ `sigdf` degrees of freedom.
+
+An intermediate quantity $\lambda$ is calibrated from the data so that the
+prior places `sigquant` probability below a rough, data-driven estimate of
+$\sigma$ itself, giving the scale $\beta$:
+
+$$
+\beta = \frac{\nu \lambda}{2}, \qquad
+\lambda = \hat\sigma^2 \cdot \frac{\chi^2_{\nu,\,1 - \texttt{sigquant}}}{\nu}, \qquad
+\hat\sigma =  \begin{cases}
+  \hat\sigma_\text{LM-MLE} & \text{if}~n > p,\\
+  \hat\sigma_y & \text{otherwise},
+\end{cases}
+$$
+where $\chi^2_{\nu,\,p}$ is the $p$-quantile of a $\chi^2_\nu$ distribution, where $\hat\sigma_\text{LM-MLE}$ is the residual SD of a linear fit regressing the response against the covariates, and where $\hat\sigma_y$ is the standard deviation of the data $y$.
+
+`BART`/`dbarts`-style engines compute $\hat\sigma$, $\lambda$, and this
+inverse-gamma prior internally when `sigest` is left at its default.
+`stochtree` has no equivalent auto-calibration of its own - matching it
+means passing `stochtree`'s own `shape`/`scale` arguments directly, on its
+internally-standardized scale:
+
+$$
+\text{shape} = \alpha = \frac{\nu}{2}, \qquad \text{scale} = \beta_{\text{std}} = \frac{\nu \lambda}{2 \text{var}(y)}.
+$$
+
+## Package-default hyperprior variants
+
+Every engine has a `default` version tested, using its own out-of-the-box hyperprior settings other than burn-in, posterior draws, and number of chains remain fixed. `stochtree`'s warm-start/adaptive-coding settings is also turned off in `default` and `baseline` but tested in (`+auto_k`, `+gfr_adaptive_coding`). Further details:
+
+- `BART::wbart` two-step: no `default` row for the continuous outcome - `BART::wbart`'s own defaults already equal `baseline`.
+- `BART::pbart` has `ntree = 50` by default.
+- `stochtree::bart` two-step: leaf variance reverts to a sampled, package-default value, and (continuous outcome only) the global error-variance prior reverts to the improper `shape = scale = 0`.
+- `bartc`: (based on `dbarts::bart2()`), has `default` with `n.trees = 75` and `k = NULL` (auto-tuned, vs fixed at 2) for both the response and treatment model.
+- `stochtree::bcf`: default version has `num_trees`/`alpha`/`beta` asymmetric between its two forests (250/0.95/2 prognostic, 100/0.25/3 treatment-effect), where `baseline` explicitly overrides both to the same shared values (see `R/hyperparams.R`). `default` reverts both forests to their own separate defaults, on top of the same leaf-variance and global-error-variance reversions as `stochtree::bart`.
+
+## Run
+
+<details>
+<summary>Show run log</summary>
+
+```{r run-benchmark}
+n_values <- if (isTRUE(params$fast_mode)) c(40, 60) else params$n_values
+n_reps <- if (isTRUE(params$fast_mode)) 2 else params$n_reps
+n_for_examples <- max(n_values)
+
+cache_file <- file.path("cache", sprintf("causal_%s.rds", if (isTRUE(params$fast_mode)) "fast" else "full"))
+res <- cached_run(cache_file, function() {
+  old_plan <- future::plan(future::multisession, workers = benchmark_worker_count(params$parallel_workers))
+  on.exit(future::plan(old_plan), add = TRUE)
+  run_benchmark_causal(n_values = n_values, B = n_reps, hp = hp, seed = params$seed, y_sd = params$y_sd,
+                        benchmark_dir = benchmark_dir)
+})
+```
+
+</details>
+
+## Results
+
+### Summary metrics
+
+`fit_time_sec` is reported as a median, not a mean - a handful of runs (see
+@sec-runtime) are extreme outliers.
+
+```{r summary-table}
+res$metrics %>%
+  group_by(outcome, response_parallel, engine, variant, propensity_recipe, n) %>%
+  summarise(
+    across(c(ate_bias, ate_covered, att_bias, att_covered, pehe), ~ mean(.x, na.rm = TRUE)),
+    fit_time_sec = median(fit_time_sec, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  select(outcome, response_parallel, n, engine, variant, propensity_recipe,
+         ate_bias, ate_covered, att_bias, att_covered, pehe, fit_time_sec) %>%
+  arrange(outcome, response_parallel, n, engine, variant) %>%
+  knitr::kable(digits = 3, format = "html") %>%
+  kableExtra::collapse_rows(columns = 1:3, valign = "top")
+```
+
+### CATE-hat vs. true CATE
+
+These plots show one representative replication for `` n = `r n_for_examples` ``
+(the largest value tested), heterogeneous-truth setting only
+(`response_parallel = FALSE`) - the homogeneous setting has a constant true
+effect, so there's nothing to plot. Continuous and binary outcomes get
+separate plots so axes stay shared within each outcome.
+
+```{r cate-scatter-continuous}
+#| fig-height: 7
+res$examples %>%
+  filter(outcome == "continuous") %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  ggplot(aes(x = true_ite, y = cte_hat)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~row_label, ncol = 4) +
+  labs(title = "Continuous outcome", x = "True CATE", y = "Posterior mean CATE-hat") +
+  theme_bw()
+```
+
+```{r cate-scatter-binary}
+#| fig-height: 7
+res$examples %>%
+  filter(outcome == "binary") %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  ggplot(aes(x = true_ite, y = cte_hat)) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey60", linetype = "dashed") +
+  geom_point(alpha = 0.4, size = 0.8) +
+  facet_wrap(~row_label, ncol = 4) +
+  labs(title = "Binary outcome (probability scale)", x = "True CATE (probability scale)", y = "Posterior mean CATE-hat") +
+  theme_bw()
+```
+
+### ATE / ATT coverage: nominal vs. empirical
+
+```{r coverage-plot}
+#| fig-height: 6
+res$metrics %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  group_by(outcome, response_parallel, row_label, n) %>%
+  summarise(across(c(ate_covered, att_covered), mean), .groups = "drop") %>%
+  pivot_longer(c(ate_covered, att_covered), names_to = "estimand", values_to = "coverage") %>%
+  ggplot(aes(x = row_label, y = coverage, colour = factor(n), shape = estimand)) +
+  geom_hline(yintercept = 0.95, linetype = "dashed", colour = "grey50") +
+  geom_point(position = position_dodge(width = 0.5), size = 2) +
+  facet_grid(response_parallel ~ outcome, labeller = label_both) +
+  coord_flip() +
+  labs(x = NULL, y = "Empirical 95% interval coverage", colour = "n") +
+  theme_bw()
+```
+
+### PEHE (heterogeneous-truth setting only)
+
+```{r pehe-plot}
+#| fig-height: 5
+res$metrics %>%
+  filter(!is.na(pehe)) %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  group_by(outcome, row_label, n) %>%
+  summarise(pehe = mean(pehe), .groups = "drop") %>%
+  ggplot(aes(x = row_label, y = pehe, fill = factor(n))) +
+  geom_col(position = "dodge") +
+  facet_wrap(~outcome) +
+  coord_flip() +
+  labs(x = NULL, y = "PEHE", fill = "n") +
+  theme_bw()
+```
+
+### Cross-engine CATE agreement (baseline rows, by propensity recipe)
+
+```{r agreement-table}
+res$agreement %>%
+  group_by(outcome, response_parallel, engine_a, engine_b) %>%
+  summarise(mean_correlation = mean(correlation), mean_rmse = mean(rmse), .groups = "drop") %>%
+  knitr::kable(digits = 3)
+```
+
+```{r agreement-heatmap}
+#| fig-height: 10
+#| fig-width: 9
+res$agreement %>%
+  group_by(outcome, response_parallel, engine_a, engine_b) %>%
+  summarise(mean_correlation = mean(correlation), .groups = "drop") %>%
+  ggplot(aes(x = engine_a, y = engine_b, fill = mean_correlation)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.2f", mean_correlation)), size = 2.5) +
+  facet_grid(response_parallel ~ outcome, labeller = label_both) +
+  scale_fill_distiller(palette = "RdYlBu", direction = 1, limits = c(-1, 1)) +
+  labs(x = NULL, y = NULL, fill = "correlation") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### MCMC mixing {#sec-mcmc-mixing}
+
+`benchmark-prediction.qmd`/`benchmark-prediction-rfx.qmd` track mixing via `sigma` (or a raw fitted value) because neither document has a single scalar "the effect" - here we do: the ATE, so we track *that* directly rather than a nuisance parameter standing in for it. A noisier posterior ATE widens the gap between engines in the bias/coverage tables above without either one's model or prior actually being worse, so a low or engine-specific ESS here is a flag to interpret those tables with some caution.
+
+```{r ate-ess-table}
+res$metrics %>%
+  group_by(outcome, response_parallel, engine, variant, propensity_recipe, n) %>%
+  summarise(mean_ate_ess = mean(ate_ess, na.rm = TRUE), .groups = "drop") %>%
+  arrange(outcome, response_parallel, n, engine, variant, propensity_recipe) %>%
+  knitr::kable(digits = 0, format = "html") %>%
+  kableExtra::collapse_rows(columns = 1:5, valign = "top")
+```
+
+```{r ate-ess-plot}
+#| fig-height: 10
+res$metrics %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  ggplot(aes(x = row_label, y = ate_ess, colour = factor(n))) +
+  geom_boxplot(outlier.alpha = 0.5) +
+  facet_grid(response_parallel ~ outcome, labeller = label_both) +
+  coord_flip() +
+  labs(x = NULL, y = "ATE effective sample size", colour = "n") +
+  theme_bw()
+```
+
+#### Autocorrelation of the ATE
+
+Restricted to `baseline`, `two_stage` rows - the same matched-prior restriction as Cross-engine CATE agreement above, needed here to keep the plot readable given how many engine/variant/propensity-recipe combinations this benchmark has.
+
+```{r ate-acf-plot}
+#| fig-height: 6
+res$acf_ate %>%
+  filter(outcome == "continuous", variant == "baseline", propensity_recipe == "two_stage", lag > 0) %>%
+  group_by(engine, response_parallel, n, lag) %>%
+  summarise(acf = mean(acf), .groups = "drop") %>%
+  ggplot(aes(x = lag, y = acf, colour = factor(n))) +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_line() +
+  facet_grid(response_parallel ~ engine, labeller = label_both) +
+  labs(x = "Lag (raw MCMC sweeps)", y = "Autocorrelation of the ATE", colour = "n") +
+  theme_bw()
+```
+
+#### Do CATE draws mix at the same rate across units?
+
+The counterpart of `benchmark-prediction.qmd`'s "Do the trees mix at the same rate?" - `fitted_quantile_acf()`/`fitted_quantile_draws()` (`R/metrics.R`) are fully generic over the value column, so calling them on `cte` instead of a raw fitted value tracks the mixing of the treatment-effect *distribution* across units. Heterogeneous-truth setting only (`response_parallel = FALSE`) - under the homogeneous truth the CTE quantile spread is pure estimation noise with no structure to compare, the same reasoning already used for the CATE-hat scatter plots above.
+
+```{r cte-quantile-acf-plot}
+#| fig-height: 8
+res$cte_quantile_acf %>%
+  filter(outcome == "continuous", response_parallel == FALSE, variant == "baseline", propensity_recipe == "two_stage", lag > 0) %>%
+  mutate(quantile = factor(quantile, levels = c("q5", "q20", "q50", "q80", "q95"))) %>%
+  group_by(engine, n, quantile, lag) %>%
+  summarise(acf = mean(acf), .groups = "drop") %>%
+  ggplot(aes(x = lag, y = acf, colour = engine)) +
+  geom_hline(yintercept = 0, colour = "grey70") +
+  geom_line() +
+  facet_grid(quantile ~ n, labeller = label_both) +
+  labs(x = "Lag (raw MCMC sweeps)", y = "Autocorrelation of CATE quantile", colour = NULL) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+We show the correlation for the 5% and 95% quantile of the CATE draws, along with the ATE. Pairs plots for each engine are presented below (one representative replication, `` n = `r n_for_examples` ``, heterogeneous-truth setting).
+
+```{r cte-quantile-correlation-table}
+res$cte_quantile_joint %>%
+  filter(outcome == "continuous", variant == "baseline", propensity_recipe == "two_stage") %>%
+  group_by(engine) %>%
+  summarise(`cor(q95, ate)` = cor(q95, ate), .groups = "drop") %>%
+  knitr::kable(digits = 2)
+```
+
+```{r cte-quantile-pairs-setup}
+cte_pairs_data <- function(engine_name) {
+  res$cte_quantile_joint %>%
+    filter(outcome == "continuous", engine == engine_name, variant == "baseline", propensity_recipe == "two_stage") %>%
+    transmute(ate = ate, q5 = q5, q95 = q95)
+}
+
+cte_pairs_plot <- function(df, title) {
+  GGally::ggpairs(
+    df,
+    lower = list(continuous = GGally::wrap("points", alpha = 0.5, size = 1)),
+    diag = list(continuous = "densityDiag"),
+    upper = list(continuous = "blank"),
+    title = title
+  ) + theme_bw()
+}
+```
+
+```{r cte-quantile-pairs-bart}
+#| fig-height: 5
+#| fig-width: 5
+cte_pairs_plot(cte_pairs_data("BART two-step"), "BART two-step (baseline, two_stage)")
+```
+
+```{r cte-quantile-pairs-stochtree-bart}
+#| fig-height: 5
+#| fig-width: 5
+cte_pairs_plot(cte_pairs_data("stochtree::bart two-step"), "stochtree::bart two-step (baseline, two_stage)")
+```
+
+```{r cte-quantile-pairs-bartc}
+#| fig-height: 5
+#| fig-width: 5
+cte_pairs_plot(cte_pairs_data("bartc"), "bartc (baseline, two_stage)")
+```
+
+```{r cte-quantile-pairs-bcf}
+#| fig-height: 5
+#| fig-width: 5
+cte_pairs_plot(cte_pairs_data("stochtree::bcf"), "stochtree::bcf (baseline, two_stage)")
+```
+
+### Runtime {#sec-runtime}
+
+The box plot below shows the full per-replication fit-time distribution on a
+log scale, which is where the outliers actually show up - as individual
+points well above the whiskers, rather than as a shift in a single summary
+number.
+
+```{r runtime-boxplot}
+#| fig-height: 8
+res$metrics %>%
+  mutate(row_label = paste(engine, variant, propensity_recipe)) %>%
+  ggplot(aes(x = row_label, y = fit_time_sec, colour = factor(n))) +
+  geom_boxplot(outlier.alpha = 0.5) +
+  facet_wrap(~outcome) +
+  coord_flip() +
+  scale_y_log10() +
+  labs(x = NULL, y = "Fit time (s, log scale)", colour = "n") +
+  theme_bw()
+```
+
+### Common support: tidytreatment vs. bartCause's native `commonSup.rule`
+
+This table reports the agreement rate between bartCause's own native
+SD-rule common-support flag and tidytreatment's independently-coded
+`has_common_support()`, both applied to the *same* fitted response-stage
+model (`bartc_fit$fit.rsp`). See `bartc_common_support_agreement()` in
+`R/metrics-causal.R` for how the comparison is made.
+
+```{r common-support-table}
+res$common_support %>%
+  group_by(outcome, response_parallel, variant, propensity_recipe) %>%
+  summarise(mean_agreement_rate = mean(agreement_rate), .groups = "drop") %>%
+  knitr::kable(digits = 3)
+```
+
+### Flags
+
+This section lists rows whose PEHE (in the heterogeneous-truth setting) or
+ATE bias (in the homogeneous setting) is a statistical outlier (|z| > 2)
+within its own DGP setting. A flagged row is worth a closer look, but is not
+necessarily a bug - see `flag_outliers()` in `R/metrics.R` for the caveat
+about small-group z-scores.
+
+```{r flags}
+flagged_pehe <- res$metrics %>%
+  filter(!is.na(pehe)) %>%
+  group_by(outcome, n, engine, variant, propensity_recipe) %>%
+  summarise(pehe = mean(pehe), .groups = "drop") %>%
+  flag_outliers("pehe", c("outcome", "n"))
+
+flagged_ate <- res$metrics %>%
+  group_by(outcome, n, engine, variant, propensity_recipe) %>%
+  summarise(abs_ate_bias = mean(abs(ate_bias)), .groups = "drop") %>%
+  flag_outliers("abs_ate_bias", c("outcome", "n"))
+
+if (nrow(flagged_pehe) == 0) {
+  cat("No PEHE outliers flagged.\n")
+} else {
+  knitr::kable(flagged_pehe, digits = 3, caption = "PEHE outliers")
+}
+
+if (nrow(flagged_ate) == 0) {
+  cat("No |ATE bias| outliers flagged.\n")
+} else {
+  knitr::kable(flagged_ate, digits = 3, caption = "|ATE bias| outliers")
+}
+```
+
+## Session info
+
+```{r session-info-end}
+sessioninfo::session_info()
+```
