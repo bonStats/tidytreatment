@@ -20,6 +20,9 @@
 
 \item{fitstage}{If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.}
 }
+\value{
+A tidy data frame (tibble) with linear-predictor values.
+}
 \description{
 Typically referred to as fitted value draws on linear scale, where appropriate.
 }

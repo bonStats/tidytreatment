@@ -12,9 +12,12 @@ covariate_importance(model, ...)
 \item{...}{Arguments to pass to particular methods.}
 }
 \value{
-Tidy data with counts of variable inclusion, when interacting with treatment variable.
+A tidy data frame (tibble) with one row per variable, and two inclusion-count columns
+  that are on a consistent scale across every supported method: \code{inclusion}, the raw count
+  of splits on that variable summed over all posterior draws/trees, and \code{avg_inclusion =
+  inclusion / (iterations * trees)}, the average probability that a given tree includes a split
+  on that variable in a given posterior draw.
 }
 \description{
-Inclusion metric for bartMachine and BART are scaled differently.
-bartMachine averaged over number of trees, in addition to number of MCMC draws.
+Counts of variable overall inclusion
 }

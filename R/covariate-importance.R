@@ -37,13 +37,14 @@ covariate_with_treatment_importance.bartMachine <- function(model, treatment, ..
 
 #' Counts of variable overall inclusion
 #'
-#' Inclusion metric for bartMachine and BART are scaled differently.
-#' bartMachine averaged over number of trees, in addition to number of MCMC draws.
-#'
 #' @param model Model
 #' @param ... Arguments to pass to particular methods.
 #'
-#' @return Tidy data with counts of variable inclusion, when interacting with treatment variable.
+#' @return A tidy data frame (tibble) with one row per variable, and two inclusion-count columns
+#'   that are on a consistent scale across every supported method: \code{inclusion}, the raw count
+#'   of splits on that variable summed over all posterior draws/trees, and \code{avg_inclusion =
+#'   inclusion / (iterations * trees)}, the average probability that a given tree includes a split
+#'   on that variable in a given posterior draw.
 #' @export
 #'
 covariate_importance <- function(model, ...) {
