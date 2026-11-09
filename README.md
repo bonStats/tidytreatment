@@ -31,7 +31,7 @@ See the vignettes on the [package's CRAN page](https://CRAN.R-project.org/packag
 
 ### CRAN
 
-Install the release version from CRAN with `install.packages("tidytreament")`.
+Install the release version from CRAN with `install.packages("tidytreatment")`.
 
 ### Github 
 
@@ -41,6 +41,23 @@ To install the latest development version:
 2. In `R` make sure `remotes` is installed. Install with `install.packages("remotes")`.
 3. Run `remotes::install_github("bonStats/tidytreatment")`
 
+## Example
 
+`tidytreatment` ships a pre-fitted example `BART` model (`bartmodel1`) and its simulated data (`suhillsim1`) so you can try the core functions without fitting anything yourself. Here we pull out posterior draws of the per-unit conditional treatment effect and the average treatment effect:
 
+```r
+library(tidytreatment)
+library(dplyr)
 
+# per-unit conditional treatment effect draws, on the response scale
+cte_draws <- treatment_effects(bartmodel1, treatment = "z", newdata = suhillsim1$data)
+cte_draws
+#> # A tibble with one row per unit (.row) per posterior draw (.draw), and a `cte` column
+
+# average treatment effect draws (one value per posterior draw)
+ate_draws <- avg_treatment_effects(bartmodel1, treatment = "z", newdata = suhillsim1$data)
+mean(ate_draws$ate)
+quantile(ate_draws$ate, c(0.025, 0.975))
+```
+
+See `vignette("use-tidytreatment-BART")` for a full workflow, including fitting a model and plotting the results, and the other vignettes for `dbarts`, `bartCause`, and `stochtree`.
