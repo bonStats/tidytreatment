@@ -13,6 +13,7 @@
 * `BART::mbart`/`mbart2` (multinomial outcomes) are explicitly unsupported: calling tidytreatment methods on them now errors informatively, since their per-category tree representation is incompatible with this package's machinery, rather than behaving incorrectly.
 * Added multi-chain handling where supported by the underlying engine.
 * Various correctness fixes and new serialization tests for `stochtree::bcf` models.
+* Many more unit tests added.
 
 ## tidytreatment 0.3.2
 
