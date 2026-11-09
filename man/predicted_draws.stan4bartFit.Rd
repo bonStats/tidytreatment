@@ -23,6 +23,9 @@
 
 \item{sample_new_levels}{logical; if TRUE, levels out of the training sample will have random effects drawn from their posterior predictive distribution. If FALSE, their random effects will be fixed to 0.}
 }
+\value{
+A tidy data frame (tibble) with predicted values.
+}
 \description{
 Get prediction draws from posterior of \code{stan4bart}-package models
 }

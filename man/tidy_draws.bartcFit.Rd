@@ -15,6 +15,11 @@
 
 \item{...}{Additional parameters passed up the generic method chain.}
 }
+\value{
+A tidy data frame (tibble) of posterior draws (via \code{coda::mcmc.list}), with one row
+  per draw when \code{type} is a scalar-per-draw quantity, or one row per draw per unit (with a
+  \code{.row} column) when \code{type} is a per-unit quantity.
+}
 \description{
 Tidy access to posterior of \code{bartCause}-package objects
 }

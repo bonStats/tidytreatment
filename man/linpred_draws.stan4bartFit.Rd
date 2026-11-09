@@ -15,6 +15,9 @@
 
 \item{value}{The name of the output column.}
 }
+\value{
+A tidy data frame (tibble) with linear-predictor values.
+}
 \description{
 Typically referred to as fitted value draws on linear scale, where appropriate.
 }

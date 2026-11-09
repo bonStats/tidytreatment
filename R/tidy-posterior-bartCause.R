@@ -7,6 +7,8 @@
 #' @param value The name of the output column.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
 #'
+#' @return A tidy data frame (tibble) with fitted values.
+#'
 #' @export
 epred_draws.bartcFit = function(
     object, ...,
@@ -30,6 +32,8 @@ epred_draws.bartcFit = function(
 #' @param ... Additional arguments (e.g. \code{newdata}) passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
+#'
+#' @return A tidy data frame (tibble) with predicted values.
 #'
 #' @export
 predicted_draws.bartcFit = function(
@@ -56,6 +60,8 @@ predicted_draws.bartcFit = function(
 #' @param ... Additional arguments (e.g. \code{newdata}) passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
+#'
+#' @return A tidy data frame (tibble) with linear-predictor values.
 #'
 #' @export
 linpred_draws.bartcFit = function(
@@ -87,6 +93,10 @@ bartcause_per_unit_types <- c("mu.obs", "mu.cf", "mu.0", "mu.1", "y.cf", "y.0", 
 #' @param type Posterior quantity to return. See \code{\link[bartCause]{bartc-generics}}.
 #' @param fitstage If \code{is.null(type)}, return posterior from \code{response} or treatment \code{assignment} model.
 #' @param ... Additional parameters passed up the generic method chain.
+#'
+#' @return A tidy data frame (tibble) of posterior draws (via \code{coda::mcmc.list}), with one row
+#'   per draw when \code{type} is a scalar-per-draw quantity, or one row per draw per unit (with a
+#'   \code{.row} column) when \code{type} is a per-unit quantity.
 #'
 #' @export
 tidy_draws.bartcFit = function(model, type = NULL, fitstage = c("response","assignment"), ...) {

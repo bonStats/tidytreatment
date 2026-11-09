@@ -49,6 +49,8 @@ matrix_to_mcmclist <- function(arr, sample, chain){
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
 #'
+#' @return A tidy data frame (tibble) with fitted values.
+#'
 #' @export
 epred_draws.stan4bartFit = function(
     object, newdata, ...,
@@ -83,6 +85,8 @@ epred_draws.stan4bartFit = function(
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
 #' @param sample_new_levels logical; if TRUE, levels out of the training sample will have random effects drawn from their posterior predictive distribution. If FALSE, their random effects will be fixed to 0.
+#'
+#' @return A tidy data frame (tibble) with predicted values.
 #'
 #' @export
 predicted_draws.stan4bartFit = function( # code from epred_draws.stan4bartFit, consider combining.
@@ -119,6 +123,8 @@ predicted_draws.stan4bartFit = function( # code from epred_draws.stan4bartFit, c
 #' @param newdata Data frame to generate predictions from [optional].
 #' @param ... Additional arguments passed to the underlying prediction method for the type of model given.
 #' @param value The name of the output column.
+#'
+#' @return A tidy data frame (tibble) with linear-predictor values.
 #'
 #' @export
 linpred_draws.stan4bartFit = function(

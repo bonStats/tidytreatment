@@ -15,6 +15,9 @@
 
 \item{value}{The name of the output column.}
 }
+\value{
+A tidy data frame (tibble) with fitted values.
+}
 \description{
 Typically referred to as fitted value draws on response scale, where appropriate.
 }
